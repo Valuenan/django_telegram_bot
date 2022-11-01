@@ -11,51 +11,51 @@ def connect_db():
     return db, cur
 
 
-def db_create():
-    db, cur = connect_db()
-    cur = db.cursor()
-
-    cur.execute('''CREATE TABLE carts (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                        user str NOT NULL, 
-                                        product str NOT NULL,
-                                        amount int DEFAULT "0" NOT NULL,
-                                        price int DEFAULT "0" NOT NULL)''')
-
-    cur.execute('''CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                        user int NOT NULL, 
-                                        products str NOT NULL,
-                                        delivery_info str NOT NULL,
-                                        order_price int DEFAULT "0" NOT NULL,
-                                        soft_delete bool NOT NULL,
-                                        admin_check str NULL)''')
-
-    cur.execute('''CREATE TABLE categories (id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                                            command str NOT NULL)''')
-
-    cur.execute('''CREATE TABLE products (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                           category int NOT NULL, 
-                                           name str NOT NULL,
-                                           img str NOT NULL,
-                                           price int NOT NULL,
-                                           rests_prachecniy int NOT NULL,
-                                           rests_kievskaya int NOT NULL,
-                                           FOREIGN KEY(category) REFERENCES categories(id))''')
-
-    cur.execute('''CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                                               first_name str NULL,
-                                               last_name str NULL,
-                                               username str NOT NULL,
-                                               chat_id int NOT NULL,
-                                               cart_message_id int NULL,
-                                               discount int NOT NULL,
-                                               is_admin bool NOT NULL,
-                                               delivery bool NOT NULL,
-                                               main_shop str,
-                                               payment_cash bool NOT NULL,
-                                               delivery_street str)''')
-
-    db.commit()
-    db.close()
+# def db_create():
+#     db, cur = connect_db()
+#     cur = db.cursor()
+#
+#     cur.execute('''CREATE TABLE carts (id INTEGER PRIMARY KEY AUTOINCREMENT,
+#                                         user str NOT NULL,
+#                                         product str NOT NULL,
+#                                         amount int DEFAULT "0" NOT NULL,
+#                                         price int DEFAULT "0" NOT NULL)''')
+#
+#     cur.execute('''CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT,
+#                                         user int NOT NULL,
+#                                         products str NOT NULL,
+#                                         delivery_info str NOT NULL,
+#                                         order_price int DEFAULT "0" NOT NULL,
+#                                         soft_delete bool NOT NULL,
+#                                         admin_check str NULL)''')
+#
+#     cur.execute('''CREATE TABLE categories (id INTEGER PRIMARY KEY AUTOINCREMENT,
+#                                             command str NOT NULL)''')
+#
+#     cur.execute('''CREATE TABLE products (id INTEGER PRIMARY KEY AUTOINCREMENT,
+#                                            category int NOT NULL,
+#                                            name str NOT NULL,
+#                                            img str NOT NULL,
+#                                            price int NOT NULL,
+#                                            rests_prachecniy int NOT NULL,
+#                                            rests_kievskaya int NOT NULL,
+#                                            FOREIGN KEY(category) REFERENCES categories(id))''')
+#
+#     cur.execute('''CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT,
+#                                                first_name str NULL,
+#                                                last_name str NULL,
+#                                                username str NOT NULL,
+#                                                chat_id int NOT NULL,
+#                                                cart_message_id int NULL,
+#                                                discount int NOT NULL,
+#                                                is_admin bool NOT NULL,
+#                                                delivery bool NOT NULL,
+#                                                main_shop str,
+#                                                payment_cash bool NOT NULL,
+#                                                delivery_street str)''')
+#
+#     db.commit()
+#     db.close()
 
 
 def _insert_data_to_db(table: str, cur, data: list):
@@ -392,9 +392,9 @@ def soft_delete_confirmed_order(order_id: int, admin_username: str):
     return request
 
 
-if __name__ == '__main__':
-    """Загружаем данные из exel, если нет базы то создать"""
-    try:
-        db_create()
-    except sqlite3.OperationalError:
-        load_data_from_exel()
+# if __name__ == '__main__':
+#     """Загружаем данные из exel, если нет базы то создать"""
+#     try:
+#         db_create()
+#     except sqlite3.OperationalError:
+#         load_data_from_exel()
