@@ -18,7 +18,7 @@ class Category(models.Model):
 class Product(models.Model):
     category = models.ForeignKey(Category, on_delete=models.PROTECT, verbose_name='Категория')
     name = models.CharField(max_length=100, verbose_name='Название')
-    img = models.SlugField(verbose_name='Изображение товара', default='no-image')
+    img = models.CharField(max_length=100, verbose_name='Изображение товара', default='no-image.jpg')
     price = models.IntegerField(verbose_name='Цена товара')
     rests_prachecniy = models.IntegerField(verbose_name='Остатки на Прачечном', default=0)
     rests_kievskaya = models.IntegerField(verbose_name='Остатки на Киевской', default=0)

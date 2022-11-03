@@ -1,5 +1,8 @@
-run:
+runserver:
 	python manage.py runserver
+
+runbot:
+	python manage.py bot
 
 migrate:
 	python manage.py makemigrations
@@ -13,4 +16,4 @@ admin:
 start:
 	make migrate
 	make admin
-	make run
+	make runserver

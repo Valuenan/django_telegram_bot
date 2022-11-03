@@ -1,7 +1,8 @@
 import sqlite3
 import xlrd
+from django_telegram_bot.settings import BASE_DIR
 
-BD = 'data/data.db'
+BD = BASE_DIR / 'db.sqlite3'
 PRODUCTS_PAGINATION_NUM = 5
 
 
@@ -9,53 +10,6 @@ def connect_db():
     db = sqlite3.connect(BD)
     cur = db.cursor()
     return db, cur
-
-
-# def db_create():
-#     db, cur = connect_db()
-#     cur = db.cursor()
-#
-#     cur.execute('''CREATE TABLE carts (id INTEGER PRIMARY KEY AUTOINCREMENT,
-#                                         user str NOT NULL,
-#                                         product str NOT NULL,
-#                                         amount int DEFAULT "0" NOT NULL,
-#                                         price int DEFAULT "0" NOT NULL)''')
-#
-#     cur.execute('''CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT,
-#                                         user int NOT NULL,
-#                                         products str NOT NULL,
-#                                         delivery_info str NOT NULL,
-#                                         order_price int DEFAULT "0" NOT NULL,
-#                                         soft_delete bool NOT NULL,
-#                                         admin_check str NULL)''')
-#
-#     cur.execute('''CREATE TABLE categories (id INTEGER PRIMARY KEY AUTOINCREMENT,
-#                                             command str NOT NULL)''')
-#
-#     cur.execute('''CREATE TABLE products (id INTEGER PRIMARY KEY AUTOINCREMENT,
-#                                            category int NOT NULL,
-#                                            name str NOT NULL,
-#                                            img str NOT NULL,
-#                                            price int NOT NULL,
-#                                            rests_prachecniy int NOT NULL,
-#                                            rests_kievskaya int NOT NULL,
-#                                            FOREIGN KEY(category) REFERENCES categories(id))''')
-#
-#     cur.execute('''CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT,
-#                                                first_name str NULL,
-#                                                last_name str NULL,
-#                                                username str NOT NULL,
-#                                                chat_id int NOT NULL,
-#                                                cart_message_id int NULL,
-#                                                discount int NOT NULL,
-#                                                is_admin bool NOT NULL,
-#                                                delivery bool NOT NULL,
-#                                                main_shop str,
-#                                                payment_cash bool NOT NULL,
-#                                                delivery_street str)''')
-#
-#     db.commit()
-#     db.close()
 
 
 def _insert_data_to_db(table: str, cur, data: list):
@@ -97,6 +51,15 @@ def _write_data(db, cur, table: str, data: list):
     db.commit()
 
 
+def _id_to_name(table: str, ids: list) -> list:
+    names = []
+    db, cur = connect_db()
+    for item_id in ids:
+        names.append(cur.execute(f"SELECT name FROM {table} WHERE id='{item_id[0]}'").fetchone()[0])
+    db.close()
+    return names
+
+
 def load_data_from_exel():
     """Загрузка данных из exel"""
     workbook = xlrd.open_workbook("data/номенклатура.xls")
@@ -126,7 +89,6 @@ def load_data_from_exel():
                 if col == 3:
                     if value == '':
                         value = 0
-
                 if col == 4 and data[3] != 0:
                     value /= float(data[3])
                 elif col == 4 and data[3] == 0:
@@ -150,9 +112,9 @@ def load_data_from_exel():
     db.close()
 
 
-def check_user_is_admin(chat_id) -> (str or None):
+def check_user_is_staff(username: str) -> (str or None):
     db, cur = connect_db()
-    admin = cur.execute(f"SELECT is_admin FROM users WHERE chat_id='{chat_id}'").fetchone()
+    admin = cur.execute(f"SELECT is_staff FROM auth_user WHERE username='{username}'").fetchone()
     db.close()
     return admin
 
@@ -162,29 +124,36 @@ def start_user(first_name: str, last_name: str, username: str, chat_id: int, car
         str, str):
     """Запись новых пользователей"""
     db, cur = connect_db()
-    user = cur.execute(f"SELECT first_name FROM users WHERE chat_id='{chat_id}'").fetchone()
-    if user is None:
+    user_id = cur.execute(f"SELECT id FROM auth_user WHERE username='{username}'").fetchone()
+    if user_id is None:
         try:
-            cur.execute(f"""INSERT INTO users (first_name, last_name, username, chat_id, cart_message_id, discount, is_admin, delivery, payment_cash) 
-            VALUES ('{first_name}', '{last_name}', '{username}', '{chat_id}', '{cart_message_id}', '{discount}', '{False}', '{False}', '{False}')""")
-            text = f'Добро пожаловать {first_name}'
-            error = 'ok'
+            cur.execute(f"""INSERT INTO auth_user (first_name, last_name, username, is_staff, is_superuser, is_active, email, password, date_joined) 
+            VALUES ('{first_name}', '{last_name}', '{username}','{False}', '{False}','{True}', 'user@email.ru' ,'UserPassword333', CURRENT_TIMESTAMP)""")
+            db.commit()
+
+            user_id = cur.execute(f"SELECT id FROM auth_user WHERE username='{username}'").fetchone()
+
+            cur.execute(f"""INSERT INTO profile (user_id, chat_id, cart_message_id, discount, delivery, payment_cash) 
+            VALUES ('{user_id[0]}', {chat_id}, '{cart_message_id}', '{discount}', '{False}', '{False}')""")
             db.commit()
             db.close()
+
+            text = f'Добро пожаловать {first_name}'
+            error = 'ok'
         except Exception as err:
             text = f'''Извените {first_name} произошла ошибка, попробуйте еще раз нажать /start. 
 Если ошибка повторяется, обратитесь к администратору @Vesselii'''
             error = err
         return text, error
     else:
-        return f'Добро пожаловать {user[0]}', 'ok'
+        return f'Добро пожаловать {username}', 'ok'
 
 
-def get_category(command_filter=None) -> list:
+def get_category(category_id: int = None) -> list:
     """Получить список категорй"""
-    if command_filter is not None:
+    if category_id is not None:
         db, cur = connect_db()
-        category = cur.execute(f"SELECT * FROM categories WHERE command='{command_filter}'").fetchone()
+        category = cur.execute(f"SELECT * FROM categories WHERE id='{category_id}'").fetchone()
         db.close()
         return list(category)
     else:
@@ -197,7 +166,7 @@ def get_category(command_filter=None) -> list:
 def get_products(command_filter: str, page: int) -> (list, int):
     """Получить список товаров и пагинация"""
     db, cur = connect_db()
-    products = cur.execute(f"SELECT * FROM products WHERE category='{command_filter}'").fetchall()
+    products = cur.execute(f"SELECT * FROM products WHERE category_id='{command_filter}'").fetchall()
     db.close()
     if len(products) > PRODUCTS_PAGINATION_NUM:
         count_pages = len(products) // PRODUCTS_PAGINATION_NUM
@@ -216,32 +185,33 @@ def get_product_id(product_name: str) -> int:
     return request
 
 
-def edit_to_cart(command: str, user: str, product_id: int) -> (int, str):
+def edit_to_cart(command: str, chat_id: int, product_id: int) -> (int, str):
     """Добавить/Удалить товар из корзины"""
     db, cur = connect_db()
-    product = cur.execute(f"SELECT name FROM products WHERE id='{product_id}'").fetchone()[0]
+    profile_id = cur.execute(f"SELECT id FROM profile WHERE chat_id='{chat_id}'").fetchone()[0]
     product_info = cur.execute(
-        f"SELECT product, amount FROM carts WHERE user='{user}' and product='{product}'").fetchone()
+        f"SELECT amount FROM carts WHERE profile_id='{profile_id}' and product_id='{product_id}'").fetchone()
     if product_info is None and command == 'add' or product_info is None and command == 'add-cart':
-        product_price = cur.execute(f"SELECT price FROM products WHERE name='{product}'").fetchone()[0]
-        data = [user, product, 1, product_price]
-        cur.execute(f"INSERT INTO carts (user, product, amount, price) VALUES (?, ?, ?, ?)", data)
+        product_price = cur.execute(f"SELECT price FROM products WHERE id='{product_id}'").fetchone()[0]
+        data = [profile_id, product_id, 1, product_price]
+        cur.execute(f"INSERT INTO carts (profile_id, product_id, amount, price) VALUES (?, ?, ?, ?)", data)
         amount = 1
     elif product_info is None and command == 'remove':
         amount = 0
     else:
         if command == 'add' or command == 'add-cart':
-            amount = product_info[1] + 1
+            amount = product_info[0] + 1
         elif command == 'remove' or command == 'remove-cart':
-            amount = product_info[1] - 1
+            amount = product_info[0] - 1
         else:
             amount = 0
         if amount == 0:
-            cur.execute(f"DELETE FROM carts WHERE user='{user}' and product='{product}'")
+            cur.execute(f"DELETE FROM carts WHERE profile_id='{profile_id}' and product_id='{product_id}'")
         else:
             cur.execute(
-                f"UPDATE carts SET product='{product}', amount='{amount}' WHERE user='{user}' and product='{product}'")
+                f"UPDATE carts SET amount='{amount}' WHERE profile_id='{profile_id}' and product_id='{product_id}'")
     db.commit()
+    product = cur.execute(f"SELECT name FROM products WHERE id='{product_id}'").fetchone()[0]
     db.close()
     return amount, product
 
@@ -249,7 +219,7 @@ def edit_to_cart(command: str, user: str, product_id: int) -> (int, str):
 def old_cart_message_to_none(chat_id: int):
     """Id открытой корзины переставить в None"""
     db, cur = connect_db()
-    cur.execute(f"UPDATE users SET cart_message_id='{None}' WHERE chat_id='{chat_id}'")
+    cur.execute(f"UPDATE profile SET cart_message_id='{None}' WHERE chat_id='{chat_id}'")
     db.commit()
     db.close()
 
@@ -257,7 +227,7 @@ def old_cart_message_to_none(chat_id: int):
 def old_cart_message(chat_id) -> (int or None):
     """Получение id сообщения корзины в базе наличия открытой корзины"""
     db, cur = connect_db()
-    cart_message_id = cur.execute(f"SELECT cart_message_id FROM users WHERE chat_id='{chat_id}'").fetchone()
+    cart_message_id = cur.execute(f"SELECT cart_message_id FROM profile WHERE chat_id='{chat_id}'").fetchone()
     db.commit()
     db.close()
     if cart_message_id is None:
@@ -266,10 +236,15 @@ def old_cart_message(chat_id) -> (int or None):
         return cart_message_id[0]
 
 
-def show_cart(user: str) -> list:
+def show_cart(chat_id: int) -> list:
     """Получить список товаров в корзине"""
     db, cur = connect_db()
-    cart_info = cur.execute(f"SELECT product, amount, price FROM carts WHERE user='{user}'").fetchall()
+    profile_id = cur.execute(f"SELECT id FROM profile WHERE chat_id='{chat_id}'").fetchone()[0]
+    cart_info = cur.execute(f"""SELECT products.name, carts.amount, carts.price 
+    FROM carts  
+    INNER JOIN products 
+    ON carts.product_id = products.id 
+    WHERE profile_id='{profile_id}'""").fetchall()
     if cart_info is None:
         cart_list = []
     else:
@@ -281,16 +256,17 @@ def show_cart(user: str) -> list:
 def save_cart_message_id(chat_id: int, cart_message_id: int):
     """Сохраняет id сообщения с корзиной"""
     db, cur = connect_db()
-    cur.execute(f"UPDATE users SET cart_message_id='{cart_message_id}' WHERE chat_id='{chat_id}'")
+    cur.execute(f"UPDATE profile SET cart_message_id='{cart_message_id}' WHERE chat_id='{chat_id}'")
     db.commit()
     db.close()
 
 
-def db_delete_cart(user: str, chat_id: int):
+def db_delete_cart(chat_id: int):
     """Удалить корзину"""
     db, cur = connect_db()
-    cur.execute(f"DELETE FROM carts WHERE user='{user}'")
-    cur.execute(f"UPDATE users SET cart_message_id='{None}' WHERE chat_id='{chat_id}'")
+    profile_id = cur.execute(f"SELECT id FROM profile WHERE chat_id='{chat_id}'").fetchone()[0]
+    cur.execute(f"DELETE FROM carts WHERE profile_id='{profile_id}'")
+    cur.execute(f"UPDATE profile SET cart_message_id='{None}' WHERE chat_id='{chat_id}'")
     db.commit()
     db.close()
 
@@ -307,7 +283,7 @@ def load_last_order(db, cur) -> int:
 def save_delivery_settings(value: bool or str, field: str, chat_id: int):
     """Сохранить настроки заказа"""
     db, cur = connect_db()
-    cur.execute(f"UPDATE users SET {field}='{value}' WHERE chat_id='{chat_id}'")
+    cur.execute(f"UPDATE profile SET {field}='{value}' WHERE chat_id='{chat_id}'")
     db.commit()
     db.close()
 
@@ -318,50 +294,58 @@ def check_products_in_shop(user: str, shop: str):
     user_products = {}
     user_cart = cur.execute(f"SELECT product, amount FROM carts WHERE user='{user}'").fetchall()
     for product in user_cart:
-        print(product)
         dict(product)
-    print(user_products)
     shop_products = cur.execute(
         f"SELECT name, rests_prachecniy, rests_kievskaya FROM products WHERE name IN {user_products}").fetchall()
-    print(shop_products)
-
     db.close()
 
 
 def get_delivery_settings(chat_id: int) -> tuple:
     """Получить настройки заказа"""
     db, cur = connect_db()
-    settings = cur.execute(f"SELECT * FROM users WHERE chat_id='{chat_id}'").fetchone()
+    settings = cur.execute(f"SELECT * FROM profile WHERE chat_id='{chat_id}'").fetchone()
     db.close()
     return settings
 
 
 def get_user_address(chat_id: int) -> None or str:
     db, cur = connect_db()
-    street = cur.execute(f"SELECT delivery_street FROM users WHERE chat_id='{chat_id}'").fetchone()[0]
+    street = cur.execute(f"SELECT delivery_street FROM profile WHERE chat_id='{chat_id}'").fetchone()[0]
     db.close()
     return street
 
 
-def save_order(user: str, chat_id: int, delivery_info: str, cart_price: int) -> str and int:
+def save_order(chat_id: int, delivery_info: str, cart_price: int) -> list and int:
     """Сохранить заказ"""
     db, cur = connect_db()
-    products = cur.execute(f"SELECT product FROM carts WHERE user='{user}'").fetchone()[0]
-    cur.execute(
-        f"INSERT INTO orders (user, delivery_info, products, order_price, soft_delete, admin_check) VALUES ('{user}', '{delivery_info}', '{products}', '{cart_price}', 'False', 'None')")
-    cur.execute(f"DELETE FROM carts WHERE user='{user}'")
-    cur.execute(f"UPDATE users SET cart_message_id='{None}' WHERE chat_id='{chat_id}'")
+    profile_id = cur.execute(f"SELECT id FROM profile WHERE chat_id='{chat_id}'").fetchone()[0]
+    products_id = cur.execute(f"SELECT product_id FROM carts WHERE profile_id='{profile_id}'").fetchall()
+    cur.execute(f"""INSERT INTO orders (profile_id, delivery_info, order_price, soft_delete) 
+    VALUES ('{profile_id}', '{delivery_info}', '{cart_price}', 'False')""")
+    db.commit()
+    order_id = \
+    cur.execute(f"SELECT max(id) FROM orders WHERE profile_id='{profile_id}' AND soft_delete='False'").fetchone()[0]
+    for product_id in products_id:
+        cur.execute(f"""INSERT INTO orders_product (orders_id, product_id) 
+            VALUES ('{order_id}', '{product_id[0]}')""")
     db.commit()
     db.close()
-    return products, cart_price
+    db_delete_cart(chat_id)
+    products_names = _id_to_name('products', products_id)
+    return products_names, cart_price
 
 
-def get_user_orders(user: str) -> list:
+def get_user_orders(chat_id: int) -> list:
     """Получить список заказов пользователя"""
     db, cur = connect_db()
-    request = cur.execute(f"SELECT * FROM orders WHERE user='{user}'").fetchall()
+    profile_id = cur.execute(f"SELECT id FROM profile WHERE chat_id='{chat_id}'").fetchone()[0]
+    orders = cur.execute(f"""SELECT orders.id, orders.order_price, products.name 
+    FROM orders 
+    INNER JOIN orders_product ON orders.id = orders_product.orders_id 
+    INNER JOIN products ON orders_product.product_id = products.id
+    WHERE profile_id='{profile_id}'""").fetchall()
     db.close()
-    return request
+    return orders
 
 
 """ Административные """
@@ -390,7 +374,6 @@ def soft_delete_confirmed_order(order_id: int, admin_username: str):
     db.commit()
     db.close()
     return request
-
 
 # if __name__ == '__main__':
 #     """Загружаем данные из exel, если нет базы то создать"""
