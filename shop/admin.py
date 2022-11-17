@@ -1,5 +1,10 @@
 from django.contrib import admin
-from .models import Category, Product
+from .models import Category, Product, File
+
+
+@admin.register(File)
+class FileAdmin(admin.ModelAdmin):
+    readonly_fields = ('user', 'file', 'created_at')
 
 
 @admin.register(Category)

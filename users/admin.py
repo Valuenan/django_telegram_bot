@@ -16,3 +16,5 @@ class ProductsAdmin(admin.ModelAdmin):
 @admin.register(Orders)
 class ProductsAdmin(admin.ModelAdmin):
     pass
+
+

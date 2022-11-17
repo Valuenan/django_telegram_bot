@@ -82,13 +82,13 @@ def products_catalog(update: Update, context: CallbackContext):
     if '#' in chosen_category:
         chosen_category, page = chosen_category.split('#')
         page = int(page)
-    command = get_category(chosen_category)
+    command = get_category(chosen_category)[1]
     products, pages = get_products(chosen_category, page)
     if pages:
         pagination = True
     if products:
         for product in products:
-            product_id, product_name, price, rests_prachecniy, rests_kievskaya, category_id, product_img = product
+            product_id, product_name, product_img, price, rests_kievskaya, category_id, rests_prachecniy,   = product
             buttons = ([InlineKeyboardButton(text='Добавить', callback_data=f'add_{product_id}'),
                         InlineKeyboardButton(text='Убрать', callback_data=f'remove_{product_id}')],)
             imgs = [product_img]
@@ -113,8 +113,8 @@ def products_catalog(update: Update, context: CallbackContext):
                                    disable_notification=True,
                                    reply_markup=keyboard)
         if pagination:
-            keyboard_next = InlineKeyboardMarkup([[InlineKeyboardButton(text='Еще товары',
-                                                                        callback_data=f'category_{chosen_category}#{page + 1}')]])
+            keyboard_next = InlineKeyboardMarkup(
+                [[InlineKeyboardButton(text='Еще товары', callback_data=f'category_{chosen_category}#{page + 1}')]])
             context.bot.send_message(chat_id=update.effective_chat.id,
                                      text=f'Страница {page} из {pages}',
                                      disable_notification=True,
@@ -498,7 +498,7 @@ def orders_history(update: Update, context: CallbackContext):
     orders = get_user_orders(chat_id)
     prev_id, prev_sum = None, None
     text = ''
-    len_orders = len(orders)-1
+    len_orders = len(orders) - 1
     for index, order in enumerate(orders):
         order_id, order_sum, order_product = order
 
@@ -521,12 +521,12 @@ def orders_history(update: Update, context: CallbackContext):
 
     if text:
         message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                 text=text,
-                                 reply_markup=keyboard)
+                                           text=text,
+                                           reply_markup=keyboard)
     else:
         message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                 text='Вы еще ничего не покупали :(',
-                                 reply_markup=keyboard)
+                                           text='Вы еще ничего не покупали :(',
+                                           reply_markup=keyboard)
     context.bot.delete_message(chat_id=update.effective_chat.id,
                                message_id=message.message_id - 1)
 
@@ -614,8 +614,8 @@ def poll_orders_answer(update: Update, context: CallbackContext):
         soft_delete_confirmed_order(order_id=confirm_order[0], admin_username=admin_username)
 
 
-menu_handler = PollAnswerHandler(poll_orders_answer)
-dispatcher.add_handler(menu_handler)
+poll_answer_handler = PollAnswerHandler(poll_orders_answer)
+dispatcher.add_handler(poll_answer_handler)
 
 """ Утилиты """
 

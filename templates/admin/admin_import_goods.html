@@ -1,0 +1,13 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block content %}
+   <div>
+       <p style="font-size: 14px;">Добавить товары файлом</p>
+           <form method="post" enctype="multipart/form-data">
+               {% csrf_token %}
+               <p>{{ file_form.file_field }}</p>
+               <button type="submit">Добавить товары</button>
+           </form>
+   </div>
+    {{ block.super }}
+{% endblock %}

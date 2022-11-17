@@ -47,7 +47,7 @@ class Orders(models.Model):
     admin_check = models.CharField(max_length=100, verbose_name='Заявка принята работником:', null=True, blank=True)
 
     def __str__(self):
-        return f'Заказ номер: {self.id} - {self.profile.user.name} - сумма {self.order_price} - подтвердил {self.admin_check}, пометка удаления {self.soft_delete}'
+        return f'Заказ номер: {self.id} - {self.profile.user.username} - сумма {self.order_price} - подтвердил {self.admin_check}, пометка удаления {self.soft_delete}'
 
     class Meta:
         db_table = 'orders'

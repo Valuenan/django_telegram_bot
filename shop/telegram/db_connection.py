@@ -12,45 +12,6 @@ def connect_db():
     return db, cur
 
 
-def _insert_data_to_db(table: str, cur, data: list):
-    """Добавить (отсутсвуют в таблице) данные из exel в БД"""
-    if table == 'categories':
-        cur.execute(f"INSERT INTO {table} (command) VALUES (?)", data)
-    elif table == 'products':
-        cur.execute(
-            f"INSERT INTO {table} (name, img, category, rests_kievskaya, price, rests_prachecniy ) VALUES (?, ?, ?, ?, ?, ?)",
-            data)
-    else:
-        raise Exception('No such table')
-
-
-def _write_data(db, cur, table: str, data: list):
-    """Запись (обновновление) данных из exel"""
-    try:
-        if table == 'categories':
-            data_db = list(cur.execute(f"SELECT * FROM {table} WHERE command='{data[0]}'").fetchone())
-        elif table == 'products':
-            data_db = list(cur.execute(f"SELECT * FROM {table} WHERE name='{data[0]}'").fetchone())
-        db_name = data_db.pop(1)
-        if db_name == data[0]:
-            if table == 'categories':
-                cur.execute(f"UPDATE {table} SET command='{data}', WHERE name='{db_name}'")
-            elif table == 'products':
-                cur.execute(
-                    f"""UPDATE {table} SET category={data[2]},
-                                            name={data[0]}, 
-                                            img={data[1]}, 
-                                            price={data[5]},
-                                            rests_prachecniy = {data[4]},
-                                            rests_kievskaya = {data[3]}
-                                            WHERE  name={db_name}""")
-    except sqlite3.OperationalError:
-        _insert_data_to_db(table, cur, data)
-    except TypeError:
-        _insert_data_to_db(table, cur, data)
-    db.commit()
-
-
 def _id_to_name(table: str, ids: list) -> list:
     names = []
     db, cur = connect_db()
@@ -58,58 +19,6 @@ def _id_to_name(table: str, ids: list) -> list:
         names.append(cur.execute(f"SELECT name FROM {table} WHERE id='{item_id[0]}'").fetchone()[0])
     db.close()
     return names
-
-
-def load_data_from_exel():
-    """Загрузка данных из exel"""
-    workbook = xlrd.open_workbook("data/номенклатура.xls")
-    db, cur = connect_db()
-
-    '''Загружаем товары'''
-    products = workbook.sheet_by_index(0)
-    categories = []
-    row = 3
-    while True:
-        data = []
-        try:
-            for col in range(7):
-
-                value = products.cell_value(row, col)
-
-                if col == 1:
-                    if value == ', ':
-                        value = "no-image.jpg"
-                    else:
-                        value = value.replace(', ', '.')
-                if col == 2:
-                    '''Загружаем категории'''
-                    value = products.cell_value(row, col)
-                    if value not in categories:
-                        categories.append(value)
-                if col == 3:
-                    if value == '':
-                        value = 0
-                if col == 4 and data[3] != 0:
-                    value /= float(data[3])
-                elif col == 4 and data[3] == 0:
-                    value = 0
-                if col == 5:
-                    if value == '':
-                        value = 0
-                if col == 6 and data[5] != 0:
-                    value /= int(data[5])
-                    data[4] = value
-                if col != 6:
-                    data.append(value)
-            else:
-                _write_data(db, cur, 'products', data)
-            row += 1
-        except IndexError:
-            break
-    for category in categories:
-        _write_data(db, cur, 'categories', [category])
-
-    db.close()
 
 
 def check_user_is_staff(username: str) -> (str or None):
@@ -324,7 +233,7 @@ def save_order(chat_id: int, delivery_info: str, cart_price: int) -> list and in
     VALUES ('{profile_id}', '{delivery_info}', '{cart_price}', 'False')""")
     db.commit()
     order_id = \
-    cur.execute(f"SELECT max(id) FROM orders WHERE profile_id='{profile_id}' AND soft_delete='False'").fetchone()[0]
+        cur.execute(f"SELECT max(id) FROM orders WHERE profile_id='{profile_id}' AND soft_delete='False'").fetchone()[0]
     for product_id in products_id:
         cur.execute(f"""INSERT INTO orders_product (orders_id, product_id) 
             VALUES ('{order_id}', '{product_id[0]}')""")
