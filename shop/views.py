@@ -13,7 +13,7 @@ from django.contrib import messages
 from xlrd import XLRDError
 
 from .forms import ImportGoodsForm
-from .models import File, Category, Product
+from .models import File, Category, Product, Rests
 
 logger = logging.getLogger(__name__)
 
@@ -78,22 +78,36 @@ class ImportGoodsView(View):
                                 category = Category.objects.get_or_create(command=product_category)[0]
 
                                 product = Product.objects.filter(name=product_name)
+
                                 if product:
                                     product = product[0]
                                     product.category = category
                                     product.img = product_image
                                     product.price = product_price
-                                    product.rests_prachecniy = prachechniy_rests
-                                    product.rests_kievskaya = kievskaya_rests
                                     product.save()
+                                    db_rests = Rests.objects.filter(product=product)
+                                    for rest in db_rests:
+                                        if rest.name == 'пр. Прачечный 3':
+                                            rest.amount = prachechniy_rests
+
+                                        elif rest.name == 'ул. Киевская':
+                                            rest.amount = kievskaya_rests
+                                        rest.save()
                                 else:
                                     product = Product.objects.create(name=product_name,
                                                                      category=category,
                                                                      img=product_image,
-                                                                     price=product_price,
-                                                                     rests_prachecniy=prachechniy_rests,
-                                                                     rests_kievskaya=kievskaya_rests)
+                                                                     price=product_price)
                                     product.save()
+                                    db_rests = Rests.objects.create(name='пр. Прачечный 3',
+                                                                    product=product,
+                                                                    amount=prachechniy_rests)
+                                    db_rests.save()
+                                    db_rests = Rests.objects.create(name='ул. Киевская',
+                                                                    product=product,
+                                                                    amount=kievskaya_rests)
+                                    db_rests.save()
+
 
                                 row += 1
                             except IndexError:

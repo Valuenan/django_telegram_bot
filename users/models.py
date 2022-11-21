@@ -27,7 +27,7 @@ class Carts(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, verbose_name='Пользователь')
     product = models.ForeignKey(Product, on_delete=models.DO_NOTHING, verbose_name='Товары')
     amount = models.SmallIntegerField(verbose_name='Количество')
-    price = models.IntegerField(verbose_name='Цена')
+    price = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Цена')
 
     def __str__(self):
         return f'{self.profile.user.name} - товар {self.product} - работник {self.amount} - цена {self.product}'
@@ -42,7 +42,7 @@ class Orders(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, verbose_name='Пользователь')
     product = models.ManyToManyField(Product, verbose_name='Товар')
     delivery_info = models.CharField(max_length=500, verbose_name='Информация о доставке')
-    order_price = models.IntegerField(verbose_name='Цена заказа')
+    order_price = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Цена заказа')
     soft_delete = models.BooleanField(verbose_name='Удалить', default=False)
     admin_check = models.CharField(max_length=100, verbose_name='Заявка принята работником:', null=True, blank=True)
 
