@@ -33,8 +33,10 @@ def _id_to_name(table: str, ids: list) -> list:
     return names
 
 
-def check_user_is_staff(username: str) -> (str or None):
-    db, cur = connect_db(f"SELECT is_staff FROM auth_user WHERE username='{username}'")
+def check_user_is_staff(chat_id: int) -> (str or None):
+    db, cur = connect_db(f"""SELECT is_staff FROM auth_user 
+    INNER JOIN profile ON auth_user.id = profile.user_id
+    WHERE chat_id='{chat_id}'""")
     is_staff = cur.fetchone()
     cur.close()
     db.close()
@@ -256,6 +258,7 @@ def get_delivery_settings(chat_id: int) -> tuple:
 
 
 def get_user_address(chat_id: int) -> None or str:
+    """Получить адрес пользователя"""
     db, cur = connect_db(f"SELECT delivery_street FROM profile WHERE chat_id='{chat_id}'")
     street = cur.fetchone()[0]
     cur.close()
@@ -305,7 +308,11 @@ def get_user_orders(chat_id: int) -> list:
 
 def get_waiting_orders() -> list:
     """Возврачает список заявок ожидающих отгрузки"""
-    db, cur = connect_db(f"SELECT id, user, order_price FROM orders WHERE soft_delete='False'")
+    db, cur = connect_db(f"""SELECT orders.id, auth_user.username, orders.order_price 
+    FROM orders
+    INNER JOIN profile ON profile.id = orders.profile_id
+    INNER JOIN auth_user ON profile.user_id = auth_user.id
+    WHERE soft_delete='False'""")
     request = cur.fetchall()
     cur.close()
     db.close()
@@ -314,7 +321,9 @@ def get_waiting_orders() -> list:
 
 def get_user_id_chat(customer: str) -> int:
     """Возвращает ид чата по логину"""
-    db, cur = connect_db(f"SELECT chat_id FROM users WHERE username='{customer}'")
+    db, cur = connect_db(f"""SELECT profile.chat_id FROM auth_user 
+    INNER JOIN profile ON profile.user_id = auth_user.id
+    WHERE auth_user.username='{customer}'""")
     request = cur.fetchone()[0]
     cur.close()
     db.close()

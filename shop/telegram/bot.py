@@ -29,8 +29,8 @@ def main_keyboard(update: Update, context: CallbackContext):
     """Основаня клавиатура снизу"""
     user = update.message.from_user
     button_column = [[KeyboardButton(text='Меню'), KeyboardButton(text='Корзина')], [KeyboardButton(text='Мои заказы')]]
-    check = check_user_is_staff(update.effective_chat.username)
-    if check is not None and check[0] == 'True':
+    check = check_user_is_staff(update.message.chat_id)
+    if check is not None and check[0]:
         button_column[1].append(KeyboardButton(text='Подтвердить заказ'))
     main_kb = ReplyKeyboardMarkup([button for button in button_column], resize_keyboard=True)
     text, err = start_user(user.first_name, user.last_name, user.username,
@@ -546,19 +546,27 @@ dispatcher.add_handler(unknown_handler)
 
 def orders_waiting(update: Update, context: CallbackContext):
     """Выводит опрос по доставленным заказам"""
-    if check_user_is_staff(update.effective_chat.username)[0] == 'True':
+    if check_user_is_staff(update.message.chat_id)[0]:
         user = update.message.from_user.username
         orders = get_waiting_orders()
-        options = ['Отмена']
-        for order in orders:
+        # не более 10 варианов ответа в опросе
+        options_list = []
+        options = [('Отмена')]
+        for index, order in enumerate(orders):
+            if (index + 1) % 10 == 0:
+                options_list.append(options)
+                options = [('Отмена')]
             options.append(f'Ордер №{order[0]} - клиент {order[1]} - стоимость {order[2]}р.')
-        try:
+        if len(options) > 1:
+            options_list.append(options)
+
+        for options in options_list:
             message = context.bot.send_poll(chat_id=update.effective_chat.id,
                                             question=f'Опрос создан пользователем {user}',
                                             options=options,
                                             is_anonymous=False,
                                             allows_multiple_answers=True)
-        except telegram.error.BadRequest:
+        if not options_list:
             keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
             message = context.bot.send_message(chat_id=update.effective_chat.id,
                                                text='Нет заявок',
@@ -575,14 +583,9 @@ def orders_waiting(update: Update, context: CallbackContext):
             }
         }
         context.bot_data.update(payload)
-
-        context.bot.delete_message(chat_id=update.effective_chat.id,
-                                   message_id=message.message_id - 1)
     else:
         message = context.bot.send_message(chat_id=update.effective_chat.id,
                                            text='Извините, я не знаю такой команды')
-        context.bot.delete_message(chat_id=update.effective_chat.id,
-                                   message_id=message.message_id - 1)
 
 
 orders_waiting_handler = MessageHandler(Filters.text('Подтвердить заказ'), orders_waiting)
