@@ -6,7 +6,7 @@ from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKe
 from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, \
     PollAnswerHandler
 
-from shop.telegram.db_connection import connect_db, load_last_order, get_category, get_products, \
+from shop.telegram.db_connection import load_last_order, get_category, get_products, \
     save_order, get_user_orders, edit_to_cart, show_cart, db_delete_cart, get_product_id, start_user, \
     old_cart_message, save_cart_message_id, old_cart_message_to_none, check_user_is_staff, get_waiting_orders, \
     get_user_id_chat, soft_delete_confirmed_order, save_delivery_settings, get_delivery_settings, get_user_address
@@ -31,7 +31,7 @@ def main_keyboard(update: Update, context: CallbackContext):
     button_column = [[KeyboardButton(text='Меню'), KeyboardButton(text='Корзина')], [KeyboardButton(text='Мои заказы')]]
     check = check_user_is_staff(update.message.chat_id)
     if check is not None and check[0]:
-        button_column[1].append(KeyboardButton(text='Подтвердить заказ'))
+        button_column.append([KeyboardButton(text='Подтвердить заказ'), KeyboardButton(text='Отменить заказ')])
     main_kb = ReplyKeyboardMarkup([button for button in button_column], resize_keyboard=True)
     text, err = start_user(user.first_name, user.last_name, user.username,
                            update.message.chat_id, cart_message_id=0, discount=1)
@@ -544,9 +544,13 @@ dispatcher.add_handler(unknown_handler)
 """ АДМИНИСТРАТИВНЫЕ """
 
 
-def orders_waiting(update: Update, context: CallbackContext):
-    """Выводит опрос по доставленным заказам"""
+def poll_orders(update: Update, context: CallbackContext):
+    """Выводит опрос по заказам для подтверждения/ отмены"""
     if check_user_is_staff(update.message.chat_id)[0]:
+        if update.message.text == 'Подтвердить заказ':
+            poll_type = 'approve'
+        elif update.message.text == 'Отменить заказ':
+            poll_type = 'refuse'
         user = update.message.from_user.username
         orders = get_waiting_orders()
         # не более 10 варианов ответа в опросе
@@ -562,7 +566,7 @@ def orders_waiting(update: Update, context: CallbackContext):
 
         for options in options_list:
             message = context.bot.send_poll(chat_id=update.effective_chat.id,
-                                            question=f'Опрос создан пользователем {user}',
+                                            question=f'Опрос {update.message.text} создан пользователем {user}',
                                             options=options,
                                             is_anonymous=False,
                                             allows_multiple_answers=True)
@@ -574,26 +578,30 @@ def orders_waiting(update: Update, context: CallbackContext):
             context.bot.delete_message(chat_id=update.effective_chat.id,
                                        message_id=message.message_id - 1)
             return
-        payload = {
+        poll = {
             message.poll.id: {
                 "admin_username": user,
                 "orders": orders,
                 "message_id": message.message_id,
                 "chat_id": update.effective_chat.id,
+                "poll_type": poll_type
             }
         }
-        context.bot_data.update(payload)
+        context.bot_data.update(poll)
     else:
-        message = context.bot.send_message(chat_id=update.effective_chat.id,
+        context.bot.send_message(chat_id=update.effective_chat.id,
                                            text='Извините, я не знаю такой команды')
 
 
-orders_waiting_handler = MessageHandler(Filters.text('Подтвердить заказ'), orders_waiting)
-dispatcher.add_handler(orders_waiting_handler)
+poll_orders_handler = MessageHandler(Filters.text('Подтвердить заказ'), poll_orders)
+dispatcher.add_handler(poll_orders_handler)
+
+poll_orders_handler = MessageHandler(Filters.text('Отменить заказ'), poll_orders)
+dispatcher.add_handler(poll_orders_handler)
 
 
 def poll_orders_answer(update: Update, context: CallbackContext):
-    """Ответ наопрос по заказам"""
+    """Ответ на опрос по заказам"""
     answer = update.poll_answer
     poll_id = answer.poll_id
 
@@ -607,12 +615,21 @@ def poll_orders_answer(update: Update, context: CallbackContext):
 
         return
     selected_options = answer.option_ids
+
+    if 0 in selected_options:
+        return
+
     for order_index in selected_options:
         confirm_order = orders[order_index - 1]
         chat_id = get_user_id_chat(confirm_order[1])
-        context.bot.send_message(chat_id=chat_id,
-                                 text=f'Ваш заказ №{confirm_order[0]} на сумму {confirm_order[2]} ожидает вас в магазине')
-        soft_delete_confirmed_order(order_id=confirm_order[0], admin_username=admin_username)
+        if context.bot_data[poll_id]['poll_type'] == 'approve':
+            context.bot.send_message(chat_id=chat_id,
+                                     text=f'Ваш заказ №{confirm_order[0]} на сумму {confirm_order[2]} ожидает вас в магазине')
+            soft_delete_confirmed_order(order_id=confirm_order[0], admin_username=admin_username)
+        if context.bot_data[poll_id]['poll_type'] == 'refuse':
+            context.bot.send_message(chat_id=chat_id,
+                                     text=f'Ваш заказ №{confirm_order[0]} отменен')
+            soft_delete_confirmed_order(order_id=confirm_order[0], admin_username=admin_username)
 
 
 poll_answer_handler = PollAnswerHandler(poll_orders_answer)
