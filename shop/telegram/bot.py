@@ -9,7 +9,8 @@ from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandle
 from shop.telegram.db_connection import load_last_order, get_category, get_products, \
     save_order, get_user_orders, edit_to_cart, show_cart, db_delete_cart, get_product_id, start_user, \
     old_cart_message, save_cart_message_id, old_cart_message_to_none, check_user_is_staff, get_waiting_orders, \
-    get_user_id_chat, soft_delete_confirmed_order, save_delivery_settings, get_delivery_settings, get_user_address
+    get_user_id_chat, soft_delete_confirmed_order, save_delivery_settings, get_delivery_settings, get_user_address, \
+    get_shops
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from django_telegram_bot.settings import BASE_DIR
 
@@ -279,7 +280,7 @@ def get_offer_settings(update: Update, context: CallbackContext):
         street = get_user_address(chat_id)
         buttons = [[InlineKeyboardButton(text='Сохранить адрес', callback_data='offer-stage_3_none')]]
         if street:
-            buttons.append([InlineKeyboardButton(text=street, callback_data=f'offer-stage_3_street')])
+            buttons.insert(0, [InlineKeyboardButton(text=street, callback_data=f'offer-stage_3_street')])
         keyboard = InlineKeyboardMarkup(buttons)
         context.bot.edit_message_text(chat_id=chat_id,
                                       message_id=message_id,
@@ -288,9 +289,11 @@ def get_offer_settings(update: Update, context: CallbackContext):
                                       reply_markup=keyboard)
     if settings_stage == '2' and answer == 'no':
         save_delivery_settings(value=False, field='delivery', chat_id=chat_id)
-        keyboard = InlineKeyboardMarkup(
-            [[InlineKeyboardButton(text='пер. Прачечный', callback_data='offer-stage_4_prachecniy'),
-              InlineKeyboardButton(text='ул. Киевская', callback_data='offer-stage_4_kievskaya')]])
+        buttons =[]
+        for shop in get_shops():
+            shop_id, shop_name = shop
+            buttons.append(InlineKeyboardButton(text=shop_name, callback_data=f'offer-stage_4_{shop_id}'))
+        keyboard = InlineKeyboardMarkup([buttons])
         context.bot.edit_message_text(chat_id=chat_id,
                                       message_id=message_id,
                                       text=f'Выберите предпочтительный магазин',
@@ -307,18 +310,16 @@ def get_offer_settings(update: Update, context: CallbackContext):
                                       message_id=message_id,
                                       text=f'Выберите вид оплаты',
                                       reply_markup=keyboard)
-    # if settings_stage == '3.1':
-    #     if answer == 'prachecniy' or answer == 'kievskaya':
-    #         save_delivery_settings(value=answer, field='main_shop', chat_id=chat_id)
-    #     check_products_in_shop(user=user, shop=answer)
 
     if settings_stage == '4':
-        if answer == 'prachecniy' or answer == 'kievskaya':
-            save_delivery_settings(value=answer, field='main_shop', chat_id=chat_id)
-        if answer == 'cashless':
-            save_delivery_settings(value=False, field='payment_cash', chat_id=chat_id)
-        elif answer == 'cash':
-            save_delivery_settings(value=True, field='payment_cash', chat_id=chat_id)
+        try:
+            answer = int(answer)
+            save_delivery_settings(value=answer, field='main_shop_id', chat_id=chat_id)
+        except ValueError:
+            if answer == 'cashless':
+                save_delivery_settings(value=False, field='payment_cash', chat_id=chat_id)
+            elif answer == 'cash':
+                save_delivery_settings(value=True, field='payment_cash', chat_id=chat_id)
         delivery_settings = _user_settings_from_db(get_delivery_settings(chat_id))
 
         cart_price = 0
@@ -343,21 +344,19 @@ dispatcher.add_handler(offer_settings)
 
 
 def _user_settings_from_db(data: tuple) -> str:
-    delivery = data[4]
-    main_shop = data[5]
-    payment_cash = data[6]
-    delivery_address = data[7]
+    """ Нсастроки заказа """
+    delivery, main_shop_id, payment_cash, delivery_street = data
     text = ''
-    if delivery == 'False':
-        if main_shop == 'prachecniy':
-            text = 'в магазин пер. Прачечный 3 '
-        if main_shop == 'kievskaya':
-            text = 'в магазин ул. Киевская '
-    else:
+    if delivery:
         if payment_cash == 'True':
-            text = f'по адресу {delivery_address}, оплата наличными'
+            text = f'по адресу {delivery_street}, оплата наличными'
         else:
-            text = f'по адресу {delivery_address}, оплата по карте'
+            text = f'по адресу {delivery_street}, оплата по карте'
+    else:
+        if main_shop_id == 2:
+            text = 'в магазин пер. Прачечный 3 '
+        if main_shop_id == 1:
+            text = 'в магазин ул. Киевская 3'
     return text
 
 

@@ -16,6 +16,18 @@ class File(models.Model):
         verbose_name_plural = 'Файлы загрузки'
 
 
+class Shop(models.Model):
+    name = models.CharField(max_length=100, verbose_name='Название магазина')
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        db_table = 'shops'
+        verbose_name = 'Магазин'
+        verbose_name_plural = 'Магазины'
+
+
 class Category(models.Model):
     command = models.CharField(max_length=100, verbose_name='Название категории')
     parent_category = models.ForeignKey('self', on_delete=models.PROTECT, verbose_name='Родительсая категоря',
@@ -46,12 +58,12 @@ class Product(models.Model):
 
 
 class Rests(models.Model):
-    name = models.CharField(max_length=100, verbose_name='Название магазина')
+    shop = models.ForeignKey(Shop, on_delete=models.PROTECT, verbose_name='Название магазина')
     product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name='Товар')
     amount = models.DecimalField(max_digits=6, decimal_places=3, verbose_name='Количество', default=0)
 
     def __str__(self):
-        return f'{self.name} - {self.product} - {self.amount}'
+        return f'{self.shop} - {self.product} - {self.amount}'
 
     class Meta:
         db_table = 'rests'

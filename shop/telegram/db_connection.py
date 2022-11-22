@@ -76,6 +76,15 @@ def start_user(first_name: str, last_name: str, username: str, chat_id: int, car
         return f'Добро пожаловать {username}', 'ok'
 
 
+def get_shops() -> list:
+    """Получить список магазинов"""
+    db, cur = connect_db(f"SELECT id, name FROM shops")
+    shops = cur.fetchall()
+    cur.close()
+    db.close()
+    return shops
+
+
 def get_category(category_id: int = None) -> list:
     """Получить список категорй"""
     if category_id is not None:
@@ -250,7 +259,8 @@ def save_delivery_settings(value: bool or str, field: str, chat_id: int):
 
 def get_delivery_settings(chat_id: int) -> tuple:
     """Получить настройки заказа"""
-    db, cur = connect_db(f"SELECT * FROM profile WHERE chat_id='{chat_id}'")
+    db, cur = connect_db(f"""SELECT delivery, main_shop_id, payment_cash, delivery_street
+    FROM profile WHERE chat_id='{chat_id}'""")
     settings = cur.fetchone()
     cur.close()
     db.close()
@@ -266,14 +276,23 @@ def get_user_address(chat_id: int) -> None or str:
     return street
 
 
+def get_user_shop(chat_id: int) -> None or str:
+    """Получить магазин пользователя"""
+    db, cur = connect_db(f"SELECT main_shop FROM profile WHERE chat_id='{chat_id}'")
+    street = cur.fetchone()[0]
+    cur.close()
+    db.close()
+    return street
+
+
 def save_order(chat_id: int, delivery_info: str, cart_price: int) -> list and int:
     """Сохранить заказ"""
     db, cur = connect_db(f"""SELECT carts.product_id FROM carts
     INNER JOIN profile ON profile.id = carts.profile_id
     WHERE profile.chat_id='{chat_id}'""")
     products_id = cur.fetchall()
-    db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, soft_delete) 
-    SELECT id, '{delivery_info}', '{cart_price}', 'False'
+    db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, soft_delete, deliver) 
+    SELECT id, '{delivery_info}', '{cart_price}', 'False', delivery
     FROM profile WHERE profile.chat_id='{chat_id}'""")
     db.commit()
     for product_id in products_id:

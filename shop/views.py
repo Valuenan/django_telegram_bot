@@ -11,7 +11,7 @@ from django.contrib import messages
 from xlrd import XLRDError
 
 from .forms import ImportGoodsForm
-from .models import File, Category, Product, Rests
+from .models import File, Category, Product, Rests, Shop
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,10 @@ class ImportGoodsView(View):
                     try:
                         workbook = xlrd.open_workbook(os.path.abspath(f'{settings.MEDIA_ROOT}/{file_for_import.file}'))
                         exel_data = workbook.sheet_by_index(0)
+                        shop_k = Shop.objects.get_or_create(name=exel_data.cell_value(0, 3))[0]
+                        shop_p = Shop.objects.get_or_create(name=exel_data.cell_value(0, 5))[0]
                         row = 3
+
                         while True:
                             try:
                                 product_price = 0
@@ -85,10 +88,10 @@ class ImportGoodsView(View):
                                     product.save()
                                     db_rests = Rests.objects.filter(product=product)
                                     for rest in db_rests:
-                                        if rest.name == 'пр. Прачечный 3':
+                                        if rest.shop == shop_p:
                                             rest.amount = prachechniy_rests
 
-                                        elif rest.name == 'ул. Киевская':
+                                        elif rest.shop == shop_k:
                                             rest.amount = kievskaya_rests
                                         rest.save()
                                 else:
@@ -97,15 +100,14 @@ class ImportGoodsView(View):
                                                                      img=product_image,
                                                                      price=product_price)
                                     product.save()
-                                    db_rests = Rests.objects.create(name='пр. Прачечный 3',
+                                    db_rests = Rests.objects.create(shop=shop_p,
                                                                     product=product,
                                                                     amount=prachechniy_rests)
                                     db_rests.save()
-                                    db_rests = Rests.objects.create(name='ул. Киевская',
+                                    db_rests = Rests.objects.create(shop=shop_k,
                                                                     product=product,
                                                                     amount=kievskaya_rests)
                                     db_rests.save()
-
 
                                 row += 1
                             except IndexError:

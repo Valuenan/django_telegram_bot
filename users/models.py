@@ -1,7 +1,7 @@
 from django.contrib.auth.models import User
 from django.db import models
 
-from shop.models import Product
+from shop.models import Product, Shop
 
 
 class Profile(models.Model):
@@ -10,7 +10,7 @@ class Profile(models.Model):
     cart_message_id = models.IntegerField(verbose_name='ИД сообщения корзины', blank=True, null=True)
     discount = models.SmallIntegerField(verbose_name='Скидка', default=0)
     delivery = models.BooleanField(verbose_name='Доставка', default=False)
-    main_shop = models.CharField(max_length=50, verbose_name='Магазин доставки', null=True, blank=True)
+    main_shop = models.ForeignKey(Shop, on_delete=models.DO_NOTHING, verbose_name='Магазин доставки', null=True, blank=True)
     payment_cash = models.BooleanField(verbose_name='Оплачивать наличными', default=True)
     delivery_street = models.CharField(max_length=200, verbose_name='Улица доставки', blank=True, null=True)
 
@@ -45,6 +45,7 @@ class Orders(models.Model):
     order_price = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Цена заказа')
     soft_delete = models.BooleanField(verbose_name='Удалить', default=False)
     admin_check = models.CharField(max_length=100, verbose_name='Заявка принята работником:', null=True, blank=True)
+    deliver = models.BooleanField(verbose_name='Доставить по адресу')
 
     def __str__(self):
         return f'Заказ номер: {self.id} - {self.profile.user.username} - сумма {self.order_price} - подтвердил {self.admin_check}, пометка удаления {self.soft_delete}'
