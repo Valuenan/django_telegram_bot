@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import psycopg2
 from psycopg2.extras import DictCursor
 
@@ -26,7 +28,7 @@ def _id_to_name(table: str, ids: list) -> list:
     names = []
 
     for item_id in ids:
-        db, cur = connect_db(f"SELECT name FROM {table} WHERE id='{item_id[0]}'")
+        db, cur = connect_db(f"SELECT name FROM {table} WHERE id='{item_id}'")
         names.append(cur.fetchone())
         cur.close()
         db.close()
@@ -133,9 +135,11 @@ def get_product_id(product_name: str) -> int:
 
 def edit_to_cart(command: str, chat_id: int, product_id: int) -> (int, str):
     """Добавить/Удалить товар из корзины"""
+    db, cur = connect_db(f"""SELECT profile.id FROM profile WHERE profile.chat_id='{chat_id}'""")
+    profile_id = cur.fetchone()[0]
+
     db, cur = connect_db(f"""SELECT amount FROM carts 
-    INNER JOIN profile ON profile.id = carts.profile_id
-    WHERE profile.chat_id='{chat_id}' and carts.product_id='{product_id}'""")
+    WHERE carts.profile_id='{profile_id}' AND carts.product_id='{product_id}' AND carts.order_id IS NULL""")
     product_info = cur.fetchone()
     db, cur = connect_db(f"""SELECT products.price, SUM(rests.amount) AS rest_sum FROM products 
             INNER JOIN rests on products.id = rests.product_id
@@ -145,8 +149,7 @@ def edit_to_cart(command: str, chat_id: int, product_id: int) -> (int, str):
     if product_info is None and command == 'add' or product_info is None and command == 'add-cart':
         db, cur = connect_db(
             f"""INSERT INTO carts (profile_id, product_id, amount, price) 
-            SELECT profile.id, '{product_id}', '1', '{product_price}' 
-            FROM profile WHERE profile.chat_id='{chat_id}'""")
+            VALUES ('{profile_id}', '{product_id}', '1', '{product_price}')""")
         amount = 1
     elif product_info is None and command == 'remove':
         amount = 0
@@ -161,12 +164,10 @@ def edit_to_cart(command: str, chat_id: int, product_id: int) -> (int, str):
             amount = 0
         if amount == 0:
             db, cur = connect_db(f"""DELETE FROM carts
-            WHERE carts.profile_id = (SELECT id FROM profile where chat_id='{chat_id}')
-            AND carts.product_id='{product_id}'""")
+            WHERE carts.profile_id = '{profile_id}' AND carts.product_id='{product_id}' AND carts.order_id IS NULL""")
         else:
-            db, cur = connect_db(f"""UPDATE  carts SET amount='{amount}'
-            WHERE carts.profile_id = (SELECT id FROM profile where chat_id='{chat_id}') 
-            AND carts.product_id='{product_id}'""")
+            db, cur = connect_db(f"""UPDATE carts SET amount='{amount}'
+            WHERE carts.profile_id = '{profile_id}' AND carts.product_id='{product_id}' AND carts.order_id IS NULL""")
     db.commit()
     db, cur = connect_db(f"SELECT name FROM products WHERE id='{product_id}'")
     product = cur.fetchone()
@@ -202,7 +203,7 @@ def show_cart(chat_id: int) -> list:
     FROM carts  
     INNER JOIN products 
     ON carts.product_id = products.id 
-    WHERE carts.profile_id = (SELECT id FROM profile where chat_id='{chat_id}')""")
+    WHERE carts.order_id IS NULL AND carts.profile_id = (SELECT id FROM profile where chat_id='{chat_id}')""")
     cart_info = cur.fetchall()
     if cart_info is None:
         cart_list = []
@@ -223,7 +224,8 @@ def save_cart_message_id(chat_id: int, cart_message_id: int):
 
 def db_delete_cart(chat_id: int):
     """Удалить корзину"""
-    db, cur = connect_db(f"DELETE FROM carts WHERE profile_id=(SELECT id FROM profile WHERE chat_id='{chat_id}')")
+    db, cur = connect_db(f"""DELETE FROM carts 
+    WHERE order_id IS NULL AND profile_id=(SELECT id FROM profile WHERE chat_id='{chat_id}')""")
     db.commit()
     db, cur = connect_db(f"UPDATE profile SET cart_message_id='0' WHERE chat_id='{chat_id}'")
     db.commit()
@@ -248,18 +250,6 @@ def save_delivery_settings(value: bool or str, field: str, chat_id: int):
     db.commit()
     cur.close()
     db.close()
-
-
-# def check_products_in_shop(user: str, shop: str):
-#     """Проверка наличия товаров"""
-#     db, cur = connect_db()
-#     user_products = {}
-#     user_cart = cur.execute(f"SELECT product, amount FROM carts WHERE user='{user}'").fetchall()
-#     for product in user_cart:
-#         dict(product)
-#     shop_products = cur.execute(f"SELECT name, rests_prachecniy, rests_kievskaya FROM products WHERE name IN {user_products}").fetchall()
-#     cur.close()
-#     db.close()
 
 
 def get_delivery_settings(chat_id: int) -> tuple:
@@ -292,25 +282,29 @@ def get_user_shop(chat_id: int) -> None or str:
 
 def save_order(chat_id: int, delivery_info: str, cart_price: int) -> list and int:
     """Сохранить заказ"""
-    db, cur = connect_db(f"""SELECT carts.product_id FROM carts
-    INNER JOIN profile ON profile.id = carts.profile_id
+    db, cur = connect_db(f"""SELECT profile.id FROM profile
     WHERE profile.chat_id='{chat_id}'""")
-    products_id = cur.fetchall()
-    db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, soft_delete, deliver) 
-    SELECT id, '{delivery_info}', '{cart_price}', 'False', delivery
+    profile_id = cur.fetchone()[0]
+
+    db, cur = connect_db(f"""SELECT carts.product_id, carts.amount FROM carts
+    WHERE carts.profile_id={profile_id} AND carts.order_id IS NULL""")
+    products_id, products_amount = list(zip(*cur.fetchall()))
+
+    db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, soft_delete, deliver, date) 
+    SELECT id, '{delivery_info}', '{cart_price}', 'False', delivery, '{datetime.now().strftime("%m/%d/%Y")}'::date
     FROM profile WHERE profile.chat_id='{chat_id}'""")
     db.commit()
-    for product_id in products_id:
-        cur.execute(f"""INSERT INTO orders_product (orders_id, product_id) 
-        SELECT max(orders.id), '{product_id[0]}' FROM orders 
-        INNER JOIN profile ON profile.id = orders.profile_id
-        WHERE profile.chat_id='{chat_id}' AND soft_delete='False'""")
+
+    cur.execute(f"""UPDATE carts
+    SET order_id = (SELECT MAX(orders.id) FROM orders 
+    WHERE orders.profile_id='{profile_id}' AND soft_delete='False')
+    WHERE carts.profile_id='{profile_id}' AND carts.order_id IS NULL""")
     db.commit()
     cur.close()
     db.close()
-    db_delete_cart(chat_id)
     products_names = _id_to_name('products', products_id)
-    return products_names, cart_price
+    products = zip(products_names, products_amount)
+    return products, cart_price
 
 
 def get_user_orders(chat_id: int) -> list:

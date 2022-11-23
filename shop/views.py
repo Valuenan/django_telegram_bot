@@ -1,16 +1,15 @@
 import os
 import logging
 from decimal import Decimal
-
 import xlrd
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.shortcuts import render, redirect
 from django.views import View
 from django.contrib import messages
-from xlrd import XLRDError
-
+from django.contrib.auth.models import User
+from django.views.generic import ListView, DetailView
 from .forms import ImportGoodsForm
+from users.models import Orders
 from .models import File, Category, Product, Rests, Shop
 
 logger = logging.getLogger(__name__)
@@ -120,7 +119,7 @@ class ImportGoodsView(View):
                                 log += f'import {file} error Bad values - {ex}\n'
                                 messages.error(request, 'Error updating products. Bad values')
 
-                    except XLRDError as ex:
+                    except xlrd.XLRDError as ex:
                         logger.error(f'import {file} error Bad file - {ex}')
                         log += f'import {file} error Bad file - {ex}\n'
                         messages.error(request, 'Error updating products. Bad file')
@@ -130,3 +129,14 @@ class ImportGoodsView(View):
             log += f'import error load file - {ex}'
             messages.error(request, 'Error load file')
         return redirect('/admin/import_goods/')
+
+
+class OrdersList(ListView):
+    model = Orders
+    context_object_name = 'orders'
+    ordering = '-date'
+
+
+class OrderDetail(DetailView):
+    model = Orders
+    context_object_name = 'order'

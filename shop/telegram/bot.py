@@ -437,8 +437,8 @@ def order(update: Update, context: CallbackContext):
     command, cart_price = call.data.split('_')
     order_products, order_price = save_order(chat_id, call.message.text, cart_price)
     text_products = ''
-    for product in order_products:
-        text_products += '\n'.join(product)
+    for product_name, product_amount in order_products:
+        text_products += f'\n{product_name[0]} - {product_amount} шт.'
     order_message = f'Заказ №: {order_num} \n {text_products} \n {call.message.text} \n на сумму: {order_price}'
     context.bot.answer_callback_query(callback_query_id=call.id,
                                       text=f'Ваш заказ номер {order_num} принят')
