@@ -137,9 +137,12 @@ def edit_to_cart(command: str, chat_id: int, product_id: int) -> (int, str):
     INNER JOIN profile ON profile.id = carts.profile_id
     WHERE profile.chat_id='{chat_id}' and carts.product_id='{product_id}'""")
     product_info = cur.fetchone()
+    db, cur = connect_db(f"""SELECT products.price, SUM(rests.amount) AS rest_sum FROM products 
+            INNER JOIN rests on products.id = rests.product_id
+            WHERE products.id={product_id}
+            GROUP BY products.id""")
+    product_price, product_rests = cur.fetchall()[0]
     if product_info is None and command == 'add' or product_info is None and command == 'add-cart':
-        db, cur = connect_db(f"SELECT price FROM products WHERE id='{product_id}'")
-        product_price = cur.fetchone()[0]
         db, cur = connect_db(
             f"""INSERT INTO carts (profile_id, product_id, amount, price) 
             SELECT profile.id, '{product_id}', '1', '{product_price}' 
@@ -148,10 +151,12 @@ def edit_to_cart(command: str, chat_id: int, product_id: int) -> (int, str):
     elif product_info is None and command == 'remove':
         amount = 0
     else:
+        amount = product_info[0]
         if command == 'add' or command == 'add-cart':
-            amount = product_info[0] + 1
+            if amount < product_rests:
+                amount += + 1
         elif command == 'remove' or command == 'remove-cart':
-            amount = product_info[0] - 1
+            amount -= 1
         else:
             amount = 0
         if amount == 0:

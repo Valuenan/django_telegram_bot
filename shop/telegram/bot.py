@@ -372,10 +372,13 @@ def edit_cart(update: Update, context: CallbackContext):
         buttons = ([InlineKeyboardButton(text='Добавить', callback_data=f'add-cart_{product_id}'),
                     InlineKeyboardButton(text='Убрать', callback_data=f'remove-cart_{product_id}')],)
         keyboard_edit = InlineKeyboardMarkup([button for button in buttons])
-        context.bot.edit_message_text(chat_id=chat_id,
-                                      message_id=message_id,
-                                      text=message,
-                                      reply_markup=keyboard_edit)
+        try:
+            context.bot.edit_message_text(chat_id=chat_id,
+                                          message_id=message_id,
+                                          text=message,
+                                          reply_markup=keyboard_edit)
+        except telegram.error.BadRequest:
+            pass
     else:
         keyboard_edit = InlineKeyboardMarkup(
             [[InlineKeyboardButton(text='Добавить', callback_data=f'add-cart_{product_id}')]])
