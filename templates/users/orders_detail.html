@@ -1,15 +1,16 @@
+{% load shop_tags %}
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Заказ №{{ order.id }}</title>
-</head>
-<body>
-    <h1>Заказ №{{ order.id }}</h1>
-    <p>Дата: {{ order.date }}</p>
-    <p>Клиент: {{ order.profile.user.username }}</p>
-    <p>Доставка: {{ order.deliver }}</p>
-    <p>Адрес: {{ order.delivery_info }}</p>
+    <head>
+        <meta charset="UTF-8">
+        <title>Заказ №{{ order.id }}</title>
+    </head>
+    <body>
+        <h1>Заказ №{{ order.id }}</h1>
+        <p>Дата: {{ order.date }}</p>
+        <p>Клиент: {{ order.profile.user.username }}</p>
+        <p>Доставка: {{ order.deliver }}</p>
+        <p>Адрес: {{ order.delivery_info }}</p>
 
         <table border="1px">
             <tr>
@@ -17,23 +18,22 @@
                 <td>Количество</td>
                 <td>Стоимость за шт.</td>
                 <td>Сумма</td>
-                {% for shop in shops %}
-                    <tr>Остаток {{ shop }}<tr>
-                {% endfor %}
+                <td>Прачечный</td>
+                <td>Киевская</td>
             </tr>
-            {% for product in order.product.all %}
+            {% for product in order.carts_set.all %}
                 <tr>
-                    <td> {{ product.name }} </td>
+                    <td> {{ product.product.name }}</td>
                     <td> {{ product.amount }}</td>
                     <td> {{ product.price }}</td>
-                    <td> {{ product.sum }}</td>
-                    {% for shop in product__rests.shop %}
-                        <tr>Остаток {{ shop }}<tr>
+                    <td> {% get_sum product.amount product.price %}</td>
+                    {% for rest in product.product.rests_set.all %}
+                        <td>{{ rest.amount }}</td>
                     {% endfor %}
                 </tr>
             {% endfor %}
         </table>
-    <p>Сумма: {{ order.order_price }}</p>
-    <p>Исполненна: {{ order.soft_delete }}</p>
-</body>
+        <p>Сумма: {{ order.order_price }}</p>
+        <p>Исполненна: {{ order.soft_delete }}</p>
+    </body>
 </html>

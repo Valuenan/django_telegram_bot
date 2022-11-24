@@ -21,6 +21,6 @@ from shop.views import ImportGoodsView
 urlpatterns = [
     path('admin/import_goods/', ImportGoodsView.as_view(), name='admin_import_goods'),
     path('admin/', admin.site.urls),
-    path('', include('shop.urls'))
-
+    path('', include('shop.urls')),
+    path('__debug__/', include('debug_toolbar.urls')),
 ]

@@ -3,13 +3,13 @@ import logging
 from decimal import Decimal
 import xlrd
 from django.conf import settings
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.views import View
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.views.generic import ListView, DetailView
 from .forms import ImportGoodsForm
-from users.models import Orders
+from users.models import Orders, Carts
 from .models import File, Category, Product, Rests, Shop
 
 logger = logging.getLogger(__name__)
@@ -133,6 +133,7 @@ class ImportGoodsView(View):
 
 class OrdersList(ListView):
     model = Orders
+    queryset = Orders.objects.filter(soft_delete=False)
     context_object_name = 'orders'
     ordering = '-date'
 
@@ -140,3 +141,9 @@ class OrdersList(ListView):
 class OrderDetail(DetailView):
     model = Orders
     context_object_name = 'order'
+
+    def get_context_data(self, **kwargs):
+        context = super(OrderDetail, self).get_context_data(**kwargs)
+        self.model = self.model.objects.prefetch_related('carts_set').all()
+        return context
+
