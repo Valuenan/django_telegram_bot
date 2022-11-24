@@ -309,10 +309,10 @@ def save_order(chat_id: int, delivery_info: str, cart_price: int) -> list and in
 
 def get_user_orders(chat_id: int) -> list:
     """Получить список заказов пользователя"""
-    db, cur = connect_db(f"""SELECT orders.id, orders.order_price, products.name 
+    db, cur = connect_db(f"""SELECT orders.id, products.name, products.price ,carts.amount, orders.order_price
     FROM orders 
-    INNER JOIN orders_product ON orders.id = orders_product.orders_id 
-    INNER JOIN products ON orders_product.product_id = products.id
+    INNER JOIN carts ON orders.id = carts.order_id 
+    INNER JOIN products ON carts.product_id = products.id
     INNER JOIN profile ON profile.id = orders.profile_id
     WHERE profile.chat_id='{chat_id}'""")
     orders = cur.fetchall()

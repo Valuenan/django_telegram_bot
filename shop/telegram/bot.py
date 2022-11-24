@@ -496,37 +496,38 @@ def orders_history(update: Update, context: CallbackContext):
     """Вызов истории покупок"""
     chat_id = update.effective_chat.id
     orders = get_user_orders(chat_id)
-    prev_id, prev_sum = None, None
-    text = ''
-    len_orders = len(orders) - 1
-    for index, order in enumerate(orders):
-        order_id, order_sum, order_product = order
-
-        if not prev_id:
-            prev_id, prev_sum = order_id, order_sum
-            order_products = [order_product]
-        elif prev_id == order_id:
-            order_products.append(order_product)
-        if prev_id != order_id:
-            text_products = '\n'.join(order_products)
-            text += f'''Заказ № {prev_id} \n {text_products} \n на сумму:{prev_sum} \n {"_" * 20} \n'''
-            order_products = [order_product]
-            prev_id, prev_sum = order_id, order_sum
-        if index == len_orders:
-            text_products = '\n'.join(order_products)
-            text += f'''Заказ № {order_id} \n {text_products} \n на сумму: {order_sum} \n {"_" * 20} \n'''
-            break
-
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
 
-    if text:
-        message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                           text=text,
-                                           reply_markup=keyboard)
-    else:
+    if not orders:
         message = context.bot.send_message(chat_id=update.effective_chat.id,
                                            text='Вы еще ничего не покупали :(',
                                            reply_markup=keyboard)
+    else:
+        prev_id, prev_sum = None, None
+        text = ''
+        len_orders = len(orders) - 1
+        for index, order in enumerate(orders):
+            order_id, product_name, product_price, product_amount, order_sum = order
+
+            if not prev_id:
+                prev_id, prev_sum = order_id, order_sum
+                order_products = [f'{product_name} - {product_amount} шт. по {product_price}р.']
+            elif prev_id == order_id:
+                order_products.append(f'{product_name} - {product_amount} шт. по {product_price}р.')
+            if prev_id != order_id:
+                text_products = '\n'.join(order_products)
+                text += f'''Заказ № {prev_id} \n {text_products} \n на сумму:{prev_sum} \n {"_" * 20} \n'''
+                order_products = [f'{product_name} - {product_amount} шт. по {product_price}р.']
+                prev_id, prev_sum = order_id, order_sum
+            if index == len_orders:
+                text_products = '\n'.join(order_products)
+                text += f'''Заказ № {order_id} \n {text_products} \n на сумму: {order_sum} \n {"_" * 20} \n'''
+                break
+
+        message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                           text=text,
+                                           reply_markup=keyboard)
+
     context.bot.delete_message(chat_id=update.effective_chat.id,
                                message_id=message.message_id - 1)
 
@@ -641,6 +642,7 @@ dispatcher.add_handler(poll_answer_handler)
 
 
 def user_message(update: Update, context: CallbackContext):
+    """Принять сообщение пользователя (адрес)"""
     global users_message
     chat_id = update.message.chat_id
     if chat_id in users_message:

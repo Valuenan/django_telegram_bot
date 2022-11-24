@@ -135,7 +135,7 @@ class OrdersList(ListView):
     model = Orders
     queryset = Orders.objects.filter(soft_delete=False)
     context_object_name = 'orders'
-    ordering = '-date'
+    ordering = ['-date']
 
 
 class OrderDetail(DetailView):
