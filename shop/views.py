@@ -9,7 +9,7 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.views.generic import ListView, DetailView
 from .forms import ImportGoodsForm
-from users.models import Orders, Carts
+from users.models import Orders, Carts, Profile
 from .models import File, Category, Product, Rests, Shop
 
 logger = logging.getLogger(__name__)
@@ -146,4 +146,13 @@ class OrderDetail(DetailView):
         context = super(OrderDetail, self).get_context_data(**kwargs)
         self.model = self.model.objects.prefetch_related('carts_set').all()
         return context
+
+    def post(self, request, pk):
+        form = request.POST
+        order = Orders.objects.get(id=pk)
+        order.update_order_quantity(form)
+        return redirect('/')
+
+
+
 

@@ -6,33 +6,43 @@
         <title>Заказ №{{ order.id }}</title>
     </head>
     <body>
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+            <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
         <h1>Заказ №{{ order.id }}</h1>
         <p>Дата: {{ order.date }}</p>
         <p>Клиент: {{ order.profile.user.username }}</p>
         <p>Доставка: {{ order.deliver }}</p>
         <p>Адрес: {{ order.delivery_info }}</p>
-
-        <table border="1px">
-            <tr>
-                <td>Название</td>
-                <td>Количество</td>
-                <td>Стоимость за шт.</td>
-                <td>Сумма</td>
-                <td>Прачечный</td>
-                <td>Киевская</td>
-            </tr>
-            {% for product in order.carts_set.all %}
+        <form action="" method="post" class="mt-4" id="formReview">
+        {% csrf_token %}
+            <table border="1px">
+                <tr>
+                    <td>Название</td>
+                    <td>Количество</td>
+                    <td>Стоимость за шт.</td>
+                    <td>Сумма</td>
+                    <td>Прачечный</td>
+                    <td>Киевская</td>
+                </tr>
+                {% for product in order.carts_set.all %}
                 <tr>
                     <td> {{ product.product.name }}</td>
-                    <td> {{ product.amount }}</td>
-                    <td> {{ product.price }}</td>
+                    <td> <input name="{{ product.id }}" id="contactparent" value="{% formatted_float product.amount %} "></td>
+                    <td> {% formatted_float product.price %}</td>
                     <td> {% get_sum product.amount product.price %}</td>
                     {% for rest in product.product.rests_set.all %}
-                        <td>{{ rest.amount }}</td>
+                        <td>{% formatted_float rest.amount %}</td>
                     {% endfor %}
                 </tr>
-            {% endfor %}
-        </table>
+                {% endfor %}
+            </table>
+            <button type="submit">Записать</button>
+        </form>
         <p>Сумма: {{ order.order_price }}</p>
         <p>Исполненна: {{ order.soft_delete }}</p>
     </body>

@@ -204,7 +204,7 @@ def cart(update: Update, context: CallbackContext):
     if len(cart_info) > 0:
         for num, product in enumerate(cart_info):
             product_name, amount, price = product
-            cart_price += price * amount
+            cart_price += round(price * amount, 2)
             cart_message += f'{num + 1}. {product_name} - {amount} шт. по {price} р.\n'
         else:
             cart_message += f'Итого: {cart_price} р.'

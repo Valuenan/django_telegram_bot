@@ -9,6 +9,7 @@
 <table border="1px">
     <tr>
         <td>Дата оформления</td>
+        <td>Заказ №</td>
         <td>Клиент</td>
         <td>Доставка</td>
         <td>Адрес</td>
@@ -17,9 +18,10 @@
     {% for order in orders %}
         <tr>
             <td>{{ order.date }}</td>
-            <td><a href="/order/{{ order.id }}">{{ order.profile.user.username }}</a></td>
-            <td><a href="/order/{{ order.id }}">{{ order.deliver }}</a></td>
-            <td><a href="/order/{{ order.id }}">{{ order.delivery_info }}</a></td>
+            <td>{{ order.id }}</td>
+            <td><a href="{% url 'orders_detail' order.id  %}">{{ order.profile.user.username }}</a></td>
+            <td><a href="{% url 'orders_detail' order.id  %}">{{ order.deliver }}</a></td>
+            <td><a href="{% url 'orders_detail' order.id  %}">{{ order.delivery_info }}</a></td>
             <td>{{ order.order_price }}</td>
         </tr>
     {% endfor %}

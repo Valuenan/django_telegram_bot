@@ -1,4 +1,5 @@
 from django import template
+from django.template.defaultfilters import floatformat
 
 from shop.models import Shop
 
@@ -10,7 +11,14 @@ def get_shops():
     '''Вывод названия магазинов'''
     return {'shops': Shop.objects.all()}
 
+
 @register.simple_tag()
 def get_sum(amount, price):
     '''Вывод сумму стоимости товара'''
-    return amount * price
+    return round(amount * price, 2)
+
+
+@register.simple_tag()
+def formatted_float(value):
+    value = floatformat(value, arg=3)
+    return str(value).replace(',', '.')

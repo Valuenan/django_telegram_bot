@@ -1,3 +1,5 @@
+import decimal
+
 from django.contrib.auth.models import User
 from django.db import models
 
@@ -36,6 +38,37 @@ class Orders(models.Model):
     def __str__(self):
         return f'Заказ номер: {self.id} - {self.profile.user.username} - сумма {self.order_price} - подтвердил {self.admin_check}, пометка удаления {self.soft_delete}'
 
+    def update_order_sum(self, order_carts):
+        order_sum = 0
+        for item in order_carts:
+            item.price = item.product.price
+            order_sum += item.amount * item.price
+        return order_sum
+
+    def update_order_quantity(self, form: dict):
+        """Обновляет количество товара"""
+        """Приимаем на вход словарь где ключ - ид товара, значение - количество"""
+        order_carts = self.carts_set.all()
+        for cart_id in form:
+            if cart_id == 'csrfmiddlewaretoken':
+                continue
+            cart_item = order_carts.filter(id=cart_id)[0]
+            if cart_item:
+                try:
+                    amount = decimal.Decimal(form[cart_id])
+                    if amount > decimal.Decimal(0):
+                        cart_item.amount = amount
+                        cart_item.save()
+                    elif amount <= decimal.Decimal(0):
+                        cart_item.delete()
+                except decimal.InvalidOperation as ex:
+                    print(ex)
+        if not order_carts:
+            self.delete()
+            return
+        self.order_price = self.update_order_sum(order_carts)
+        self.save()
+
     class Meta:
         db_table = 'orders'
         verbose_name = 'Заказ'
@@ -45,7 +78,7 @@ class Orders(models.Model):
 class Carts(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, verbose_name='Пользователь')
     product = models.ForeignKey(Product, on_delete=models.DO_NOTHING, verbose_name='Товары')
-    amount = models.SmallIntegerField(verbose_name='Количество')
+    amount = models.DecimalField(max_digits=6, decimal_places=3, verbose_name='Количество', default=0)
     price = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Цена')
     order = models.ForeignKey(Orders, on_delete=models.DO_NOTHING, verbose_name='Заказ', blank=True, null=True)
 
