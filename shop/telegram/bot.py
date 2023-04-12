@@ -105,7 +105,7 @@ def products_catalog(update: Update, context: CallbackContext):
             keyboard = InlineKeyboardMarkup([button for button in buttons])
             context.bot.send_message(chat_id=update.effective_chat.id, text=f'{product_name} '
                                                                             f'\n Цена: {price}'
-                                                                            f'\n Количество: - {rests} шт.')
+                                                                            f'\n Количество: {rests} шт.')
 
             context.bot.send_photo(chat_id=update.effective_chat.id,
                                    photo=open(f'{BASE_DIR}/static/products/{imgs[0]}', 'rb'),
@@ -196,7 +196,7 @@ def cart(update: Update, context: CallbackContext):
             if old_cart_message_id != 0:
                 context.bot.delete_message(chat_id=chat_id, message_id=old_cart_message_id)
         except telegram.error.BadRequest:
-            return
+            pass
     cart_info = show_cart(chat_id)
     cart_price = 0
 
@@ -289,7 +289,7 @@ def get_offer_settings(update: Update, context: CallbackContext):
                                       reply_markup=keyboard)
     if settings_stage == '2' and answer == 'no':
         save_delivery_settings(value=False, field='delivery', chat_id=chat_id)
-        buttons =[]
+        buttons = []
         for shop in get_shops():
             shop_id, shop_name = shop
             buttons.append(InlineKeyboardButton(text=shop_name, callback_data=f'offer-stage_4_{shop_id}'))
@@ -344,7 +344,7 @@ dispatcher.add_handler(offer_settings)
 
 
 def _user_settings_from_db(data: tuple) -> str:
-    """ Нсастроки заказа """
+    """ Настроки заказа """
     delivery, main_shop_id, payment_cash, delivery_street = data
     text = ''
     if delivery:
@@ -593,7 +593,7 @@ def poll_orders(update: Update, context: CallbackContext):
         context.bot_data.update(poll)
     else:
         context.bot.send_message(chat_id=update.effective_chat.id,
-                                           text='Извините, я не знаю такой команды')
+                                 text='Извините, я не знаю такой команды')
 
 
 poll_orders_handler = MessageHandler(Filters.text('Подтвердить заказ'), poll_orders)

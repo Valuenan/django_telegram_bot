@@ -3,13 +3,15 @@ import logging
 from decimal import Decimal
 import xlrd
 from django.conf import settings
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.views import LoginView
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views import View
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.views.generic import ListView, DetailView
 from .forms import ImportGoodsForm
-from users.models import Orders, Carts, Profile
+from users.models import Orders, Carts, Profile, OrderStatus
 from .models import File, Category, Product, Rests, Shop
 
 logger = logging.getLogger(__name__)
@@ -131,28 +133,38 @@ class ImportGoodsView(View):
         return redirect('/admin/import_goods/')
 
 
-class OrdersList(ListView):
+class Login(LoginView):
+    """Класс авторизации пользователя"""
+    template_name = 'login.html'
+
+
+class OrdersList(LoginRequiredMixin, ListView):
+    login_url = '/login'
     model = Orders
-    queryset = Orders.objects.filter(soft_delete=False)
+    queryset = Orders.objects.exclude(status__in=[4, 5])
     context_object_name = 'orders'
     ordering = ['-date']
 
 
-class OrderDetail(DetailView):
+class OrderDetail(LoginRequiredMixin, DetailView):
+    login_url = '/login'
     model = Orders
     context_object_name = 'order'
 
     def get_context_data(self, **kwargs):
         context = super(OrderDetail, self).get_context_data(**kwargs)
         self.model = self.model.objects.prefetch_related('carts_set').all()
+        context['order_statuses'] = OrderStatus.objects.all()
+        context['shops'] = Shop.objects.all().order_by('-id')
         return context
 
     def post(self, request, pk):
-        form = request.POST
+        form = request.POST.copy()
+        _, new_status, shop = form.pop('csrfmiddlewaretoken'), form.pop('new_status')[0], int(form.pop('shop')[0])
         order = Orders.objects.get(id=pk)
-        order.update_order_quantity(form)
-        return redirect('/')
+        old_status = order.status.title
+        rests_action = order.update_order_status(new_status)
+        if new_status == "0" or old_status == "0":
+            order.update_order_quantity(form, rests_action, shop)
 
-
-
-
+        return redirect(f'/order/{pk}')

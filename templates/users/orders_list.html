@@ -10,6 +10,7 @@
     <tr>
         <td>Дата оформления</td>
         <td>Заказ №</td>
+        <td>Статус</td>
         <td>Клиент</td>
         <td>Доставка</td>
         <td>Адрес</td>
@@ -19,6 +20,7 @@
         <tr>
             <td>{{ order.date }}</td>
             <td>{{ order.id }}</td>
+            <td>{{ order.status }}</td>
             <td><a href="{% url 'orders_detail' order.id  %}">{{ order.profile.user.username }}</a></td>
             <td><a href="{% url 'orders_detail' order.id  %}">{{ order.deliver }}</a></td>
             <td><a href="{% url 'orders_detail' order.id  %}">{{ order.delivery_info }}</a></td>

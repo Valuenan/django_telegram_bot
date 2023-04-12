@@ -51,6 +51,15 @@ class Product(models.Model):
     def __str__(self):
         return f'{self.name} - {self.price}р.'
 
+    def edit_rests(self, action, shop, old_amount, new_amount):
+        rest = self.rests_set.filter(shop=shop)[0]
+        if action == 'add':
+            rest.amount += old_amount
+            rest.save()
+        elif action == 'remove':
+            rest.amount -= new_amount
+            rest.save()
+
     class Meta:
         db_table = 'products'
         verbose_name = 'Товар'
@@ -64,6 +73,9 @@ class Rests(models.Model):
 
     def __str__(self):
         return f'{self.shop} - {self.product} - {self.amount}'
+
+    def change_rests(self, shop, product, amount):
+        pass
 
     class Meta:
         db_table = 'rests'

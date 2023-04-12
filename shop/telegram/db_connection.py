@@ -148,8 +148,8 @@ def edit_to_cart(command: str, chat_id: int, product_id: int) -> (int, str):
     product_price, product_rests = cur.fetchall()[0]
     if product_info is None and command == 'add' or product_info is None and command == 'add-cart':
         db, cur = connect_db(
-            f"""INSERT INTO carts (profile_id, product_id, amount, price) 
-            VALUES ('{profile_id}', '{product_id}', '1', '{product_price}')""")
+            f"""INSERT INTO carts (profile_id, product_id, amount, price, soft_delete) 
+            VALUES ('{profile_id}', '{product_id}', '1', '{product_price}', 'False')""")
         amount = 1
     elif product_info is None and command == 'remove':
         amount = 0
@@ -290,8 +290,8 @@ def save_order(chat_id: int, delivery_info: str, cart_price: int) -> list and in
     WHERE carts.profile_id={profile_id} AND carts.order_id IS NULL""")
     products_id, products_amount = list(zip(*cur.fetchall()))
 
-    db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, soft_delete, deliver, date) 
-    SELECT id, '{delivery_info}', '{cart_price}', 'False', delivery, '{datetime.now().strftime("%m/%d/%Y")}'::date
+    db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, deliver, date, status_id) 
+    SELECT id, '{delivery_info}', '{cart_price}', delivery, '{datetime.now().strftime("%m/%d/%Y")}'::date, 1
     FROM profile WHERE profile.chat_id='{chat_id}'""")
     db.commit()
 
@@ -326,11 +326,11 @@ def get_user_orders(chat_id: int) -> list:
 
 def get_waiting_orders() -> list:
     """Возврачает список заявок ожидающих отгрузки"""
-    db, cur = connect_db(f"""SELECT orders.id, auth_user.username, orders.order_price 
+    db, cur = connect_db(f"""SELECT orders.id, auth_user.username, orders.order_price, orders.status_id 
     FROM orders
     INNER JOIN profile ON profile.id = orders.profile_id
     INNER JOIN auth_user ON profile.user_id = auth_user.id
-    WHERE soft_delete='False'""")
+    WHERE orders.status_id = '2' || orders.status_id = '3""")
     request = cur.fetchall()
     cur.close()
     db.close()

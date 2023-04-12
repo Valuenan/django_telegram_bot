@@ -6,10 +6,11 @@
         <title>Заказ №{{ order.id }}</title>
     </head>
     <body>
+    <a href="/">Вернуться к заказам</a>
     {% if messages %}
         <ul class="messages">
             {% for message in messages %}
-            <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+            <li>{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
             {% endfor %}
         </ul>
     {% endif %}
@@ -20,23 +21,46 @@
         <p>Адрес: {{ order.delivery_info }}</p>
         <form action="" method="post" class="mt-4" id="formReview">
         {% csrf_token %}
+            <p>Статус:
+                <select name="new_status">
+                    {% for status in order_statuses %}
+                        <option
+                                {% if status == order.status %} selected {% endif %}
+                                value="{{ status.title }}">{{ status }}</option>
+                    {% endfor %}
+                </select>
+            </p>
+            </p>Магазин списания/возврата:
+                <select name="shop">
+                    {% for shop in shops %}
+                        <option
+                                {% if shop == order.profile.main_shop %} selected {% endif %}
+
+                                value="{{ shop.id }}">{{ shop }}</option>
+                    {% endfor %}
+                </select>
             <table border="1px">
                 <tr>
                     <td>Название</td>
                     <td>Количество</td>
                     <td>Стоимость за шт.</td>
                     <td>Сумма</td>
-                    <td>Прачечный</td>
-                    <td>Киевская</td>
+                    {% for shop in shops %}
+                        <td {% if order.profile.main_shop == shop %} bgcolor="green" {% endif %}> {{ shop }}</td>
+                    {% endfor %}
                 </tr>
                 {% for product in order.carts_set.all %}
                 <tr>
-                    <td> {{ product.product.name }}</td>
-                    <td> <input name="{{ product.id }}" id="contactparent" value="{% formatted_float product.amount %} "></td>
+                    <td {% if product.soft_delete %} bgcolor="red" {% endif %}>
+                        {{ product.product.name }} </td>
+                    <td> <input
+                            {% if order.status.title != "0" %} disabled {% endif %}
+                                name="{{ product.id }}" id="contactparent" value="{% formatted_float product.amount %} "></td>
                     <td> {% formatted_float product.price %}</td>
                     <td> {% get_sum product.amount product.price %}</td>
                     {% for rest in product.product.rests_set.all %}
-                        <td>{% formatted_float rest.amount %}</td>
+                        <td {% if product.amount > rest.amount %} bgcolor="yellow" {% endif %}>
+                            {% formatted_float rest.amount %}</td>
                     {% endfor %}
                 </tr>
                 {% endfor %}
