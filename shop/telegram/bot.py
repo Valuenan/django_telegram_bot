@@ -9,7 +9,7 @@ from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandle
 from shop.telegram.db_connection import load_last_order, get_category, get_products, \
     save_order, get_user_orders, edit_to_cart, show_cart, db_delete_cart, get_product_id, start_user, \
     old_cart_message, save_cart_message_id, old_cart_message_to_none, check_user_is_staff, get_waiting_orders, \
-    get_user_id_chat, soft_delete_confirmed_order, save_delivery_settings, get_delivery_settings, get_user_address, \
+    get_user_id_chat, status_confirmed_order, save_delivery_settings, get_delivery_settings, get_user_address, \
     get_shops
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from django_telegram_bot.settings import BASE_DIR
@@ -605,6 +605,7 @@ dispatcher.add_handler(poll_orders_handler)
 
 def poll_orders_answer(update: Update, context: CallbackContext):
     """Ответ на опрос по заказам"""
+    print(context)
     answer = update.poll_answer
     poll_id = answer.poll_id
 
@@ -626,17 +627,22 @@ def poll_orders_answer(update: Update, context: CallbackContext):
         confirm_order = orders[order_index - 1]
         chat_id = get_user_id_chat(confirm_order[1])
         if context.bot_data[poll_id]['poll_type'] == 'approve':
-            context.bot.send_message(chat_id=chat_id,
-                                     text=f'Ваш заказ №{confirm_order[0]} на сумму {confirm_order[2]} ожидает вас в магазине')
-            soft_delete_confirmed_order(order_id=confirm_order[0], admin_username=admin_username)
+            status_confirmed_order(order_id=confirm_order[0], admin_username=admin_username, status=5)
         if context.bot_data[poll_id]['poll_type'] == 'refuse':
             context.bot.send_message(chat_id=chat_id,
                                      text=f'Ваш заказ №{confirm_order[0]} отменен')
-            soft_delete_confirmed_order(order_id=confirm_order[0], admin_username=admin_username)
+            status_confirmed_order(order_id=confirm_order[0], admin_username=admin_username, status=6)
 
 
 poll_answer_handler = PollAnswerHandler(poll_orders_answer)
 dispatcher.add_handler(poll_answer_handler)
+
+
+def ready_order_message(context: CallbackContext, chat_id, order_id, order_sum):
+    """Сообщение о готовности заказа"""
+    context.bot.send_message(chat_id=chat_id,
+                             text=f'Ваш заказ №{order_id} на сумму {order_sum} ожидает вас в магазине')
+
 
 """ Утилиты """
 

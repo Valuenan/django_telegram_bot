@@ -330,7 +330,7 @@ def get_waiting_orders() -> list:
     FROM orders
     INNER JOIN profile ON profile.id = orders.profile_id
     INNER JOIN auth_user ON profile.user_id = auth_user.id
-    WHERE orders.status_id = '2' || orders.status_id = '3""")
+    WHERE orders.status_id='2' OR orders.status_id='3'""")
     request = cur.fetchall()
     cur.close()
     db.close()
@@ -348,9 +348,9 @@ def get_user_id_chat(customer: str) -> int:
     return request
 
 
-def soft_delete_confirmed_order(order_id: int, admin_username: str):
+def status_confirmed_order(order_id: int, admin_username: str, status: int):
     """Помечает удаленными выполненые ордера и ник администратора отметившего"""
-    db, cur = connect_db(f"UPDATE orders SET soft_delete='True', admin_check='{admin_username}' WHERE id='{order_id}'")
+    db, cur = connect_db(f"UPDATE orders SET status_id='{status}', admin_check='{admin_username}' WHERE id='{order_id}'")
     db.commit()
     cur.close()
     db.close()

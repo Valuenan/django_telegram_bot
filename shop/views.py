@@ -13,6 +13,7 @@ from django.views.generic import ListView, DetailView
 from .forms import ImportGoodsForm
 from users.models import Orders, Carts, Profile, OrderStatus
 from .models import File, Category, Product, Rests, Shop
+from .telegram.bot import ready_order_message
 
 logger = logging.getLogger(__name__)
 
@@ -166,5 +167,7 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         rests_action = order.update_order_status(new_status)
         if new_status == "0" or old_status == "0":
             order.update_order_quantity(form, rests_action, shop)
+        elif new_status == '3' or new_status == '4':
+            ready_order_message(chat_id=order.profile.chat_id, order_id=order.id, order_sum=order.order_price)
 
         return redirect(f'/order/{pk}')

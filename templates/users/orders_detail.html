@@ -21,7 +21,7 @@
         <p>Адрес: {{ order.delivery_info }}</p>
         <form action="" method="post" class="mt-4" id="formReview">
         {% csrf_token %}
-            <p>Статус:
+            <p>Статус: {{ order.status_id }}
                 <select name="new_status">
                     {% for status in order_statuses %}
                         <option
