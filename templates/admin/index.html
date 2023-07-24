@@ -12,7 +12,9 @@
 {% block nav-sidebar %}{% endblock %}
 
 {% block content %}
+<div style="margin: 15px 0 15px 0;"><a href="import_category/" >Загрузить категории из файла</a></div>
 <div style="margin: 15px 0 15px 0;"><a href="import_goods/" >Загрузить товары из файла</a></div>
+
 <div id="content-main">
     {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
 </div>

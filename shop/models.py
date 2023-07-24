@@ -30,6 +30,7 @@ class Shop(models.Model):
 
 class Category(models.Model):
     command = models.CharField(max_length=100, verbose_name='Название категории')
+    id = models.IntegerField(unique=True, primary_key=True, db_index=True, verbose_name="ИД группы")
     parent_category = models.ForeignKey('self', on_delete=models.PROTECT, verbose_name='Родительсая категоря',
                                         null=True, blank=True)
 

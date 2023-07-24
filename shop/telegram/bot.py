@@ -23,6 +23,8 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+BUTTONS_IN_ROW_CATEGORY = 2
+
 """ ДЛЯ ПОЛЬЗОВАТЕЛЕЙ """
 
 
@@ -50,39 +52,54 @@ dispatcher.add_handler(start_handler)
 
 def catalog(update: Update, context: CallbackContext):
     """Вызов каталога по группам"""
-    user = update.message.from_user
-    logger.info("User %s open catalog", user.first_name)
-    buttons_in_row = 3
+
     buttons = [[]]
     row = 0
-    for category in get_category():
-        button = (InlineKeyboardButton(text=category[1], callback_data=f'category_{category[0]}'))
-        if category[0] % buttons_in_row == 0:
-            buttons.append([])
-            row += 1
-        buttons[row].append(button)
-    keyboard = InlineKeyboardMarkup([button for button in buttons])
-    context.bot.send_message(chat_id=update.effective_chat.id,
-                             text='Каталог',
-                             reply_markup=keyboard)
+    if update.callback_query:
+        chosen_category = update.callback_query.data.split('_')
+
+        categories = get_category(int(chosen_category[1]))
+
+    else:
+        categories = get_category()
+    if categories:
+        for index, category in enumerate(categories):
+            button = (InlineKeyboardButton(text=category[1], callback_data=f'category_{category[0]}_{category[1]}'))
+            if index % BUTTONS_IN_ROW_CATEGORY == 0:
+                buttons.append([])
+                row += 1
+            buttons[row].append(button)
+        keyboard = InlineKeyboardMarkup([button for button in buttons])
+
+        if update.callback_query:
+            context.bot.send_message(chat_id=update.effective_chat.id, text=f'Категория: {chosen_category[2]}',
+                                     reply_markup=keyboard)
+        else:
+            context.bot.send_message(chat_id=update.effective_chat.id,
+                                     text='Каталог',
+                                     reply_markup=keyboard)
+    else:
+        products_catalog(update, context, chosen_category[1])
 
 
 menu_handler = MessageHandler(Filters.text('Меню'), catalog)
 dispatcher.add_handler(menu_handler)
 
+catalog_handler = CallbackQueryHandler(catalog, pattern="^" + str('category_'))
+dispatcher.add_handler(catalog_handler)
 
-def products_catalog(update: Update, context: CallbackContext):
+
+def products_catalog(update: Update, context: CallbackContext, chosen_category):
     """Вызов каталога товаров"""
-    chosen_category = update.callback_query.data.split('_')[1]
     page = 0
     pagination = False
     call = update.callback_query
     context.bot.delete_message(chat_id=call.message.chat.id,
                                message_id=call.message.message_id)
-    if '#' in chosen_category:
-        chosen_category, page = chosen_category.split('#')
-        page = int(page)
-    category = get_category(chosen_category)
+    # if '#' in chosen_category:
+    #     chosen_category, page = chosen_category.split('#')
+    #     page = int(page)
+    # category = get_category(chosen_category)
     products, pages = get_products(chosen_category, page)
     if pages:
         pagination = True
@@ -120,11 +137,12 @@ def products_catalog(update: Update, context: CallbackContext):
                                      reply_markup=keyboard_next)
 
     else:
-        context.bot.send_message(chat_id=update.effective_chat.id, text=f'Товаров из {category} нет')
+        context.bot.send_message(chat_id=update.effective_chat.id, text=f'Товаров из {chosen_category} нет')
 
 
-catalog_handler = CallbackQueryHandler(products_catalog, pattern="^" + str('category_'))
-dispatcher.add_handler(catalog_handler)
+#
+# catalog_handler = CallbackQueryHandler(products_catalog, pattern="^" + str('product_'))
+# dispatcher.add_handler(catalog_handler)
 
 
 def roll_photo(update: Update, context: CallbackContext):
