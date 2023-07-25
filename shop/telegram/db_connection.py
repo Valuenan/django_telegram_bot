@@ -5,6 +5,7 @@ from psycopg2.extras import DictCursor
 
 from django_telegram_bot.settings import DATABASES
 
+ADMIN_TG = '@Vassagio'
 PRODUCTS_PAGINATION_NUM = 5
 DATABASE = DATABASES['default']['NAME']
 HOST = DATABASES['default']['HOST']
@@ -71,7 +72,7 @@ def start_user(first_name: str, last_name: str, username: str, chat_id: int, car
             error = 'ok'
         except Exception as err:
             text = f'''Извените {first_name} произошла ошибка, попробуйте еще раз нажать /start. 
-Если ошибка повторяется, обратитесь к администратору @Vesselii'''
+Если ошибка повторяется, обратитесь к администратору {ADMIN_TG}'''
             error = err
         return text, error
     else:

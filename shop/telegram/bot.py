@@ -89,17 +89,18 @@ catalog_handler = CallbackQueryHandler(catalog, pattern="^" + str('category_'))
 dispatcher.add_handler(catalog_handler)
 
 
-def products_catalog(update: Update, context: CallbackContext, chosen_category):
+def products_catalog(update: Update, context: CallbackContext, chosen_category=False):
     """Вызов каталога товаров"""
     page = 0
     pagination = False
     call = update.callback_query
     context.bot.delete_message(chat_id=call.message.chat.id,
                                message_id=call.message.message_id)
-    # if '#' in chosen_category:
-    #     chosen_category, page = chosen_category.split('#')
-    #     page = int(page)
-    # category = get_category(chosen_category)
+    if '#' in str(update.callback_query.data) and not chosen_category:
+        chosen_category = update.callback_query.data.split('_')[1]
+        chosen_category, page = chosen_category.split('#')
+        page = int(page)
+
     products, pages = get_products(chosen_category, page)
     if pages:
         pagination = True
@@ -131,21 +132,20 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category):
                                    photo=product_photo,
                                    disable_notification=True,
                                    reply_markup=keyboard)
-        if pagination:
+        if pagination and page != pages:
             keyboard_next = InlineKeyboardMarkup(
-                [[InlineKeyboardButton(text='Еще товары', callback_data=f'category_{chosen_category}#{page + 1}')]])
+                [[InlineKeyboardButton(text='Еще товары', callback_data=f'product_{chosen_category}#{page + 1}')]])
             context.bot.send_message(chat_id=update.effective_chat.id,
                                      text=f'Страница {page} из {pages}',
                                      disable_notification=True,
                                      reply_markup=keyboard_next)
 
     else:
-        context.bot.send_message(chat_id=update.effective_chat.id, text=f'Товаров из {chosen_category} нет')
+        context.bot.send_message(chat_id=update.effective_chat.id, text=f'В данной категории ненашлось товаров 😨')
 
 
-#
-# catalog_handler = CallbackQueryHandler(products_catalog, pattern="^" + str('product_'))
-# dispatcher.add_handler(catalog_handler)
+catalog_handler = CallbackQueryHandler(products_catalog, pattern="^" + str('product_'))
+dispatcher.add_handler(catalog_handler)
 
 
 def roll_photo(update: Update, context: CallbackContext):
