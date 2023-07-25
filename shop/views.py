@@ -129,7 +129,6 @@ class ImportGoodsView(View):
                                 product_category = exel_data.cell_value(row, 2)
                                 prachechniy_rests = exel_data.cell_value(row, 3)
                                 prachechniy_sum = exel_data.cell_value(row, 4)
-                                print(product_category)
 
                                 if product_image == ', ':
                                     product_image = 'no-image.jpg'
@@ -149,15 +148,14 @@ class ImportGoodsView(View):
                                                    f'Error updating products. Bad values {product_name}, rests = 0')
                                     break
 
-                                category = Category.objects.filter(command=product_category)
-                                print(category)
+                                category = Category.objects.filter(command=product_category.strip())
 
-                                # Убираем товары с категорие Архив (по заданию Андрея)
+                                # Убираем товары с категорие Архив и без категории (по заданию Андрея)
                                 if not category:
                                     row += 1
                                     continue
 
-                                product = Product.objects.filter(name=product_name)
+                                product = Product.objects.filter(name=product_name.strip())
 
                                 if product:
                                     product = product[0]

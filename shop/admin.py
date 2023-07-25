@@ -14,12 +14,14 @@ class ShopAdmin(admin.ModelAdmin):
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    pass
+    list_display = ['command', 'parent_category']
+    search_fields = ['command']
 
 
 @admin.register(Product)
 class ProductsAdmin(admin.ModelAdmin):
-    pass
+    list_display = ['name', 'category', 'price', 'img']
+    search_fields = ['name']
 
 
 @admin.register(Rests)

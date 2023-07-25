@@ -123,9 +123,12 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category):
             context.bot.send_message(chat_id=update.effective_chat.id, text=f'{product_name} '
                                                                             f'\n Цена: {price}'
                                                                             f'\n Количество: {rests} шт.')
-
+            try:
+                product_photo = open(f'{BASE_DIR}/static/products/{imgs[0]}', 'rb')
+            except FileNotFoundError:
+                product_photo = open(f'{BASE_DIR}/static/products/no-image.jpg', 'rb')
             context.bot.send_photo(chat_id=update.effective_chat.id,
-                                   photo=open(f'{BASE_DIR}/static/products/{imgs[0]}', 'rb'),
+                                   photo=product_photo,
                                    disable_notification=True,
                                    reply_markup=keyboard)
         if pagination:
