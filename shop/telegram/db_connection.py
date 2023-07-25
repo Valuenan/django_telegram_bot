@@ -50,8 +50,15 @@ def start_user(first_name: str, last_name: str, username: str, chat_id: int, car
                discount: int) -> (
         str, str):
     """Запись новых пользователей"""
-    db, cur = connect_db(f"SELECT id FROM auth_user WHERE username='{username}'")
-    user_id = cur.fetchone()
+    db, cur = connect_db(f"""SELECT auth_user.id, profile.phone
+    FROM auth_user
+    INNER JOIN profile ON auth_user.id = profile.user_id
+    WHERE username='{username}'""")
+    data = cur.fetchall()
+    if data:
+        user_id, user_phone = data[0]
+    else:
+        user_id, user_phone = None, None
     cur.close()
     db.close()
 
@@ -68,15 +75,28 @@ def start_user(first_name: str, last_name: str, username: str, chat_id: int, car
             cur.close()
             db.close()
 
-            text = f'Добро пожаловать {first_name}'
-            error = 'ok'
+            text = f'''Добро пожаловать {first_name}, осталось указать только номер телефона. 
+Отправьте в чат номер телефона, а потом нажмите кнопку "Подтвердить номер телефона".'''
+            error = 'no-phone'
         except Exception as err:
             text = f'''Извените {first_name} произошла ошибка, попробуйте еще раз нажать /start. 
 Если ошибка повторяется, обратитесь к администратору {ADMIN_TG}'''
             error = err
-        return text, error
+    elif user_phone is None:
+        text = f'''Добро пожаловать {first_name}, нужно указать номер телефона. 
+Отправьте в чат номер телефона, а потом нажмите кнопку "Подтвердить номер телефона".'''
+        error = 'no-phone'
     else:
-        return f'Добро пожаловать {username}', 'ok'
+        text, error = f'Добро пожаловать {username}', 'ok'
+    return text, error
+
+
+def user_add_phone(chat_id: int, phone_num: str):
+    """Записать номер телефона пользователя"""
+    db, cur = connect_db(f"""UPDATE profile SET phone='{phone_num}' WHERE chat_id='{chat_id}'""")
+    db.commit()
+    cur.close()
+    db.close()
 
 
 def get_shops() -> list:
@@ -351,7 +371,8 @@ def get_user_id_chat(customer: str) -> int:
 
 def status_confirmed_order(order_id: int, admin_username: str, status: int):
     """Помечает удаленными выполненые ордера и ник администратора отметившего"""
-    db, cur = connect_db(f"UPDATE orders SET status_id='{status}', admin_check='{admin_username}' WHERE id='{order_id}'")
+    db, cur = connect_db(
+        f"UPDATE orders SET status_id='{status}', admin_check='{admin_username}' WHERE id='{order_id}'")
     db.commit()
     cur.close()
     db.close()

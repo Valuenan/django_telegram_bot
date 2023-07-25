@@ -1,4 +1,5 @@
 import logging
+import re
 
 import telegram
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, InputMediaPhoto, \
@@ -10,7 +11,7 @@ from shop.telegram.db_connection import load_last_order, get_category, get_produ
     save_order, get_user_orders, edit_to_cart, show_cart, db_delete_cart, get_product_id, start_user, \
     old_cart_message, save_cart_message_id, old_cart_message_to_none, check_user_is_staff, get_waiting_orders, \
     get_user_id_chat, status_confirmed_order, save_delivery_settings, get_delivery_settings, get_user_address, \
-    get_shops
+    get_shops, user_add_phone, ADMIN_TG
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from django_telegram_bot.settings import BASE_DIR
 
@@ -31,15 +32,22 @@ BUTTONS_IN_ROW_CATEGORY = 2
 def main_keyboard(update: Update, context: CallbackContext):
     """Основаня клавиатура снизу"""
     user = update.message.from_user
-    button_column = [[KeyboardButton(text='Меню'), KeyboardButton(text='Корзина')], [KeyboardButton(text='Мои заказы')]]
-    check = check_user_is_staff(update.message.chat_id)
-    if check is not None and check[0]:
-        button_column.append([KeyboardButton(text='Подтвердить заказ'), KeyboardButton(text='Отменить заказ')])
-    main_kb = ReplyKeyboardMarkup([button for button in button_column], resize_keyboard=True)
     text, err = start_user(user.first_name, user.last_name, user.username,
                            update.message.chat_id, cart_message_id=0, discount=1)
-    if err != 'ok':
+    if err not in ['ok', 'no-phone']:
         logger.info(f"User %s 'start' {update.message.chat_id},{user.username}. error - {err}")
+
+    if err == 'ok':
+        button_column = [[KeyboardButton(text='Меню'), KeyboardButton(text='Корзина')],
+                         [KeyboardButton(text='Мои заказы')]]
+        check = check_user_is_staff(update.message.chat_id)
+        if check is not None and check[0]:
+            button_column.append([KeyboardButton(text='Подтвердить заказ'), KeyboardButton(text='Отменить заказ')])
+        main_kb = ReplyKeyboardMarkup([button for button in button_column], resize_keyboard=True)
+    elif err == 'no-phone':
+        users_message[user.id] = ''
+        main_kb = ReplyKeyboardMarkup([[KeyboardButton(text='Подтвердить номер телефона')]], resize_keyboard=True)
+
     message = context.bot.send_message(chat_id=update.effective_chat.id, text=text,
                                        reply_markup=main_kb)
     context.bot.delete_message(chat_id=update.effective_chat.id,
@@ -48,6 +56,29 @@ def main_keyboard(update: Update, context: CallbackContext):
 
 start_handler = CommandHandler('start', main_keyboard)
 dispatcher.add_handler(start_handler)
+
+
+def phone_check(update: Update, context: CallbackContext):
+    """Основаня клавиатура снизу"""
+    user = update.message.from_user
+
+    if user.id not in users_message or users_message[user.id] == '':
+        main_keyboard(update, context)
+    else:
+        number = users_message[user.id]
+        result = re.match(r'^(\+7|7|8)?[\s\-]?\(?[489][0-9]{2}\)?[\s\-]?[0-9]{3}[\s\-]?[0-9]{2}[\s\-]?[0-9]{2}$',
+                          number)
+        if bool(result):
+            user_add_phone(user.id, number)
+            main_keyboard(update, context)
+            del users_message[user.id]
+        else:
+            context.bot.send_message(chat_id=update.effective_chat.id,
+                                     text=f"К сожалению номер {number}, некоректный повторите ввод или обратитесь к менеджеру {ADMIN_TG} (r1)")
+
+
+phone_check_handler = MessageHandler(Filters.text('Подтвердить номер телефона'), phone_check)
+dispatcher.add_handler(phone_check_handler)
 
 
 def catalog(update: Update, context: CallbackContext):

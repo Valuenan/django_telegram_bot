@@ -8,6 +8,7 @@ from shop.models import Product, Shop
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, verbose_name='Пользователь')
+    phone = models.CharField(verbose_name='Номер телефона', max_length=12, blank=True, null=True)
     chat_id = models.IntegerField(verbose_name='ИД чата пользователя', db_index=True, unique=True)
     cart_message_id = models.IntegerField(verbose_name='ИД сообщения корзины', blank=True, null=True)
     discount = models.SmallIntegerField(verbose_name='Скидка', default=0)
