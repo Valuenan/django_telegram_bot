@@ -131,8 +131,8 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
         chosen_category = update.callback_query.data.split('_')[1]
         chosen_category, page = chosen_category.split('#')
         page = int(page)
-
-    products, pages = get_products(chosen_category, page)
+    products, pages = get_products(int(chosen_category), page)
+    print(products)
     if pages:
         pagination = True
     if products:

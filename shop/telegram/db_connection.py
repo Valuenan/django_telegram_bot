@@ -124,7 +124,7 @@ def get_category(category_id: int = None) -> list:
         return categories
 
 
-def get_products(chosen_category: str, page: int) -> (list, int):
+def get_products(chosen_category: int, page: int) -> (list, int):
     """Получить список товаров и пагинация"""
     db, cur = connect_db((f"""
     SELECT products.id, products.name, products.img, products.price, products.category_id, sum(rests.amount) AS rest

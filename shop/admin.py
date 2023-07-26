@@ -22,6 +22,7 @@ class CategoryAdmin(admin.ModelAdmin):
 class ProductsAdmin(admin.ModelAdmin):
     list_display = ['name', 'category', 'price', 'img']
     search_fields = ['name']
+    ordering = ['category']
 
 
 @admin.register(Rests)

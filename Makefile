@@ -9,6 +9,7 @@ migrate:
 	python manage.py migrate
 
 fixtures:
+	python manage.py loaddata OrderStatus.json
 
 admin:
 	python manage.py createsuperuser
@@ -16,4 +17,5 @@ admin:
 start:
 	make migrate
 	make admin
+	make fixtures
 	make runserver
