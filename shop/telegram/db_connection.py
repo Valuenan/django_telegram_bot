@@ -130,7 +130,7 @@ def get_products(chosen_category: int, page: int) -> (list, int):
     SELECT products.id, products.name, products.img, products.price, products.category_id, sum(rests.amount) AS rest
     FROM products 
     INNER JOIN rests ON products.id = rests.product_id
-    WHERE category_id='{chosen_category}'
+    WHERE category_id='{chosen_category}' AND rests.amount > 0
     GROUP BY products.id
     ORDER BY products.id"""))
     products = cur.fetchall()

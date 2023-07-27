@@ -86,8 +86,12 @@ def catalog(update: Update, context: CallbackContext):
 
     buttons = [[]]
     row = 0
+
     if update.callback_query:
-        chosen_category = update.callback_query.data.split('_')
+        call = update.callback_query
+        context.bot.delete_message(chat_id=call.message.chat.id,
+                                   message_id=call.message.message_id)
+        chosen_category = call.data.split('_')
 
         categories = get_category(int(chosen_category[1]))
 
@@ -106,9 +110,11 @@ def catalog(update: Update, context: CallbackContext):
             context.bot.send_message(chat_id=update.effective_chat.id, text=f'Категория: {chosen_category[2]}',
                                      reply_markup=keyboard)
         else:
-            context.bot.send_message(chat_id=update.effective_chat.id,
-                                     text='Каталог',
-                                     reply_markup=keyboard)
+            message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text='Каталог',
+                                               reply_markup=keyboard)
+            context.bot.delete_message(chat_id=update.effective_chat.id,
+                                       message_id=message.message_id - 1)
     else:
         products_catalog(update, context, chosen_category[1])
 
@@ -124,15 +130,11 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
     """Вызов каталога товаров"""
     page = 0
     pagination = False
-    call = update.callback_query
-    context.bot.delete_message(chat_id=call.message.chat.id,
-                               message_id=call.message.message_id)
     if '#' in str(update.callback_query.data) and not chosen_category:
         chosen_category = update.callback_query.data.split('_')[1]
         chosen_category, page = chosen_category.split('#')
         page = int(page)
     products, pages = get_products(int(chosen_category), page)
-    print(products)
     if pages:
         pagination = True
     if products:
@@ -167,7 +169,7 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
             keyboard_next = InlineKeyboardMarkup(
                 [[InlineKeyboardButton(text='Еще товары', callback_data=f'product_{chosen_category}#{page + 1}')]])
             context.bot.send_message(chat_id=update.effective_chat.id,
-                                     text=f'Страница {page} из {pages}',
+                                     text=f'Страница {page+1} из {pages+1}',
                                      disable_notification=True,
                                      reply_markup=keyboard_next)
 
@@ -336,8 +338,8 @@ def get_offer_settings(update: Update, context: CallbackContext):
         keyboard = InlineKeyboardMarkup(buttons)
         context.bot.edit_message_text(chat_id=chat_id,
                                       message_id=message_id,
-                                      text=f'Отправьте сообщение с адресом доставки, а затем нажмите кнопку в этом сообщении "Сохранить адрес'
-                                           f'или выберите последний адрес доставки"',
+                                      text=f'Отправьте сообщение с адресом доставки, а затем нажмите кнопку в этом сообщении "Сохранить адрес"'
+                                           f' или выберите последний адрес доставки',
                                       reply_markup=keyboard)
     if settings_stage == '2' and answer == 'no':
         save_delivery_settings(value=False, field='delivery', chat_id=chat_id)
