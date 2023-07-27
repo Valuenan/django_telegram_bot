@@ -13,6 +13,7 @@ from shop.telegram.db_connection import load_last_order, get_category, get_produ
     get_user_id_chat, status_confirmed_order, save_delivery_settings, get_delivery_settings, get_user_address, \
     get_shops, user_add_phone, ADMIN_TG
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
+from users.models import ORDER_STATUS
 from django_telegram_bot.settings import BASE_DIR
 
 users_message = {}
@@ -38,15 +39,15 @@ def main_keyboard(update: Update, context: CallbackContext):
         logger.info(f"User %s 'start' {update.message.chat_id},{user.username}. error - {err}")
 
     if err == 'ok':
-        button_column = [[KeyboardButton(text='Меню'), KeyboardButton(text='Корзина')],
-                         [KeyboardButton(text='Мои заказы')]]
+        button_column = [[KeyboardButton(text='Меню 🧾'), KeyboardButton(text='Корзина 🛒')],
+                         [KeyboardButton(text='Мои заказы 🗃️')]]
         check = check_user_is_staff(update.message.chat_id)
         if check is not None and check[0]:
             button_column.append([KeyboardButton(text='Подтвердить заказ'), KeyboardButton(text='Отменить заказ')])
         main_kb = ReplyKeyboardMarkup([button for button in button_column], resize_keyboard=True)
     elif err == 'no-phone':
         users_message[user.id] = ''
-        main_kb = ReplyKeyboardMarkup([[KeyboardButton(text='Подтвердить номер телефона')]], resize_keyboard=True)
+        main_kb = ReplyKeyboardMarkup([[KeyboardButton(text='Подтвердить номер телефона 📞')]], resize_keyboard=True)
 
     message = context.bot.send_message(chat_id=update.effective_chat.id, text=text,
                                        reply_markup=main_kb)
@@ -77,7 +78,7 @@ def phone_check(update: Update, context: CallbackContext):
                                      text=f"К сожалению номер {number}, некоректный повторите ввод или обратитесь к менеджеру {ADMIN_TG} (r1)")
 
 
-phone_check_handler = MessageHandler(Filters.text('Подтвердить номер телефона'), phone_check)
+phone_check_handler = MessageHandler(Filters.text('Подтвердить номер телефона 📞'), phone_check)
 dispatcher.add_handler(phone_check_handler)
 
 
@@ -119,7 +120,7 @@ def catalog(update: Update, context: CallbackContext):
         products_catalog(update, context, chosen_category[1])
 
 
-menu_handler = MessageHandler(Filters.text('Меню'), catalog)
+menu_handler = MessageHandler(Filters.text('Меню 🧾'), catalog)
 dispatcher.add_handler(menu_handler)
 
 catalog_handler = CallbackQueryHandler(catalog, pattern="^" + str('category_'))
@@ -140,8 +141,8 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
     if products:
         for product in products:
             product_id, product_name, product_img, price, category_id, rests = product
-            buttons = ([InlineKeyboardButton(text='Добавить', callback_data=f'add_{product_id}'),
-                        InlineKeyboardButton(text='Убрать', callback_data=f'remove_{product_id}')],)
+            buttons = ([InlineKeyboardButton(text='Добавить  🟢' , callback_data=f'add_{product_id}'),
+                        InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove_{product_id}')],)
             imgs = [product_img]
             try:
                 img_reversed = product_img.replace('.', '@rev.')
@@ -155,8 +156,8 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
                 buttons[0].append(InlineKeyboardButton(text='Состав', callback_data=f'roll_{compounds_url}'))
             keyboard = InlineKeyboardMarkup([button for button in buttons])
             context.bot.send_message(chat_id=update.effective_chat.id, text=f'{product_name} '
-                                                                            f'\n Цена: {price}'
-                                                                            f'\n Количество: {rests} шт.')
+                                                                            f'\n <b>Цена: {price}</b>'
+                                                                            f'\n <i>Количество: {rests} шт.</i>', parse_mode='HTML')
             try:
                 product_photo = open(f'{BASE_DIR}/static/products/{imgs[0]}', 'rb')
             except FileNotFoundError:
@@ -169,9 +170,9 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
             keyboard_next = InlineKeyboardMarkup(
                 [[InlineKeyboardButton(text='Еще товары', callback_data=f'product_{chosen_category}#{page + 1}')]])
             context.bot.send_message(chat_id=update.effective_chat.id,
-                                     text=f'Страница {page+1} из {pages+1}',
+                                     text=f'Страница <b>{page + 1}</b> из {pages + 1}',
                                      disable_notification=True,
-                                     reply_markup=keyboard_next)
+                                     reply_markup=keyboard_next, parse_mode='HTML')
 
     else:
         context.bot.send_message(chat_id=update.effective_chat.id, text=f'В данной категории ненашлось товаров 😨')
@@ -195,8 +196,8 @@ def roll_photo(update: Update, context: CallbackContext):
     else:
         main_photo = photo_url.replace('.', '@rev.')
 
-    buttons = ([[InlineKeyboardButton(text='Добавить', callback_data=main_inline_kb[0][0]['callback_data']),
-                 InlineKeyboardButton(text='Убрать', callback_data=main_inline_kb[0][1]['callback_data']),
+    buttons = ([[InlineKeyboardButton(text='Добавить  🟢' , callback_data=main_inline_kb[0][0]['callback_data']),
+                 InlineKeyboardButton(text='Убрать 🔴', callback_data=main_inline_kb[0][1]['callback_data']),
                  InlineKeyboardButton(text='Повернуть', callback_data=f'roll_{main_photo}')]])
     keyboard = InlineKeyboardMarkup([button for button in buttons])
     try:
@@ -263,9 +264,9 @@ def cart(update: Update, context: CallbackContext):
         else:
             cart_message += f'Итого: {cart_price} р.'
 
-        buttons = ([InlineKeyboardButton(text='Оформить заказ', callback_data='offer-stage_1_none')],
-                   [InlineKeyboardButton(text='Очистить', callback_data='delete-cart'),
-                    InlineKeyboardButton(text='Редактировать', callback_data='correct-cart')])
+        buttons = ([InlineKeyboardButton(text='Оформить заказ 📝', callback_data='offer-stage_1_none')],
+                   [InlineKeyboardButton(text='Очистить 🗑️', callback_data='delete-cart'),
+                    InlineKeyboardButton(text='Редактировать 📋', callback_data='correct-cart')])
 
         keyboard = InlineKeyboardMarkup([button for button in buttons])
 
@@ -303,7 +304,7 @@ def cart(update: Update, context: CallbackContext):
         pass
 
 
-cart_handler = MessageHandler(Filters.text('Корзина'), cart)
+cart_handler = MessageHandler(Filters.text('Корзина 🛒'), cart)
 dispatcher.add_handler(cart_handler)
 
 cancel_cart_handler = CallbackQueryHandler(cart, pattern=str('cancel-delete-cart'))
@@ -326,13 +327,13 @@ def get_offer_settings(update: Update, context: CallbackContext):
                                           InlineKeyboardButton(text='Нет', callback_data='offer-stage_2_no')]])
         context.bot.edit_message_text(chat_id=chat_id,
                                       message_id=message_id,
-                                      text=f'Вам доставить?',
+                                      text=f'Вам доставить? 🚚',
                                       reply_markup=keyboard)
     if settings_stage == '2' and answer == 'yes':
         save_delivery_settings(value=True, field='delivery', chat_id=chat_id)
         users_message[chat_id] = ''
         street = get_user_address(chat_id)
-        buttons = [[InlineKeyboardButton(text='Сохранить адрес', callback_data='offer-stage_3_none')]]
+        buttons = [[InlineKeyboardButton(text='Сохранить адрес 📝', callback_data='offer-stage_3_none')]]
         if street:
             buttons.insert(0, [InlineKeyboardButton(text=street, callback_data=f'offer-stage_3_street')])
         keyboard = InlineKeyboardMarkup(buttons)
@@ -357,8 +358,8 @@ def get_offer_settings(update: Update, context: CallbackContext):
             save_delivery_settings(value=users_message[chat_id], field='delivery_street', chat_id=chat_id)
         save_delivery_settings(value=True, field='delivery', chat_id=chat_id)
         users_message.pop(chat_id)
-        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Наличными', callback_data='offer-stage_4_cash'),
-                                          InlineKeyboardButton(text='Безналично',
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='🎟️ Наличными', callback_data='offer-stage_4_cash'),
+                                          InlineKeyboardButton(text='💳 Безналично',
                                                                callback_data='offer-stage_4_cashless')]])
         context.bot.edit_message_text(chat_id=update.effective_chat.id,
                                       message_id=message_id,
@@ -383,8 +384,8 @@ def get_offer_settings(update: Update, context: CallbackContext):
             product_name, amount, price = product
             cart_price += price * amount
 
-        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Заказать', callback_data=f'order_{cart_price}')],
-                                         [InlineKeyboardButton(text='Редктировать',
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}')],
+                                         [InlineKeyboardButton(text='Редктировать 📝',
                                                                callback_data=f'offer-stage_1_none')]])
 
         context.bot.edit_message_text(chat_id=chat_id,
@@ -423,8 +424,8 @@ def edit_cart(update: Update, context: CallbackContext):
     amount, product = edit_to_cart(command, chat_id, product_id)
     message = f'{product} - {amount} шт.'
     if amount > 0:
-        buttons = ([InlineKeyboardButton(text='Добавить', callback_data=f'add-cart_{product_id}'),
-                    InlineKeyboardButton(text='Убрать', callback_data=f'remove-cart_{product_id}')],)
+        buttons = ([InlineKeyboardButton(text='Добавить  🟢' , callback_data=f'add-cart_{product_id}'),
+                    InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove-cart_{product_id}')],)
         keyboard_edit = InlineKeyboardMarkup([button for button in buttons])
         try:
             context.bot.edit_message_text(chat_id=chat_id,
@@ -435,7 +436,7 @@ def edit_cart(update: Update, context: CallbackContext):
             pass
     else:
         keyboard_edit = InlineKeyboardMarkup(
-            [[InlineKeyboardButton(text='Добавить', callback_data=f'add-cart_{product_id}')]])
+            [[InlineKeyboardButton(text='Добавить  🟢' , callback_data=f'add-cart_{product_id}')]])
         context.bot.edit_message_text(chat_id=chat_id,
                                       message_id=message_id,
                                       text=message,
@@ -461,8 +462,8 @@ def start_edit(update: Update, context: CallbackContext):
         for product in cart_info:
             product_name, amount, price = product
             product_id = get_product_id(product_name)[0]
-            buttons = ([InlineKeyboardButton(text='Добавить', callback_data=f'add-cart_{product_id}'),
-                        InlineKeyboardButton(text='Убрать', callback_data=f'remove-cart_{product_id}')],)
+            buttons = ([InlineKeyboardButton(text='Добавить  🟢' , callback_data=f'add-cart_{product_id}'),
+                        InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove-cart_{product_id}')],)
             keyboard_edit = InlineKeyboardMarkup([button for button in buttons])
             message = f'{product_name} - {amount} шт. по {price} р.\n'
             message = context.bot.send_message(chat_id=chat_id,
@@ -515,14 +516,14 @@ def delete_cart(update: Update, context: CallbackContext):
     """Очистить корзину"""
     call = update.callback_query
 
-    buttons = ([InlineKeyboardButton(text='Вернуться', callback_data='cancel-delete-cart'),
-                InlineKeyboardButton(text='Удалить', callback_data='accept-delete-cart')],)
+    buttons = ([InlineKeyboardButton(text='Вернуться ❌', callback_data='cancel-delete-cart'),
+                InlineKeyboardButton(text='Удалить ✔️', callback_data='accept-delete-cart')],)
 
     keyboard = InlineKeyboardMarkup([button for button in buttons])
 
     message = context.bot.edit_message_text(chat_id=call.message.chat.id,
                                             message_id=call.message.message_id,
-                                            text='Вы уверены что хотите удалить корзину',
+                                            text='⚠️Вы уверены что хотите удалить корзину ⚠️',
                                             reply_markup=keyboard)
     save_cart_message_id(message.chat_id, message.message_id)
 
@@ -561,8 +562,7 @@ def orders_history(update: Update, context: CallbackContext):
         text = ''
         len_orders = len(orders) - 1
         for index, order in enumerate(orders):
-            order_id, product_name, product_price, product_amount, order_sum = order
-
+            order_id, product_name, product_price, product_amount, order_sum, order_status = order
             if not prev_id:
                 prev_id, prev_sum = order_id, order_sum
                 order_products = [f'{product_name} - {product_amount} шт. по {product_price}р.']
@@ -570,12 +570,12 @@ def orders_history(update: Update, context: CallbackContext):
                 order_products.append(f'{product_name} - {product_amount} шт. по {product_price}р.')
             if prev_id != order_id:
                 text_products = '\n'.join(order_products)
-                text += f'''Заказ № {prev_id} \n {text_products} \n на сумму:{prev_sum} \n {"_" * 20} \n'''
+                text += f'''Заказ № {prev_id}\n Статус заказа: {ORDER_STATUS[int(order_status)][1]} \n {text_products} \n на сумму:{prev_sum} \n {"_" * 20} \n'''
                 order_products = [f'{product_name} - {product_amount} шт. по {product_price}р.']
                 prev_id, prev_sum = order_id, order_sum
             if index == len_orders:
                 text_products = '\n'.join(order_products)
-                text += f'''Заказ № {order_id} \n {text_products} \n на сумму: {order_sum} \n {"_" * 20} \n'''
+                text += f'''Заказ № {order_id} \n Статус заказа: {ORDER_STATUS[int(order_status)][1]} \n {text_products} \n на сумму: {order_sum} \n {"_" * 20} \n'''
                 break
 
         message = context.bot.send_message(chat_id=update.effective_chat.id,
@@ -586,7 +586,7 @@ def orders_history(update: Update, context: CallbackContext):
                                message_id=message.message_id - 1)
 
 
-orders_history_handler = MessageHandler(Filters.text('Мои заказы'), orders_history)
+orders_history_handler = MessageHandler(Filters.text('Мои заказы 🗃️'), orders_history)
 dispatcher.add_handler(orders_history_handler)
 
 

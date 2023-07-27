@@ -5,6 +5,14 @@ from django.db import models
 
 from shop.models import Product, Shop
 
+ORDER_STATUS = (
+        ('0', 'Заявка обрабатывается'),
+        ('1', 'Сборка заказ'),
+        ('2', 'Доставка'),
+        ('3', 'Ожидает в пункте выдачи'),
+        ('4', 'Получен'),
+        ('5', 'Отменен')
+    )
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, verbose_name='Пользователь')
@@ -28,15 +36,6 @@ class Profile(models.Model):
 
 
 class OrderStatus(models.Model):
-    ORDER_STATUS = (
-        ('0', 'Заявка обрабатывается'),
-        ('1', 'Сборка заказ'),
-        ('2', 'Доставка'),
-        ('3', 'Ожидает в пункте выдачи'),
-        ('4', 'Получен'),
-        ('5', 'Отменен')
-    )
-
     title = models.CharField(max_length=50, verbose_name='Статус заказа', choices=ORDER_STATUS, blank=False,
                              default='Сборка заказ')
 

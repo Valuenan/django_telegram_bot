@@ -232,9 +232,9 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         order = Orders.objects.get(id=pk)
         old_status = order.status.title
         rests_action = order.update_order_status(new_status)
-        if new_status == "0" or old_status == "0":
+        if new_status in ['0', '1', '2', '4']:
             order.update_order_quantity(form, rests_action, shop)
-        elif new_status == '3' or new_status == '4':
+        elif new_status in ['3', '5']:
             ready_order_message(chat_id=order.profile.chat_id, order_id=order.id, order_sum=order.order_price)
 
         return redirect(f'/order/{pk}')
