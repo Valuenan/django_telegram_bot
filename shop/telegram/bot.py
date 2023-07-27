@@ -494,18 +494,18 @@ def order(update: Update, context: CallbackContext):
     text_products = ''
     for product_name, product_amount in order_products:
         text_products += f'\n{product_name[0]} - {product_amount} шт.'
-    order_message = f'Заказ №: {order_num} \n {text_products} \n {call.message.text} \n на сумму: {order_price}'
+    order_message = f'<b>Заказ №: {order_num}</b> \n {text_products} \n {call.message.text} \n <b>на сумму: {order_price}</b>'
     context.bot.answer_callback_query(callback_query_id=call.id,
                                       text=f'Ваш заказ номер {order_num} принят')
     context.bot.edit_message_text(text=f'Клиент: {user} \n{order_message}',
                                   chat_id=call.message.chat.id,
-                                  message_id=call.message.message_id)
+                                  message_id=call.message.message_id, parse_mode='HTML')
     context.bot.forward_message(chat_id=ORDERS_CHAT_ID,
                                 from_chat_id=call.message.chat_id,
-                                message_id=call.message.message_id)
+                                message_id=call.message.message_id, parse_mode='HTML')
     context.bot.edit_message_text(text=f'Ваш {order_message}',
                                   chat_id=call.message.chat.id,
-                                  message_id=call.message.message_id)
+                                  message_id=call.message.message_id, parse_mode='HTML')
 
 
 order_cart_handler = CallbackQueryHandler(order, pattern=str('order_'))
