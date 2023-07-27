@@ -141,7 +141,7 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
     if products:
         for product in products:
             product_id, product_name, product_img, price, category_id, rests = product
-            buttons = ([InlineKeyboardButton(text='Добавить  🟢' , callback_data=f'add_{product_id}'),
+            buttons = ([InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add_{product_id}'),
                         InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove_{product_id}')],)
             imgs = [product_img]
             try:
@@ -157,7 +157,8 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
             keyboard = InlineKeyboardMarkup([button for button in buttons])
             context.bot.send_message(chat_id=update.effective_chat.id, text=f'{product_name} '
                                                                             f'\n <b>Цена: {price}</b>'
-                                                                            f'\n <i>Количество: {rests} шт.</i>', parse_mode='HTML')
+                                                                            f'\n <i>Количество: {rests} шт.</i>',
+                                     parse_mode='HTML')
             try:
                 product_photo = open(f'{BASE_DIR}/static/products/{imgs[0]}', 'rb')
             except FileNotFoundError:
@@ -196,7 +197,7 @@ def roll_photo(update: Update, context: CallbackContext):
     else:
         main_photo = photo_url.replace('.', '@rev.')
 
-    buttons = ([[InlineKeyboardButton(text='Добавить  🟢' , callback_data=main_inline_kb[0][0]['callback_data']),
+    buttons = ([[InlineKeyboardButton(text='Добавить  🟢', callback_data=main_inline_kb[0][0]['callback_data']),
                  InlineKeyboardButton(text='Убрать 🔴', callback_data=main_inline_kb[0][1]['callback_data']),
                  InlineKeyboardButton(text='Повернуть', callback_data=f'roll_{main_photo}')]])
     keyboard = InlineKeyboardMarkup([button for button in buttons])
@@ -358,9 +359,10 @@ def get_offer_settings(update: Update, context: CallbackContext):
             save_delivery_settings(value=users_message[chat_id], field='delivery_street', chat_id=chat_id)
         save_delivery_settings(value=True, field='delivery', chat_id=chat_id)
         users_message.pop(chat_id)
-        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='🎟️ Наличными', callback_data='offer-stage_4_cash'),
-                                          InlineKeyboardButton(text='💳 Безналично',
-                                                               callback_data='offer-stage_4_cashless')]])
+        keyboard = InlineKeyboardMarkup(
+            [[InlineKeyboardButton(text='🎟️ Наличными', callback_data='offer-stage_4_cash'),
+              InlineKeyboardButton(text='💳 Безналично',
+                                   callback_data='offer-stage_4_cashless')]])
         context.bot.edit_message_text(chat_id=update.effective_chat.id,
                                       message_id=message_id,
                                       text=f'Выберите вид оплаты',
@@ -384,9 +386,10 @@ def get_offer_settings(update: Update, context: CallbackContext):
             product_name, amount, price = product
             cart_price += price * amount
 
-        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}')],
-                                         [InlineKeyboardButton(text='Редктировать 📝',
-                                                               callback_data=f'offer-stage_1_none')]])
+        keyboard = InlineKeyboardMarkup(
+            [[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}')],
+             [InlineKeyboardButton(text='Редктировать 📝',
+                                   callback_data=f'offer-stage_1_none')]])
 
         context.bot.edit_message_text(chat_id=chat_id,
                                       message_id=message_id,
@@ -424,7 +427,7 @@ def edit_cart(update: Update, context: CallbackContext):
     amount, product = edit_to_cart(command, chat_id, product_id)
     message = f'{product} - {amount} шт.'
     if amount > 0:
-        buttons = ([InlineKeyboardButton(text='Добавить  🟢' , callback_data=f'add-cart_{product_id}'),
+        buttons = ([InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add-cart_{product_id}'),
                     InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove-cart_{product_id}')],)
         keyboard_edit = InlineKeyboardMarkup([button for button in buttons])
         try:
@@ -436,7 +439,7 @@ def edit_cart(update: Update, context: CallbackContext):
             pass
     else:
         keyboard_edit = InlineKeyboardMarkup(
-            [[InlineKeyboardButton(text='Добавить  🟢' , callback_data=f'add-cart_{product_id}')]])
+            [[InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add-cart_{product_id}')]])
         context.bot.edit_message_text(chat_id=chat_id,
                                       message_id=message_id,
                                       text=message,
@@ -462,7 +465,7 @@ def start_edit(update: Update, context: CallbackContext):
         for product in cart_info:
             product_name, amount, price = product
             product_id = get_product_id(product_name)[0]
-            buttons = ([InlineKeyboardButton(text='Добавить  🟢' , callback_data=f'add-cart_{product_id}'),
+            buttons = ([InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add-cart_{product_id}'),
                         InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove-cart_{product_id}')],)
             keyboard_edit = InlineKeyboardMarkup([button for button in buttons])
             message = f'{product_name} - {amount} шт. по {price} р.\n'
@@ -494,9 +497,9 @@ def order(update: Update, context: CallbackContext):
     text_products = ''
     for product_name, product_amount in order_products:
         text_products += f'\n{product_name[0]} - {product_amount} шт.'
-    order_message = f'<b>Заказ №: {order_num}</b> \n {text_products} \n {call.message.text} \n <b>на сумму: {order_price}</b>'
+    order_message = f'<b><u>Заказ №: {order_num}</u></b> \n {text_products} \n {call.message.text} \n <b>на сумму: {order_price}</b>'
     context.bot.answer_callback_query(callback_query_id=call.id,
-                                      text=f'Ваш заказ номер {order_num} принят')
+                                      text=f'Ваш заказ принят')
     context.bot.edit_message_text(text=f'Клиент: {user} \n{order_message}',
                                   chat_id=call.message.chat.id,
                                   message_id=call.message.message_id, parse_mode='HTML')
@@ -562,25 +565,29 @@ def orders_history(update: Update, context: CallbackContext):
         text = ''
         len_orders = len(orders) - 1
         for index, order in enumerate(orders):
+
             order_id, product_name, product_price, product_amount, order_sum, order_status = order
             if not prev_id:
+                position = 1
                 prev_id, prev_sum = order_id, order_sum
-                order_products = [f'{product_name} - {product_amount} шт. по {product_price}р.']
+                order_products = [f'<i>{position}.</i> {product_name} - {product_amount} шт. по {product_price}р.']
             elif prev_id == order_id:
-                order_products.append(f'{product_name} - {product_amount} шт. по {product_price}р.')
+                order_products.append(f'<i>{position}.</i> {product_name} - {product_amount} шт. по {product_price}р.')
             if prev_id != order_id:
+                position = 1
                 text_products = '\n'.join(order_products)
-                text += f'''Заказ № {prev_id}\n Статус заказа: {ORDER_STATUS[int(order_status)][1]} \n {text_products} \n на сумму:{prev_sum} \n {"_" * 20} \n'''
-                order_products = [f'{product_name} - {product_amount} шт. по {product_price}р.']
+                text += f'''<b><u>Заказ № {prev_id}</u></b>\n <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u> \n {text_products} \n <b>на сумму:{prev_sum}</b> \n {"_" * 20} \n'''
+                order_products = [f'<i>{position}.</i> {product_name} - {product_amount} шт. по {product_price}р.']
                 prev_id, prev_sum = order_id, order_sum
+            position += 1
             if index == len_orders:
                 text_products = '\n'.join(order_products)
-                text += f'''Заказ № {order_id} \n Статус заказа: {ORDER_STATUS[int(order_status)][1]} \n {text_products} \n на сумму: {order_sum} \n {"_" * 20} \n'''
+                text += f'''<b><u>Заказ № {order_id}</u></b> \n <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u> \n {text_products} \n <b>на сумму: {order_sum}</b> \n {"_" * 20} \n'''
                 break
 
         message = context.bot.send_message(chat_id=update.effective_chat.id,
                                            text=text,
-                                           reply_markup=keyboard)
+                                           reply_markup=keyboard, parse_mode='HTML')
 
     context.bot.delete_message(chat_id=update.effective_chat.id,
                                message_id=message.message_id - 1)
