@@ -328,15 +328,15 @@ def save_order(chat_id: int, delivery_info: str, cart_price: int) -> list and in
     return products, cart_price
 
 
-def get_user_orders(chat_id: int) -> list:
+def get_user_orders(chat_id: int, filter: str = '') -> list:
     """Получить список заказов пользователя"""
     db, cur = connect_db(f"""SELECT orders.id, products.name, products.price ,carts.amount, orders.order_price, order_status.title
-    FROM orders 
+    FROM orders
     INNER JOIN carts ON orders.id = carts.order_id 
     INNER JOIN products ON carts.product_id = products.id
     INNER JOIN profile ON profile.id = orders.profile_id
     INNER JOIN order_status ON orders.status_id = order_status.id
-    WHERE profile.chat_id='{chat_id}'""")
+    WHERE profile.chat_id='{chat_id}' {filter}""")
     orders = cur.fetchall()
     cur.close()
     db.close()
