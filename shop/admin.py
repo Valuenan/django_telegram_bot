@@ -5,6 +5,9 @@ from .models import Category, Product, File, Rests, Shop
 @admin.register(File)
 class FileAdmin(admin.ModelAdmin):
     readonly_fields = ('user', 'file', 'created_at')
+    list_display = ['created_at', 'user', 'file']
+    ordering = ['created_at']
+    search_fields = ['user']
 
 
 @admin.register(Shop)
@@ -27,4 +30,4 @@ class ProductsAdmin(admin.ModelAdmin):
 
 @admin.register(Rests)
 class RestsAdmin(admin.ModelAdmin):
-    pass
+    list_display = ['shop', 'product', 'amount']

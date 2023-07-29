@@ -8,7 +8,7 @@ class File(models.Model):
     created_at = models.DateField(auto_now_add=True, verbose_name='Дата импорта')
 
     def __str__(self):
-        return f'{self.user.username} - {self.created_at}'
+        return self.user.username
 
     class Meta:
         db_table = 'files'
@@ -50,7 +50,7 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Цена товара')
 
     def __str__(self):
-        return f'{self.name} - {self.price}р.'
+        return self.name
 
     def edit_rests(self, action, shop, old_amount, new_amount):
         rest = self.rests_set.filter(shop=shop)[0]
@@ -73,7 +73,7 @@ class Rests(models.Model):
     amount = models.DecimalField(max_digits=6, decimal_places=3, verbose_name='Количество', default=0)
 
     def __str__(self):
-        return f'{self.shop} - {self.product} - {self.amount}'
+        return self.product.name
 
     def change_rests(self, shop, product, amount):
         pass
