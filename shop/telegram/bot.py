@@ -1,9 +1,8 @@
 import logging
 import re
 
-import telegram
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, InputMediaPhoto, \
-    KeyboardButton
+    KeyboardButton, error, bot
 from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, \
     PollAnswerHandler
 
@@ -16,16 +15,14 @@ from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from users.models import ORDER_STATUS
 from django_telegram_bot.settings import BASE_DIR
 
-users_message = {}
 
 updater = Updater(token=TOKEN)
+
 dispatcher = updater.dispatcher
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 BUTTONS_IN_ROW_CATEGORY = 2
+users_message = {}
 
 """ ДЛЯ ПОЛЬЗОВАТЕЛЕЙ """
 
@@ -35,8 +32,6 @@ def main_keyboard(update: Update, context: CallbackContext):
     user = update.message.from_user
     text, err = start_user(user.first_name, user.last_name, user.username,
                            update.message.chat_id, cart_message_id=0, discount=1)
-    if err not in ['ok', 'no-phone']:
-        logger.info(f"User %s 'start' {update.message.chat_id},{user.username}. error - {err}")
 
     if err == 'ok':
         button_column = [[KeyboardButton(text='Меню 🧾'), KeyboardButton(text='Корзина 🛒')],
@@ -223,7 +218,7 @@ def edit(update: Update, context: CallbackContext):
     command, product_id = call.data.split('_')
 
     product_amount, product = edit_to_cart(command, user, product_id)
-    context.bot.answer_callback_query(callback_query_id=call.id, text=f'В корзине {product[0]} - {product_amount} шт.')
+    context.bot.answer_callback_query(callback_query_id=call.id, text=f'В корзине {product[0]} - {int(product_amount)} шт.')
 
 
 catalog_handler = CallbackQueryHandler(edit, pattern="^" + str('add_'))
@@ -251,7 +246,7 @@ def cart(update: Update, context: CallbackContext):
         try:
             if old_cart_message_id != 0:
                 context.bot.delete_message(chat_id=chat_id, message_id=old_cart_message_id)
-        except telegram.error.BadRequest:
+        except error.BadRequest:
             pass
     cart_info = show_cart(chat_id)
     cart_price = 0
@@ -261,7 +256,7 @@ def cart(update: Update, context: CallbackContext):
         for num, product in enumerate(cart_info):
             product_name, amount, price = product
             cart_price += round(price * amount, 2)
-            cart_message += f'{num + 1}. {product_name} - {amount} шт. по {price} р.\n'
+            cart_message += f'{num + 1}. {product_name} - {int(amount)} шт. по {price} р.\n'
         else:
             cart_message += f'Итого: {cart_price} р.'
 
@@ -279,7 +274,7 @@ def cart(update: Update, context: CallbackContext):
                                                         message_id=message_id,
                                                         text=cart_message,
                                                         reply_markup=keyboard)
-            except telegram.error.BadRequest:
+            except error.BadRequest:
                 pass
             else:
                 old_cart_message_to_none(chat_id)
@@ -393,7 +388,7 @@ def get_offer_settings(update: Update, context: CallbackContext):
 
         context.bot.edit_message_text(chat_id=chat_id,
                                       message_id=message_id,
-                                      text=f'Мы доставим {delivery_settings}',
+                                      text=f'Мы доставим по адресу - {delivery_settings}',
                                       reply_markup=keyboard)
 
 
@@ -425,7 +420,7 @@ def edit_cart(update: Update, context: CallbackContext):
     message_id = call.message.message_id
     command, product_id = call.data.split('_')
     amount, product = edit_to_cart(command, chat_id, product_id)
-    message = f'{product} - {amount} шт.'
+    message = f'{product[0]} - {int(amount)} шт.'
     if amount > 0:
         buttons = ([InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add-cart_{product_id}'),
                     InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove-cart_{product_id}')],)
@@ -435,7 +430,7 @@ def edit_cart(update: Update, context: CallbackContext):
                                           message_id=message_id,
                                           text=message,
                                           reply_markup=keyboard_edit)
-        except telegram.error.BadRequest:
+        except error.BadRequest:
             pass
     else:
         keyboard_edit = InlineKeyboardMarkup(
@@ -468,7 +463,7 @@ def start_edit(update: Update, context: CallbackContext):
             buttons = ([InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add-cart_{product_id}'),
                         InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove-cart_{product_id}')],)
             keyboard_edit = InlineKeyboardMarkup([button for button in buttons])
-            message = f'{product_name} - {amount} шт. по {price} р.\n'
+            message = f'{product_name} - {int(amount)} шт. по {price} р.\n'
             message = context.bot.send_message(chat_id=chat_id,
                                                text=message,
                                                reply_markup=keyboard_edit)
@@ -496,7 +491,7 @@ def order(update: Update, context: CallbackContext):
     order_products, order_price = save_order(chat_id, call.message.text, cart_price)
     text_products = ''
     for product_name, product_amount in order_products:
-        text_products += f'\n{product_name[0]} - {product_amount} шт.'
+        text_products += f'\n{product_name[0]} - {int(product_amount)} шт.'
     order_message = f'<b><u>Заказ №: {order_num}</u></b> \n {text_products} \n {call.message.text} \n <b>на сумму: {order_price}</b>'
     context.bot.answer_callback_query(callback_query_id=call.id,
                                       text=f'Ваш заказ принят')
@@ -570,14 +565,14 @@ def orders_history(update: Update, context: CallbackContext):
             if not prev_id:
                 position = 1
                 prev_id, prev_sum = order_id, order_sum
-                order_products = [f'<i>{position}.</i> {product_name} - {product_amount} шт. по {product_price}р.']
+                order_products = [f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price}р.']
             elif prev_id == order_id:
-                order_products.append(f'<i>{position}.</i> {product_name} - {product_amount} шт. по {product_price}р.')
+                order_products.append(f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price}р.')
             if prev_id != order_id:
                 position = 1
                 text_products = '\n'.join(order_products)
                 text += f'''<b><u>Заказ № {prev_id}</u></b>\n <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u> \n {text_products} \n <b>на сумму:{prev_sum}</b> \n {"_" * 20} \n'''
-                order_products = [f'<i>{position}.</i> {product_name} - {product_amount} шт. по {product_price}р.']
+                order_products = [f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price}р.']
                 prev_id, prev_sum = order_id, order_sum
             position += 1
             if index == len_orders:

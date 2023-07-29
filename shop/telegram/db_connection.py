@@ -145,7 +145,7 @@ def get_products(chosen_category: int, page: int) -> (list, int):
         return products, None
 
 
-def get_product_id(product_name: str) -> int:
+def get_product_id(product_name: str) -> list:
     """Получить ид товара"""
     db, cur = connect_db(f"SELECT id FROM products WHERE name='{product_name}'")
     request = cur.fetchone()
@@ -154,7 +154,7 @@ def get_product_id(product_name: str) -> int:
     return request
 
 
-def edit_to_cart(command: str, chat_id: int, product_id: int) -> (int, str):
+def edit_to_cart(command: str, chat_id: int, product_id: int) -> (int, list):
     """Добавить/Удалить товар из корзины"""
     db, cur = connect_db(f"""SELECT profile.id FROM profile WHERE profile.chat_id='{chat_id}'""")
     profile_id = cur.fetchone()[0]
