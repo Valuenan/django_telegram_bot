@@ -36,20 +36,24 @@ class ImportCategoryView(View):
                 files = request.FILES.getlist('file_field')
                 for file in files:
                     file_for_import = File.objects.create(user=user, file=file)
-                    try:
 
-                        with open(os.path.abspath(f'{settings.MEDIA_ROOT}/{file_for_import.file}')) as csvfile:
-                            reader = csv.DictReader(csvfile)
+                    with open(os.path.abspath(f'{settings.MEDIA_ROOT}/{file_for_import.file}')) as csvfile:
+                        reader = csv.DictReader(csvfile)
 
-                            for row in reader:
-                                try:
-                                    category_id, category_name, category_parent_id = list(row.values())[0].split(';')
-                                    category_id = int(category_id.replace('"', ""))
-                                    category_name = category_name.replace('"', "")
-                                    category_parent_id = int(category_parent_id.replace('"', ""))
+                        for row in reader:
+                            try:
+                                category_id, category_name, category_parent_id = list(row.values())[0].split(';')
+                                category_id = int(category_id.replace('"', "")[-5:])
+                                category_name = category_name.replace('"', "")
+                                category_parent_id = int(category_parent_id.replace('"', "")[-5:])
+
+                                category = Category.objects.filter(id=category_id,
+                                                                   parent_category=category_parent_id)
+                                if category:
+                                    category.update(command=category_name)
+                                else:
 
                                     if category_parent_id == 0:
-
                                         Category.objects.get_or_create(id=category_id, command=category_name)
 
                                     else:
@@ -60,7 +64,8 @@ class ImportCategoryView(View):
                                             temp_category = Category.objects.create(id=category_parent_id,
                                                                                     command="TEMP")
                                             temp_category.save()
-                                            category = Category.objects.create(id=category_id, command=category_name,
+                                            category = Category.objects.create(id=category_id,
+                                                                               command=category_name,
                                                                                parent_category=temp_category)
                                             category.save()
                                         elif category:
@@ -69,31 +74,25 @@ class ImportCategoryView(View):
                                             category.parent_category = parent_category[0]
                                             category.save()
                                         elif not category:
-                                            category = Category.objects.create(id=category_id, command=category_name,
+                                            category = Category.objects.create(id=category_id,
+                                                                               command=category_name,
                                                                                parent_category=parent_category[0])
                                             category.save()
 
-
-                                except (ValueError, ZeroDivisionError) as ex:
-                                    logger.error(f'import {file} error Bad values - {ex}')
-                                    log += f'import {file} error Bad values - {ex}\n'
-                                    messages.error(request, 'Error updating products. Bad values')
+                            except (ValueError, ZeroDivisionError) as ex:
+                                logger.error(f'import {file} error Bad values - {ex}')
+                                log += f'import {file} error Bad values - {ex}\n'
+                                messages.error(request, 'Ошибка загрузки. Некорректные значения')
 
                         logger.info(f'import {file} - successfully')
                         log += f'import {file} - successfully\n'
 
-
-                    except xlrd.XLRDError as ex:
-                        logger.error(f'import {file} error Bad file - {ex}')
-                        log += f'import {file} error Bad file - {ex}\n'
-                        messages.error(request, 'Error updating products. Bad file')
-
         except TypeError as ex:
             logger.error(f'import error load file - {ex}')
             log += f'import error load file - {ex}'
-            messages.error(request, 'Error load file')
+            messages.error(request, 'Ошибка загрузки')
 
-        messages.success(request, 'Products updated successfully')
+        messages.success(request, 'Category updated successfully')
         return redirect('/admin/import_category/')
 
 
@@ -108,96 +107,92 @@ class ImportGoodsView(View):
         log = ''
         user = User.objects.get(id=request.user.id)
         upload_file_form = ImportGoodsForm(request.POST, request.FILES)
+        wrong_group_products = []
 
         try:
             if upload_file_form.is_valid():
                 files = request.FILES.getlist('file_field')
-
                 for file in files:
                     file_for_import = File.objects.create(user=user, file=file)
                     try:
-                        workbook = xlrd.open_workbook(os.path.abspath(f'{settings.MEDIA_ROOT}/{file_for_import.file}'))
-                        exel_data = workbook.sheet_by_index(0)
-                        shop = Shop.objects.get_or_create(name=exel_data.cell_value(0, 3))[0]
-                        row = 3
+                        with xlrd.open_workbook(
+                                os.path.abspath(f'{settings.MEDIA_ROOT}/{file_for_import.file}')) as workbook:
 
-                        while True:
+                            exel_data = workbook.sheet_by_index(0)
+                            shop = Shop.objects.get_or_create(name=exel_data.cell_value(0, 3))[0]
                             try:
-                                product_price = 0
-                                product_name = exel_data.cell_value(row, 0)
-                                product_image = exel_data.cell_value(row, 1)
-                                product_category = exel_data.cell_value(row, 2)
-                                prachechniy_rests = exel_data.cell_value(row, 3)
-                                prachechniy_sum = exel_data.cell_value(row, 4)
+                                for row in range(3, exel_data.nrows-1):
 
-                                if product_image == ', ':
-                                    product_image = 'no-image.jpg'
-                                else:
-                                    product_image = product_image.replace(', ', '.')
+                                    product_price = 0
+                                    product_name = exel_data.cell_value(row, 0)
+                                    product_image = exel_data.cell_value(row, 1)
+                                    product_category = int(exel_data.cell_value(row, 2))
+                                    prachechniy_rests = exel_data.cell_value(row, 3)
+                                    prachechniy_sum = exel_data.cell_value(row, 4)
 
-                                if prachechniy_rests != '':
-                                    prachechniy_rests = Decimal(prachechniy_rests)
-                                    prachechniy_sum = Decimal(prachechniy_sum)
-                                    product_price = prachechniy_sum / prachechniy_rests
-                                else:
-                                    prachechniy_rests = 0
-                                if product_price == 0:
-                                    logger.error(f'import {file} error Bad values - {product_name}, rests = 0')
-                                    log += f'import {file} error Bad values - {product_name}, rests = 0\n'
-                                    messages.error(request,
-                                                   f'Error updating products. Bad values {product_name}, rests = 0')
-                                    break
+                                    if product_image == ', ':
+                                        product_image = 'no-image.jpg'
+                                    else:
+                                        product_image = product_image.replace(', ', '.')
 
-                                category = Category.objects.filter(command=product_category.strip())
+                                    if prachechniy_rests != '':
+                                        prachechniy_rests = Decimal(prachechniy_rests)
+                                        prachechniy_sum = Decimal(prachechniy_sum)
+                                        product_price = prachechniy_sum / prachechniy_rests
+                                    else:
+                                        prachechniy_rests = 0
+                                    if product_price == 0:
+                                        logger.error(f'import {file} error Bad values - {product_name}, rests = 0')
+                                        log += f'import {file} error Bad values - {product_name}, rests = 0\n'
+                                        messages.error(request,
+                                                       f'Ошибка загрузки. Некорректные значения {product_name}, остаток = 0')
+                                        break
+                                    category = Category.objects.filter(id=product_category)
 
-                                # Убираем товары с категорие Архив и без категории (по заданию Андрея)
-                                if not category:
-                                    row += 1
-                                    continue
+                                    # Убираем товары с категорие Архив и без категории (по заданию Андрея)
+                                    if not category:
+                                        wrong_group_products.append(product_name)
+                                        continue
 
-                                product = Product.objects.filter(name=product_name.strip())
+                                    product = Product.objects.filter(name=product_name.strip())
 
-                                if product:
-                                    product = product[0]
-                                    product.category = category[0]
-                                    product.img = product_image
-                                    product.price = product_price
-                                    product.save()
-                                    db_rests = Rests.objects.filter(product=product)
-                                    for rest in db_rests:
-                                        rest.amount = prachechniy_rests
-                                        rest.save()
-                                else:
-                                    product = Product.objects.create(name=product_name,
-                                                                     category=category[0],
-                                                                     img=product_image,
-                                                                     price=product_price)
-                                    product.save()
-                                    db_rests = Rests.objects.create(shop=shop,
-                                                                    product=product,
-                                                                    amount=prachechniy_rests)
-                                    db_rests.save()
+                                    if product:
+                                        product = product[0]
+                                        product.category = category[0]
+                                        product.img = product_image
+                                        product.price = product_price
+                                        product.save()
+                                        db_rests = Rests.objects.filter(product=product)
+                                        for rest in db_rests:
+                                            rest.amount = prachechniy_rests
+                                            rest.save()
+                                    else:
+                                        product = Product.objects.create(name=product_name,
+                                                                         category=category[0],
+                                                                         img=product_image,
+                                                                         price=product_price)
+                                        product.save()
+                                        db_rests = Rests.objects.create(shop=shop,
+                                                                        product=product,
+                                                                        amount=prachechniy_rests)
+                                        db_rests.save()
 
-                                row += 1
-                            except IndexError:
-                                logger.info(f'import {file} - successfully')
-                                log += f'import {file} - successfully\n'
-                                messages.success(request, 'Products updated successfully')
-                                break
                             except (ValueError, ZeroDivisionError) as ex:
                                 logger.error(f'import {file} error Bad values - {ex}')
                                 log += f'import {file} error Bad values - {ex}\n'
-                                messages.error(request, 'Error updating products. Bad values')
+                                messages.error(request, 'Ошибка загрузки. Некорректные значения')
 
                     except xlrd.XLRDError as ex:
                         logger.error(f'import {file} error Bad file - {ex}')
                         log += f'import {file} error Bad file - {ex}\n'
-                        messages.error(request, 'Error updating products. Bad file')
+                        messages.error(request, 'Ошибка загрузки. Некорректный файл')
 
         except TypeError as ex:
             logger.error(f'import error load file - {ex}')
             log += f'import error load file - {ex}'
-            messages.error(request, 'Error load file')
+            messages.error(request, 'Ошибка загрузки')
+
+        messages.success(request, f'Товары загружены, кроме: {wrong_group_products}')
         return redirect('/admin/import_goods/')
 
 

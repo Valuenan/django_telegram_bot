@@ -8,7 +8,7 @@ class File(models.Model):
     created_at = models.DateField(auto_now_add=True, verbose_name='Дата импорта')
 
     def __str__(self):
-        return self.user.username
+        return self.file
 
     class Meta:
         db_table = 'files'
