@@ -1,0 +1,65 @@
+[
+  {
+    "model": "users.orderstatus",
+    "pk": 1,
+    "fields": {
+      "title": "0"
+    }
+  },
+  {
+    "model": "users.orderstatus",
+    "pk": 2,
+    "fields": {
+      "title": "1"
+    }
+  },
+  {
+    "model": "users.orderstatus",
+    "pk": 3,
+    "fields": {
+      "title": "2"
+    }
+  },
+  {
+    "model": "users.orderstatus",
+    "pk": 4,
+    "fields": {
+      "title": "3"
+    }
+  },
+  {
+    "model": "users.orderstatus",
+    "pk": 5,
+    "fields": {
+      "title": "4"
+    }
+  },
+  {
+    "model": "users.orderstatus",
+    "pk": 6,
+    "fields": {
+      "title": "5"
+    }
+  },
+  {
+    "model": "users.payment",
+    "pk": 1,
+    "fields": {
+      "title": "0"
+    }
+  },
+  {
+    "model": "users.payment",
+    "pk": 2,
+    "fields": {
+      "title": "1"
+    }
+  },
+  {
+    "model": "users.payment",
+    "pk": 3,
+    "fields": {
+      "title": "2"
+    }
+  }
+]

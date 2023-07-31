@@ -7,11 +7,16 @@ from shop.models import Product, Shop
 
 ORDER_STATUS = (
     ('0', 'Заявка обрабатывается 📝'),
-    ('1', 'Сборка заказ 📦'),
+    ('1', 'Сборка заказа 📦'),
     ('2', 'Доставка 🚚'),
     ('3', 'Ожидает в пункте выдачи 🚶‍♂️'),
     ('4', 'Получен ✅'),
     ('5', 'Отменен ❌')
+)
+PAYMENT = (
+    ('0', '🎟️ Наличными'),
+    ('1', '💳 Безналично'),
+    ('2', '📱 Перевод'),
 )
 
 
@@ -24,7 +29,6 @@ class Profile(models.Model):
     delivery = models.BooleanField(verbose_name='Доставка', default=False)
     main_shop = models.ForeignKey(Shop, on_delete=models.DO_NOTHING, verbose_name='Магазин доставки', null=True,
                                   blank=True)
-    payment_cash = models.BooleanField(verbose_name='Оплачивать наличными', default=True)
     delivery_street = models.CharField(max_length=200, verbose_name='Улица доставки', blank=True, null=True)
 
     def __str__(self):
@@ -38,7 +42,7 @@ class Profile(models.Model):
 
 class OrderStatus(models.Model):
     title = models.CharField(max_length=50, verbose_name='Статус заказа', choices=ORDER_STATUS, blank=False,
-                             default='Сборка заказ')
+                             default='Заявка обрабатывается 📝')
 
     def __str__(self):
         return self.get_title_display()
@@ -49,6 +53,19 @@ class OrderStatus(models.Model):
         verbose_name_plural = 'Статусы заказа'
 
 
+class Payment(models.Model):
+    title = models.CharField(max_length=50, verbose_name='Виды оплат', choices=PAYMENT, blank=False,
+                             default='🎟️ Наличными')
+
+    def __str__(self):
+        return self.get_title_display()
+
+    class Meta:
+        db_table = 'order_payment'
+        verbose_name = 'Вид оплаты'
+        verbose_name_plural = 'Виды оплаты'
+
+
 class Orders(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, verbose_name='Пользователь')
     date = models.DateField(auto_now_add=True, verbose_name='Дата заказа')
@@ -57,6 +74,7 @@ class Orders(models.Model):
     admin_check = models.CharField(max_length=100, verbose_name='Заявка принята работником:', null=True, blank=True)
     deliver = models.BooleanField(verbose_name='Доставить по адресу')
     status = models.ForeignKey(OrderStatus, blank=True, on_delete=models.DO_NOTHING, verbose_name='Статус заказа')
+    payment = models.ForeignKey(Payment, blank=True, null=True, on_delete=models.DO_NOTHING, verbose_name='Вид оплаты')
 
     def __str__(self):
         return f'Заказ номер: {self.id} , статус {self.status} - {self.profile.user.username} - сумма {self.order_price} - подтвердил {self.admin_check}'
@@ -72,7 +90,6 @@ class Orders(models.Model):
         """Обновляет количество товара и спысываем со склада"""
         """Приимаем на вход словарь где ключ - ид товара, значение - количество"""
         order_carts = self.carts_set.all()
-        print(form)
 
         if rests_action == 'add' and not form:
             for item in order_carts.values():
@@ -81,19 +98,17 @@ class Orders(models.Model):
         for cart_id in form:
             cart_item = order_carts.filter(id=cart_id)[0]
             if cart_item:
-                try:
-                    amount = decimal.Decimal(form[cart_id])
-                    if amount > decimal.Decimal(0):
-                        cart_item.soft_delete = False
-                        cart_item.product.edit_rests(rests_action, shop, cart_item.amount, amount)
-                        cart_item.amount = amount
-                        cart_item.save()
-                    elif amount <= decimal.Decimal(0):
-                        cart_item.amount = 0
-                        cart_item.soft_delete = True
-                        cart_item.save()
-                except decimal.InvalidOperation as ex:
-                    print(ex)
+                amount = decimal.Decimal(form[cart_id])
+                if amount > decimal.Decimal(0):
+                    cart_item.soft_delete = False
+                    cart_item.product.edit_rests(rests_action, shop, cart_item.amount, amount)
+                    cart_item.amount = amount
+                    cart_item.save()
+                elif amount <= decimal.Decimal(0):
+                    cart_item.amount = 0
+                    cart_item.soft_delete = True
+                    cart_item.save()
+
         self.order_price = self.update_order_sum(order_carts)
         self.save()
 

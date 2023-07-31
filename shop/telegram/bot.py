@@ -2,7 +2,7 @@ import logging
 import re
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, InputMediaPhoto, \
-    KeyboardButton, error, bot
+    KeyboardButton, error
 from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, \
     PollAnswerHandler
 
@@ -12,7 +12,7 @@ from shop.telegram.db_connection import load_last_order, get_category, get_produ
     get_user_id_chat, status_confirmed_order, save_delivery_settings, get_delivery_settings, get_user_address, \
     get_shops, user_add_phone, ADMIN_TG
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
-from users.models import ORDER_STATUS
+from users.models import ORDER_STATUS, PAYMENT
 from django_telegram_bot.settings import BASE_DIR
 
 updater = Updater(token=TOKEN)
@@ -80,7 +80,6 @@ def catalog(update: Update, context: CallbackContext):
 
     buttons = [[]]
     row = 0
-
     if update.callback_query:
         call = update.callback_query
         context.bot.delete_message(chat_id=call.message.chat.id,
@@ -353,25 +352,23 @@ def get_offer_settings(update: Update, context: CallbackContext):
             save_delivery_settings(value=users_message[chat_id], field='delivery_street', chat_id=chat_id)
         save_delivery_settings(value=True, field='delivery', chat_id=chat_id)
         users_message.pop(chat_id)
-        keyboard = InlineKeyboardMarkup(
-            [[InlineKeyboardButton(text='🎟️ Наличными', callback_data='offer-stage_4_cash'),
-              InlineKeyboardButton(text='💳 Безналично',
-                                   callback_data='offer-stage_4_cashless')]])
+        buttons = []
+        for payment in PAYMENT:
+            buttons.append([InlineKeyboardButton(text=payment[1], callback_data=f'offer-stage_4_pay#{payment[0]}')])
+        keyboard = InlineKeyboardMarkup([button for button in buttons])
         context.bot.edit_message_text(chat_id=update.effective_chat.id,
                                       message_id=message_id,
                                       text=f'Выберите вид оплаты',
                                       reply_markup=keyboard)
 
     if settings_stage == '4':
-        try:
+        if 'pay' in answer:
+            _, payment_id = answer.split('#')
+        else:
             answer = int(answer)
+            payment_id = 0
             save_delivery_settings(value=answer, field='main_shop_id', chat_id=chat_id)
-        except ValueError:
-            if answer == 'cashless':
-                save_delivery_settings(value=False, field='payment_cash', chat_id=chat_id)
-            elif answer == 'cash':
-                save_delivery_settings(value=True, field='payment_cash', chat_id=chat_id)
-        delivery_settings = _user_settings_from_db(get_delivery_settings(chat_id))
+        delivery_settings = _user_settings_from_db(get_delivery_settings(chat_id), payment_id)
 
         cart_price = 0
         cart_info = show_cart(chat_id)
@@ -381,7 +378,7 @@ def get_offer_settings(update: Update, context: CallbackContext):
             cart_price += price * amount
 
         keyboard = InlineKeyboardMarkup(
-            [[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}')],
+            [[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}_{payment_id}')],
              [InlineKeyboardButton(text='Редктировать 📝',
                                    callback_data=f'offer-stage_1_none')]])
 
@@ -395,15 +392,13 @@ offer_settings = CallbackQueryHandler(get_offer_settings, pattern=str('offer-sta
 dispatcher.add_handler(offer_settings)
 
 
-def _user_settings_from_db(data: tuple) -> str:
+def _user_settings_from_db(data: tuple, payment_id: int) -> str:
     """ Настроки заказа """
-    delivery, main_shop_id, payment_cash, delivery_street = data
+    delivery, main_shop_id, delivery_street = data
     text = ''
     if delivery:
-        if payment_cash == 'True':
-            text = f'по адресу {delivery_street}, оплата наличными'
-        else:
-            text = f'по адресу {delivery_street}, оплата по карте'
+        payment = PAYMENT[int(payment_id)]
+        text = f'по адресу {delivery_street}, оплата {payment[1]}'
     else:
         if main_shop_id == 2:
             text = 'в магазин пер. Прачечный 3 '
@@ -486,8 +481,8 @@ def order(update: Update, context: CallbackContext):
     chat_id = call.message.chat_id
     user = call.message.chat.username
     order_num = load_last_order()
-    command, cart_price = call.data.split('_')
-    order_products, order_price = save_order(chat_id, call.message.text, cart_price)
+    command, cart_price, payment_id = call.data.split('_')
+    order_products, order_price = save_order(chat_id, call.message.text, cart_price, int(payment_id))
     text_products = ''
     for product_name, product_amount in order_products:
         text_products += f'\n{product_name[0]} - {int(product_amount)} шт.'
@@ -551,6 +546,8 @@ def orders_history(update: Update, context: CallbackContext):
     orders = get_user_orders(chat_id, 'AND orders.status_id NOT IN (5,6)')
     orders.sort()
 
+
+
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
 
     if not orders:
@@ -558,30 +555,34 @@ def orders_history(update: Update, context: CallbackContext):
                                            text='Вы еще ничего не покупали :(',
                                            reply_markup=keyboard)
     else:
-        prev_id, prev_sum = None, None
+        prev_id = None
         text = ''
-        len_orders = len(orders) - 1
-        for index, order in enumerate(orders):
+
+        for order in orders:
 
             order_id, product_name, product_price, product_amount, order_sum, order_status = order
             if not prev_id:
                 position = 1
-                prev_id, prev_sum = order_id, order_sum
+                prev_id, prev_sum, prev_status = order_id, order_sum, order_status
                 order_products = [f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price}р.']
             elif prev_id == order_id:
                 order_products.append(
                     f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price}р.')
+            position += 1
+
             if prev_id != order_id:
                 position = 1
                 text_products = '\n'.join(order_products)
-                text += f'''<b><u>Заказ № {prev_id}</u></b>\n <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u> \n {text_products} \n <b>на сумму:{prev_sum}</b> \n {"_" * 20} \n'''
+                text += f'''<b><u>Заказ № {prev_id}</u></b>\n <u>Статус заказа: {ORDER_STATUS[int(prev_status)][1]}</u> \n {text_products} \n <b>на сумму:{prev_sum}</b> \n {"_" * 20} \n'''
+
                 order_products = [f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price}р.']
-                prev_id, prev_sum = order_id, order_sum
-            position += 1
-            if index == len_orders:
-                text_products = '\n'.join(order_products)
-                text += f'''<b><u>Заказ № {order_id}</u></b> \n <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u> \n {text_products} \n <b>на сумму: {order_sum}</b> \n {"_" * 20} \n'''
-                break
+                prev_id, prev_sum, prev_status = order_id, order_sum, order_status
+
+
+        else:
+            text_products = '\n'.join(order_products)
+            text += f'''<b><u>Заказ № {order_id}</u></b> \n <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u> \n {text_products} \n <b>на сумму: {order_sum}</b> \n {"_" * 20} \n'''
+
         if update.callback_query:
             context.bot.edit_message_text(chat_id=chat_id,
                                           text=text,
@@ -705,10 +706,17 @@ poll_answer_handler = PollAnswerHandler(poll_orders_answer)
 dispatcher.add_handler(poll_answer_handler)
 
 
-def ready_order_message(context: CallbackContext, chat_id, order_id, order_sum):
+def ready_order_message(chat_id, order_id, order_sum, status):
     """Сообщение о готовности заказа"""
-    context.bot.send_message(chat_id=chat_id,
-                             text=f'Ваш заказ №{order_id} на сумму {order_sum} ожидает вас в магазине')
+    message = ''
+    if status == '2':
+        message = 'поступил в доставку, ожидайте'
+    elif status == '3':
+        message = 'ожидает вас в магазине'
+    elif status == '5':
+        message = 'был отменен'
+    updater.bot.send_message(chat_id=chat_id,
+                             text=f'Ваш заказ №{order_id} на сумму {order_sum} {message}')
 
 
 """ Утилиты """

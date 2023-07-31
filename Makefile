@@ -9,7 +9,7 @@ migrate:
 	python manage.py migrate
 
 fixtures:
-	python manage.py loaddata OrderStatus.json
+	python manage.py loaddata DefaultData.json
 
 admin:
 	python manage.py createsuperuser
@@ -19,3 +19,6 @@ start:
 	make admin
 	make fixtures
 	make runserver
+
+dumpdata:
+	python -Xutf8 manage.py dumpdata > data.json

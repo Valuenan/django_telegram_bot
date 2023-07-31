@@ -68,8 +68,8 @@ def start_user(first_name: str, last_name: str, username: str, chat_id: int, car
             VALUES ('{first_name}', '{last_name}', '{username}','{False}', '{False}','{True}', 'user@email.ru' ,'UserPassword333', CURRENT_TIMESTAMP)""")
             db.commit()
 
-            db, cur = connect_db(f"""INSERT INTO profile (user_id, chat_id, cart_message_id, discount, delivery, payment_cash) 
-            SELECT auth_user.id, {chat_id}, {cart_message_id}, '{discount}', '{False}', '{False}'
+            db, cur = connect_db(f"""INSERT INTO profile (user_id, chat_id, cart_message_id, discount, delivery) 
+            SELECT auth_user.id, {chat_id}, {cart_message_id}, '{discount}', '{False}'
             FROM auth_user WHERE auth_user.username = '{username}'""")
             db.commit()
             cur.close()
@@ -275,7 +275,7 @@ def save_delivery_settings(value: bool or str, field: str, chat_id: int):
 
 def get_delivery_settings(chat_id: int) -> tuple:
     """Получить настройки заказа"""
-    db, cur = connect_db(f"""SELECT delivery, main_shop_id, payment_cash, delivery_street
+    db, cur = connect_db(f"""SELECT delivery, main_shop_id, delivery_street
     FROM profile WHERE chat_id='{chat_id}'""")
     settings = cur.fetchone()
     cur.close()
@@ -301,7 +301,7 @@ def get_user_shop(chat_id: int) -> None or str:
     return street
 
 
-def save_order(chat_id: int, delivery_info: str, cart_price: int) -> list and int:
+def save_order(chat_id: int, delivery_info: str, cart_price: int, payment_id: int) -> list and int:
     """Сохранить заказ"""
     db, cur = connect_db(f"""SELECT profile.id FROM profile
     WHERE profile.chat_id='{chat_id}'""")
@@ -311,8 +311,8 @@ def save_order(chat_id: int, delivery_info: str, cart_price: int) -> list and in
     WHERE carts.profile_id={profile_id} AND carts.order_id IS NULL""")
     products_id, products_amount = list(zip(*cur.fetchall()))
 
-    db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, deliver, date, status_id) 
-    SELECT id, '{delivery_info}', '{cart_price}', delivery, '{datetime.now().strftime("%m/%d/%Y")}'::date, 1
+    db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, deliver, date, status_id, payment_id) 
+    SELECT id, '{delivery_info}', '{cart_price}', delivery, '{datetime.now().strftime("%m/%d/%Y")}'::date, 1, '{payment_id+1}'
     FROM profile WHERE profile.chat_id='{chat_id}'""")
     db.commit()
 

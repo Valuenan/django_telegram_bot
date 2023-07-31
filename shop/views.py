@@ -121,7 +121,7 @@ class ImportGoodsView(View):
                             exel_data = workbook.sheet_by_index(0)
                             shop = Shop.objects.get_or_create(name=exel_data.cell_value(0, 3))[0]
                             try:
-                                for row in range(3, exel_data.nrows-1):
+                                for row in range(3, exel_data.nrows - 1):
 
                                     product_price = 0
                                     product_name = exel_data.cell_value(row, 0)
@@ -204,7 +204,7 @@ class Login(LoginView):
 class OrdersList(LoginRequiredMixin, ListView):
     login_url = '/login'
     model = Orders
-    queryset = Orders.objects.exclude(status__in=[4, 5])
+    queryset = Orders.objects.exclude(status__in=[5, 6])
     context_object_name = 'orders'
     ordering = ['-date']
 
@@ -227,9 +227,10 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         order = Orders.objects.get(id=pk)
         old_status = order.status.title
         rests_action = order.update_order_status(new_status)
-        if new_status in ['0', '1', '2', '4']:
+        if new_status in ['0', '1', '4']:
             order.update_order_quantity(form, rests_action, shop)
-        elif new_status in ['3', '5']:
-            ready_order_message(chat_id=order.profile.chat_id, order_id=order.id, order_sum=order.order_price)
+        elif new_status in ['2', '3', '5'] and old_status != new_status:
+            ready_order_message(chat_id=order.profile.chat_id, order_id=order.id, order_sum=order.order_price,
+                                status=new_status)
 
         return redirect(f'/order/{pk}')
