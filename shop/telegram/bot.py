@@ -14,9 +14,11 @@ from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from users.models import ORDER_STATUS, PAYMENT
 from django_telegram_bot.settings import BASE_DIR
 
+LOG_FILENAME = 'bot_log.txt'
 
 updater = Updater(token=TOKEN)
 dispatcher = updater.dispatcher
+
 
 BUTTONS_IN_ROW_CATEGORY = 2
 users_message = {}
@@ -545,8 +547,6 @@ def orders_history(update: Update, context: CallbackContext):
 
     orders = get_user_orders(chat_id, 'AND orders.status_id NOT IN (5,6)')
     orders.sort()
-
-
 
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
 

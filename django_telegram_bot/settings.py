@@ -158,6 +158,7 @@ LOGGING = {
         'file': {
             'class': 'logging.FileHandler',
             'filename': 'debug.log',
+            'encoding': 'utf-8'
         },
     },
     'root': {
