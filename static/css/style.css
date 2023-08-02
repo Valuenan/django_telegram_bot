@@ -1,0 +1,29 @@
+nav {
+
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+nav a {
+    color: rgba(0,0,0,0.2);
+    font-weight: 300;
+    text-shadow: none;
+}
+
+nav a::before {
+    color: #fff;
+    content: attr(data-hover);
+    position: absolute;
+    transition: transform 0.3s, opacity 0.3s;
+}
+
+nav a:hover::before,
+nav a:focus::before {
+    transform: scale(0.9);
+    opacity: 0;
+}
+
+.display_user {
+    font-size: 1.4em;
+}

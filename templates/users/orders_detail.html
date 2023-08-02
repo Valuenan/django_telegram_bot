@@ -1,4 +1,7 @@
+{% extends 'base.html' %}
 {% load shop_tags %}
+
+{% block content %}
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -71,3 +74,4 @@
         <p>Исполненна: {{ order.soft_delete }}</p>
     </body>
 </html>
+{% endblock %}

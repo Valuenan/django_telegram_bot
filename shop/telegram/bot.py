@@ -1,4 +1,3 @@
-import logging
 import re
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, InputMediaPhoto, \
@@ -15,8 +14,8 @@ from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from users.models import ORDER_STATUS, PAYMENT
 from django_telegram_bot.settings import BASE_DIR
 
-updater = Updater(token=TOKEN)
 
+updater = Updater(token=TOKEN)
 dispatcher = updater.dispatcher
 
 BUTTONS_IN_ROW_CATEGORY = 2
@@ -38,7 +37,8 @@ def main_keyboard(update: Update, context: CallbackContext):
         if check is not None and check[0]:
             button_column.append([KeyboardButton(text='Подтвердить заказ'), KeyboardButton(text='Отменить заказ')])
         main_kb = ReplyKeyboardMarkup([button for button in button_column], resize_keyboard=True)
-    elif err == 'no-phone':
+    else:
+        # err == 'no-phone'
         users_message[user.id] = ''
         main_kb = ReplyKeyboardMarkup([[KeyboardButton(text='Подтвердить номер телефона 📞')]], resize_keyboard=True)
 

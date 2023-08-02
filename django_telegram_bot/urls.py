@@ -15,14 +15,14 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-
-from shop.views import ImportGoodsView, Login, ImportCategoryView
+from shop.views import ImportGoodsView, Login, ImportCategoryView, Logout
 
 urlpatterns = [
     path('login/', Login.as_view(), name='login'),
+    path('logout/', Logout.as_view(), name='logout'),
     path('admin/import_goods/', ImportGoodsView.as_view(), name='admin_import_goods'),
     path('admin/import_category/', ImportCategoryView.as_view(), name='admin_import_category'),
-    path('admin/', admin.site.urls),
+    path('admin/', admin.site.urls, name='admin'),
     path('', include('shop.urls')),
     path('__debug__/', include('debug_toolbar.urls')),
 ]

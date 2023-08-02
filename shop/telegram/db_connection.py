@@ -46,8 +46,8 @@ def check_user_is_staff(chat_id: int) -> (str or None):
     return is_staff
 
 
-def start_user(first_name: str, last_name: str, username: str, chat_id: int, cart_message_id: int,
-               discount: int) -> (
+def start_user(username: str, chat_id: int, first_name: str = '', last_name: str = '', cart_message_id: int = 0,
+               discount: int = 0) -> (
         str, str):
     """Запись новых пользователей"""
     db, cur = connect_db(f"""SELECT auth_user.id, profile.phone
@@ -64,6 +64,7 @@ def start_user(first_name: str, last_name: str, username: str, chat_id: int, car
 
     if user_id is None:
         try:
+            print(first_name, last_name, username)
             db, cur = connect_db(f"""INSERT INTO auth_user (first_name, last_name, username, is_staff, is_superuser, is_active, email, password, date_joined) 
             VALUES ('{first_name}', '{last_name}', '{username}','{False}', '{False}','{True}', 'user@email.ru' ,'UserPassword333', CURRENT_TIMESTAMP)""")
             db.commit()
@@ -312,7 +313,7 @@ def save_order(chat_id: int, delivery_info: str, cart_price: int, payment_id: in
     products_id, products_amount = list(zip(*cur.fetchall()))
 
     db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, deliver, date, status_id, payment_id) 
-    SELECT id, '{delivery_info}', '{cart_price}', delivery, '{datetime.now().strftime("%m/%d/%Y")}'::date, 1, '{payment_id+1}'
+    SELECT id, '{delivery_info}', '{cart_price}', delivery, '{datetime.now().strftime("%m/%d/%Y")}'::date, 1, '{payment_id + 1}'
     FROM profile WHERE profile.chat_id='{chat_id}'""")
     db.commit()
 

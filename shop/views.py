@@ -5,7 +5,7 @@ import xlrd
 import csv
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.views import LoginView
+from django.contrib.auth.views import LoginView, LogoutView
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views import View
 from django.contrib import messages
@@ -201,10 +201,23 @@ class Login(LoginView):
     template_name = 'login.html'
 
 
+class Logout(LogoutView):
+    """Класс, позволяющий разлогинить пользователя"""
+    template_name = 'login.html'
+
+
 class OrdersList(LoginRequiredMixin, ListView):
     login_url = '/login'
     model = Orders
     queryset = Orders.objects.exclude(status__in=[5, 6])
+    context_object_name = 'orders'
+    ordering = ['-date']
+
+
+class OrdersHistory(LoginRequiredMixin, ListView):
+    login_url = '/login'
+    model = Orders
+    queryset = Orders.objects.filter(status__in=[5, 6])
     context_object_name = 'orders'
     ordering = ['-date']
 
