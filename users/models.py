@@ -32,7 +32,7 @@ class Profile(models.Model):
     delivery_street = models.CharField(max_length=200, verbose_name='Улица доставки', blank=True, null=True)
 
     def __str__(self):
-        return f'{self.user} - номер чата {self.chat_id} - работник {self.user.is_staff}'
+        return self.user.username
 
     class Meta:
         db_table = 'profile'
@@ -71,7 +71,8 @@ class Orders(models.Model):
     date = models.DateField(auto_now_add=True, verbose_name='Дата заказа')
     delivery_info = models.CharField(max_length=500, verbose_name='Информация о доставке', null=True, blank=True)
     order_price = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Цена заказа')
-    admin_check = models.CharField(max_length=100, verbose_name='Заявка принята работником:', null=True, blank=True)
+    admin_check = models.ForeignKey(User, verbose_name='Заявка принята работником:', on_delete=models.PROTECT,
+                                    null=True, blank=True)
     deliver = models.BooleanField(verbose_name='Доставить по адресу')
     status = models.ForeignKey(OrderStatus, blank=True, on_delete=models.DO_NOTHING, verbose_name='Статус заказа')
     payment = models.ForeignKey(Payment, blank=True, null=True, on_delete=models.DO_NOTHING, verbose_name='Вид оплаты')

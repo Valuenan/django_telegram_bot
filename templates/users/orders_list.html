@@ -15,7 +15,7 @@
         <td>Дата оформления</td>
         <td>Заказ №</td>
         <td>Статус</td>
-        <td>Клиент</td>
+        <td>Взял в обработку</td>
         <td>Доставка</td>
         <td>Адрес</td>
         <td>Стоимость</td>
@@ -23,9 +23,16 @@
     {% for order in orders %}
         <tr>
             <td>{{ order.date }}</td>
-            <td>{{ order.id }}</td>
-            <td>{{ order.status }}</td>
-            <td><a href="{% url 'orders_detail' order.id  %}">{{ order.profile.user.username }}</a></td>
+            <td><a href="{% url 'orders_detail' order.id  %}">{{ order.id }}</a></td>
+            <td><a href="{% url 'orders_detail' order.id  %}">{{ order.status }}</a></td>
+            <td><a href="{% url 'orders_detail' order.id  %}">
+                {% if not order.admin_check %}
+                    -
+                {% else %}
+                    {{ order.admin_check.last_name }}
+                {% endif %}
+            </a></td>
+
             <td><a href="{% url 'orders_detail' order.id  %}">
                 {% if order.deliver %}
                     да

@@ -211,7 +211,7 @@ class OrdersList(LoginRequiredMixin, ListView):
     model = Orders
     queryset = Orders.objects.exclude(status__in=[5, 6])
     context_object_name = 'orders'
-    ordering = ['-date']
+    ordering = ['id']
 
 
 class OrdersHistory(LoginRequiredMixin, ListView):
@@ -219,7 +219,7 @@ class OrdersHistory(LoginRequiredMixin, ListView):
     model = Orders
     queryset = Orders.objects.filter(status__in=[5, 6])
     context_object_name = 'orders'
-    ordering = ['-date']
+    ordering = ['id']
 
 
 class OrderDetail(LoginRequiredMixin, DetailView):
@@ -241,6 +241,7 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         form = request.POST.copy()
         _, new_status, shop = form.pop('csrfmiddlewaretoken'), form.pop('new_status')[0], int(form.pop('shop')[0])
         order = Orders.objects.get(id=pk)
+        order.admin_check = request.user
         old_status = order.status.title
         rests_action = order.update_order_status(new_status)
         if new_status in ['0', '1', '4']:
