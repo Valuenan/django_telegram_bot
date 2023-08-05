@@ -46,8 +46,8 @@ def check_user_is_staff(chat_id: int) -> (str or None):
     return is_staff
 
 
-def start_user(username: str, chat_id: int, first_name: str = '', last_name: str = '', cart_message_id: int = 0,
-               discount: int = 0) -> (
+def start_user(first_name: str, last_name: str, username: str, chat_id: int, cart_message_id: int,
+               discount: int) -> (
         str, str):
     """Запись новых пользователей"""
     db, cur = connect_db(f"""SELECT auth_user.id, profile.phone
@@ -64,11 +64,9 @@ def start_user(username: str, chat_id: int, first_name: str = '', last_name: str
 
     if user_id is None:
         try:
-            print(first_name, last_name, username)
             db, cur = connect_db(f"""INSERT INTO auth_user (first_name, last_name, username, is_staff, is_superuser, is_active, email, password, date_joined) 
             VALUES ('{first_name}', '{last_name}', '{username}','{False}', '{False}','{True}', 'user@email.ru' ,'UserPassword333', CURRENT_TIMESTAMP)""")
             db.commit()
-
             db, cur = connect_db(f"""INSERT INTO profile (user_id, chat_id, cart_message_id, discount, delivery) 
             SELECT auth_user.id, {chat_id}, {cart_message_id}, '{discount}', '{False}'
             FROM auth_user WHERE auth_user.username = '{username}'""")
@@ -76,19 +74,17 @@ def start_user(username: str, chat_id: int, first_name: str = '', last_name: str
             cur.close()
             db.close()
 
-            text = f'''Добро пожаловать {first_name}, осталось указать только номер телефона. 
-Отправьте в чат номер телефона, а потом нажмите кнопку "Подтвердить номер телефона".'''
+            text = f'''Добро пожаловать {first_name}, нужно указать номер телефона. Отправьте в чат номер телефона.'''
             error = 'no-phone'
         except Exception as err:
-            text = f'''Извените {first_name} произошла ошибка, попробуйте еще раз нажать /start. 
+            text = f'''Извените {first_name} произошла ошибка, попробуйте еще раз нажать /start.
 Если ошибка повторяется, обратитесь к администратору {ADMIN_TG}'''
             error = err
     elif user_phone is None:
-        text = f'''Добро пожаловать {first_name}, нужно указать номер телефона. 
-Отправьте в чат номер телефона, а потом нажмите кнопку "Подтвердить номер телефона".'''
+        text = f'''Добро пожаловать {first_name}, нужно указать номер телефона. Отправьте в чат номер телефона.'''
         error = 'no-phone'
     else:
-        text, error = f'Добро пожаловать {username}', 'ok'
+        text, error = f'Добро пожаловать {first_name}', 'ok'
     return text, error
 
 

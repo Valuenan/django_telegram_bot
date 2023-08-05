@@ -19,7 +19,6 @@ LOG_FILENAME = 'bot_log.txt'
 updater = Updater(token=TOKEN)
 dispatcher = updater.dispatcher
 
-
 BUTTONS_IN_ROW_CATEGORY = 2
 users_message = {}
 
@@ -29,23 +28,23 @@ users_message = {}
 def main_keyboard(update: Update, context: CallbackContext):
     """Основаня клавиатура снизу"""
     user = update.message.from_user
-    text, err = start_user(user.first_name, user.last_name, user.username,
-                           update.message.chat_id, cart_message_id=0, discount=1)
-
+    text, err = start_user(username=user.username, first_name=user.first_name, last_name=user.last_name,
+                           chat_id=update.message.chat_id, cart_message_id=0, discount=1)
     if err == 'ok':
         button_column = [[KeyboardButton(text='Каталог 🧾'), KeyboardButton(text='Корзина 🛒')],
                          [KeyboardButton(text='Мои заказы 🗃️')]]
         check = check_user_is_staff(update.message.chat_id)
         if check is not None and check[0]:
             button_column.append([KeyboardButton(text='Подтвердить заказ'), KeyboardButton(text='Отменить заказ')])
-        main_kb = ReplyKeyboardMarkup([button for button in button_column], resize_keyboard=True)
+        keyboard = ReplyKeyboardMarkup([button for button in button_column], resize_keyboard=True)
+    elif err == 'no-phone':
+        users_message[user.id] = 'phone'
+        keyboard = ReplyKeyboardMarkup([[]])
     else:
-        # err == 'no-phone'
-        users_message[user.id] = ''
-        main_kb = ReplyKeyboardMarkup([[KeyboardButton(text='Подтвердить номер телефона 📞')]], resize_keyboard=True)
+        keyboard = ReplyKeyboardMarkup([[]])
 
     message = context.bot.send_message(chat_id=update.effective_chat.id, text=text,
-                                       reply_markup=main_kb)
+                                       reply_markup=keyboard)
     context.bot.delete_message(chat_id=update.effective_chat.id,
                                message_id=message.message_id - 1)
 
@@ -54,27 +53,25 @@ start_handler = CommandHandler('start', main_keyboard)
 dispatcher.add_handler(start_handler)
 
 
-def phone_check(update: Update, context: CallbackContext):
+def phone_check(update: Update, context: CallbackContext, phone):
     """Основаня клавиатура снизу"""
     user = update.message.from_user
 
-    if user.id not in users_message or users_message[user.id] == '':
+    result = re.match(r'^(\+7|7|8)?[\s\-]?\(?[489][0-9]{2}\)?[\s\-]?[0-9]{3}[\s\-]?[0-9]{2}[\s\-]?[0-9]{2}$',
+                      phone)
+    if bool(result):
+        user_add_phone(user.id, phone)
+        del users_message[user.id]
+        message = context.bot.send_message(chat_id=update.message.chat_id,
+                                           text=f"""Спасибо, номер телефона принят""")
+        context.bot.delete_message(chat_id=update.effective_chat.id,
+                                   message_id=message.message_id - 2)
         main_keyboard(update, context)
     else:
-        number = users_message[user.id]
-        result = re.match(r'^(\+7|7|8)?[\s\-]?\(?[489][0-9]{2}\)?[\s\-]?[0-9]{3}[\s\-]?[0-9]{2}[\s\-]?[0-9]{2}$',
-                          number)
-        if bool(result):
-            user_add_phone(user.id, number)
-            main_keyboard(update, context)
-            del users_message[user.id]
-        else:
-            context.bot.send_message(chat_id=update.effective_chat.id,
-                                     text=f"К сожалению номер {number}, некоректный повторите ввод или обратитесь к менеджеру {ADMIN_TG} (r1)")
-
-
-phone_check_handler = MessageHandler(Filters.text('Подтвердить номер телефона 📞'), phone_check)
-dispatcher.add_handler(phone_check_handler)
+        message = context.bot.send_message(chat_id=update.message.chat_id,
+                                           text=f"""К сожалению номер {phone}, некоректный повторите ввод или обратитесь к менеджеру {ADMIN_TG} (r1)""")
+        context.bot.delete_message(chat_id=update.effective_chat.id,
+                                   message_id=message.message_id - 2)
 
 
 def catalog(update: Update, context: CallbackContext):
@@ -149,18 +146,19 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
                 compounds_url = f'{BASE_DIR}/static/products/{imgs[1]}'
                 buttons[0].append(InlineKeyboardButton(text='Состав', callback_data=f'roll_{compounds_url}'))
             keyboard = InlineKeyboardMarkup([button for button in buttons])
-            context.bot.send_message(chat_id=update.effective_chat.id, text=f'{product_name} '
-                                                                            f'\n <b>Цена: {price}</b>'
-                                                                            f'\n <i>Количество: {rests} шт.</i>',
-                                     parse_mode='HTML')
+
             try:
                 product_photo = open(f'{BASE_DIR}/static/products/{imgs[0]}', 'rb')
             except FileNotFoundError:
                 product_photo = open(f'{BASE_DIR}/static/products/no-image.jpg', 'rb')
             context.bot.send_photo(chat_id=update.effective_chat.id,
                                    photo=product_photo,
-                                   disable_notification=True,
-                                   reply_markup=keyboard)
+                                   disable_notification=True)
+            context.bot.send_message(chat_id=update.effective_chat.id, text=f'{product_name} '
+                                                                            f'\n <b>Цена: {price}</b>'
+                                                                            f'\n <i>Количество: {rests} шт.</i>',
+                                     reply_markup=keyboard,
+                                     parse_mode='HTML')
         if pagination and page != pages:
             keyboard_next = InlineKeyboardMarkup(
                 [[InlineKeyboardButton(text='Еще товары', callback_data=f'product_{chosen_category}#{page + 1}')]])
@@ -377,7 +375,7 @@ def get_offer_settings(update: Update, context: CallbackContext):
 
         for num, product in enumerate(cart_info):
             product_name, amount, price = product
-            cart_price += price * amount
+            cart_price += round(price * amount, 2)
 
         keyboard = InlineKeyboardMarkup(
             [[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}_{payment_id}')],
@@ -488,7 +486,7 @@ def order(update: Update, context: CallbackContext):
     text_products = ''
     for product_name, product_amount in order_products:
         text_products += f'\n{product_name[0]} - {int(product_amount)} шт.'
-    order_message = f'<b><u>Заказ №: {order_num}</u></b> \n {text_products} \n {call.message.text} \n <b>на сумму: {order_price}</b>'
+    order_message = f'<b><u>Заказ №: {order_num}</u></b> \n {text_products} \n {call.message.text} \n <b>на сумму: {cart_price}</b>'
     context.bot.answer_callback_query(callback_query_id=call.id,
                                       text=f'Ваш заказ принят')
     context.bot.edit_message_text(text=f'Клиент: {user} \n{order_message}',
@@ -723,11 +721,13 @@ def ready_order_message(chat_id, order_id, order_sum, status):
 
 
 def user_message(update: Update, context: CallbackContext):
-    """Принять сообщение пользователя (адрес)"""
-    global users_message
+    """Принять сообщение пользователя (телефон, адрес)"""
     chat_id = update.message.chat_id
     if chat_id in users_message:
-        users_message[chat_id] = update.message.text
+        if users_message[chat_id] == 'phone':
+            phone_check(update=update, context=context, phone=update.message.text)
+        elif users_message[chat_id] == '':
+            users_message[chat_id] = update.message.text
     else:
         pass
 
