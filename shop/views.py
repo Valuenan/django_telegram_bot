@@ -109,6 +109,15 @@ class ImportGoodsView(View):
         upload_file_form = ImportGoodsForm(request.POST, request.FILES)
         wrong_group_products = []
 
+        rests = Rests.objects.exclude(amount=0)
+
+        if rests:
+
+            for i in range(len(rests)):
+                rests[i].amount = 0
+
+            Rests.objects.bulk_update(rests, ['amount', ])
+
         try:
             if upload_file_form.is_valid():
                 files = request.FILES.getlist('file_field')
@@ -154,7 +163,7 @@ class ImportGoodsView(View):
                                         wrong_group_products.append(product_name)
                                         continue
 
-                                    product = Product.objects.filter(name=product_name.strip())
+                                    product = Product.objects.filter(name=product_name)
 
                                     if product:
                                         product = product[0]
