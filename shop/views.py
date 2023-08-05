@@ -230,7 +230,10 @@ class OrderDetail(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super(OrderDetail, self).get_context_data(**kwargs)
         self.model = self.model.objects.prefetch_related('carts_set').all()
-        context['order_statuses'] = OrderStatus.objects.all()
+        if context['object'].deliver:
+            context['order_statuses'] = OrderStatus.objects.exclude(id='4')
+        else:
+            context['order_statuses'] = OrderStatus.objects.exclude(id='3')
         context['shops'] = Shop.objects.all().order_by('-id')
         return context
 

@@ -20,11 +20,16 @@
         <h1>Заказ №{{ order.id }}</h1>
         <p>Дата: {{ order.date }}</p>
         <p>Клиент: {{ order.profile.user.username }}</p>
-        <p>Доставка: {{ order.deliver }}</p>
+        <p>Доставка: {% if order.deliver %}
+                    да
+                {% else %}
+                    нет
+                {% endif %}
+        </p>
         <p>Адрес: {{ order.delivery_info }}</p>
         <form action="" method="post" class="mt-4" id="formReview">
         {% csrf_token %}
-            <p>Статус: {{ order.status_id }}
+            <p>Статус:
                 <select name="new_status">
                     {% for status in order_statuses %}
                         <option
