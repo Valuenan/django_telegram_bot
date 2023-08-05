@@ -120,6 +120,7 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
     """Вызов каталога товаров"""
     page = 0
     pagination = False
+    call = update.callback_query
     if '#' in str(update.callback_query.data) and not chosen_category:
         chosen_category = update.callback_query.data.split('_')[1]
         chosen_category, page = chosen_category.split('#')
@@ -128,7 +129,6 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
     if pages:
         pagination = True
     if products:
-        call = update.callback_query
         context.bot.delete_message(chat_id=call.message.chat.id,
                                    message_id=call.message.message_id)
         for product in products:
@@ -163,12 +163,11 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
         if pagination and page != pages:
             keyboard_next = InlineKeyboardMarkup(
                 [[InlineKeyboardButton(text='Еще товары', callback_data=f'product_{chosen_category}#{page + 1}')]])
-            message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                               text=f'Страница <b>{page + 1}</b> из {pages + 1}',
-                                               disable_notification=True,
-                                               reply_markup=keyboard_next, parse_mode='HTML')
-            context.bot.delete_message(chat_id=update.effective_chat.id,
-                                       message_id=message.message_id)
+            context.bot.send_message(chat_id=update.effective_chat.id,
+                                     text=f'Страница <b>{page + 1}</b> из {pages + 1}',
+                                     disable_notification=True,
+                                     reply_markup=keyboard_next, parse_mode='HTML')
+
 
     else:
         context.bot.send_message(chat_id=update.effective_chat.id, text=f'В данной категории ненашлось товаров 😨')
