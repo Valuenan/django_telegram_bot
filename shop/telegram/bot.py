@@ -81,8 +81,6 @@ def catalog(update: Update, context: CallbackContext):
     row = 0
     if update.callback_query:
         call = update.callback_query
-        context.bot.delete_message(chat_id=call.message.chat.id,
-                                   message_id=call.message.message_id)
         chosen_category = call.data.split('_')
 
         categories = get_category(int(chosen_category[1]))
@@ -99,14 +97,14 @@ def catalog(update: Update, context: CallbackContext):
         keyboard = InlineKeyboardMarkup([button for button in buttons])
 
         if update.callback_query:
-            context.bot.send_message(chat_id=update.effective_chat.id, text=f'Категория: {chosen_category[2]}',
-                                     reply_markup=keyboard)
+            text = f'Категория: {chosen_category[2]}'
         else:
-            message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                               text='Каталог',
-                                               reply_markup=keyboard)
-            context.bot.delete_message(chat_id=update.effective_chat.id,
-                                       message_id=message.message_id - 1)
+            text = 'Каталог'
+        message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                           text=text,
+                                           reply_markup=keyboard)
+        context.bot.delete_message(chat_id=update.effective_chat.id,
+                                   message_id=message.message_id - 1)
     else:
         products_catalog(update, context, chosen_category[1])
 
@@ -130,6 +128,9 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
     if pages:
         pagination = True
     if products:
+        call = update.callback_query
+        context.bot.delete_message(chat_id=call.message.chat.id,
+                                   message_id=call.message.message_id)
         for product in products:
             product_id, product_name, product_img, price, category_id, rests = product
             buttons = ([InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add_{product_id}'),
@@ -156,16 +157,18 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
                                    disable_notification=True)
             context.bot.send_message(chat_id=update.effective_chat.id, text=f'{product_name} '
                                                                             f'\n <b>Цена: {price}</b>'
-                                                                            f'\n <i>Количество: {rests} шт.</i>',
+                                                                            f'\n <i>Количество: {int(rests)} шт.</i>',
                                      reply_markup=keyboard,
                                      parse_mode='HTML')
         if pagination and page != pages:
             keyboard_next = InlineKeyboardMarkup(
                 [[InlineKeyboardButton(text='Еще товары', callback_data=f'product_{chosen_category}#{page + 1}')]])
-            context.bot.send_message(chat_id=update.effective_chat.id,
-                                     text=f'Страница <b>{page + 1}</b> из {pages + 1}',
-                                     disable_notification=True,
-                                     reply_markup=keyboard_next, parse_mode='HTML')
+            message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text=f'Страница <b>{page + 1}</b> из {pages + 1}',
+                                               disable_notification=True,
+                                               reply_markup=keyboard_next, parse_mode='HTML')
+            context.bot.delete_message(chat_id=update.effective_chat.id,
+                                       message_id=message.message_id)
 
     else:
         context.bot.send_message(chat_id=update.effective_chat.id, text=f'В данной категории ненашлось товаров 😨')
@@ -400,9 +403,9 @@ def _user_settings_from_db(data: tuple, payment_id: int) -> str:
         payment = PAYMENT[int(payment_id)]
         text = f'по адресу {delivery_street}, оплата {payment[1]}'
     else:
-        if main_shop_id == 2:
-            text = 'в магазин пер. Прачечный 3 '
         if main_shop_id == 1:
+            text = 'в магазин пер. Прачечный 3 '
+        if main_shop_id == 0:
             text = 'в магазин ул. Киевская 3'
     return text
 
