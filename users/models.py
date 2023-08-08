@@ -76,6 +76,7 @@ class Orders(models.Model):
                                     null=True, blank=True)
     deliver = models.BooleanField(verbose_name='Доставить по адресу')
     status = models.ForeignKey(OrderStatus, blank=True, on_delete=models.DO_NOTHING, verbose_name='Статус заказа')
+    delivery_price = models.IntegerField(verbose_name='Стомость доставки', default=0, blank=True)
     payment = models.ForeignKey(Payment, blank=True, null=True, on_delete=models.DO_NOTHING,
                                 verbose_name='Вид оплаты (не используется)')
     payed = models.BooleanField(verbose_name='Заказ оплачен', default=False)

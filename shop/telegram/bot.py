@@ -695,11 +695,14 @@ poll_answer_handler = PollAnswerHandler(poll_orders_answer)
 dispatcher.add_handler(poll_answer_handler)
 
 
-def ready_order_message(chat_id, order_id, order_sum, status):
+def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str, delivery_price: int = 0):
     """Сообщение о готовности заказа"""
     message = ''
     if status == '1':
-        message = 'ожидает оплаты'
+        if delivery_price == 0:
+            message = f'ожидает оплаты'
+        else:
+            message = f',в том числе доставка на сумму {delivery_price}, <u> ожидает оплаты </u>'
     elif status == '3':
         message = 'поступил в доставку, ожидайте'
     elif status == '4':
@@ -707,7 +710,8 @@ def ready_order_message(chat_id, order_id, order_sum, status):
     elif status == '6':
         message = 'был отменен'
     updater.bot.send_message(chat_id=chat_id,
-                             text=f'Ваш заказ №{order_id} на сумму {order_sum} \n {message}')
+                             text=f'Ваш заказ №{order_id} на сумму {order_sum} {message}',
+                             parse_mode='HTML')
 
 
 """ Утилиты """

@@ -71,11 +71,19 @@
                             {% formatted_float rest.amount %}</td>
                     {% endfor %}
                 </tr>
+                {% if order.deliver %}
+                    <tr>
+                        <td>
+                        Стоимость доставки
+                        <input {% if order.status.title != "0" %} disabled {% endif %} type="number" name="delivery_price" value="{{ order.delivery_price }}">
+                        </td>
+                    </tr>
+                {% endif %}
                 {% endfor %}
             </table>
             <button type="submit">Записать</button>
         </form>
-        <p>Сумма: {{ order.order_price }}</p>
+        <p>Сумма: {{ order_sum }}</p>
         <p> {% if not order.admin_check %}
             Обработанна: -
         {% else %}

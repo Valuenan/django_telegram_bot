@@ -248,20 +248,28 @@ class OrderDetail(LoginRequiredMixin, DetailView):
             context['order_statuses'] = OrderStatus.objects.exclude(id='5')
         else:
             context['order_statuses'] = OrderStatus.objects.exclude(id='4')
+        context['order_sum'] = context['order'].order_price + context['order'].delivery_price
         context['shops'] = Shop.objects.all().order_by('-id')
         return context
 
     def post(self, request, pk):
         form = request.POST.copy()
         _, new_status, shop = form.pop('csrfmiddlewaretoken'), form.pop('new_status')[0], int(form.pop('shop')[0])
+
+        delivery_price = 0
+        if 'delivery_price' in form:
+            delivery_price = int(form.pop('delivery_price')[0])
+
         order = Orders.objects.get(id=pk)
         order.admin_check = request.user
         old_status = order.status.title
+        order.delivery_price = delivery_price
         rests_action = order.update_order_status(new_status)
+        order_sum = order.order_price + delivery_price
         if new_status in ['0', '2', '5']:
             order.update_order_quantity(form, rests_action, shop)
         elif new_status in ['1', '3', '4', '6'] and old_status != new_status:
-            ready_order_message(chat_id=order.profile.chat_id, order_id=order.id, order_sum=order.order_price,
-                                status=new_status)
+            ready_order_message(chat_id=order.profile.chat_id, order_id=order.id, order_sum=order_sum,
+                                status=new_status, delivery_price=delivery_price)
 
         return redirect(f'/order/{pk}')
