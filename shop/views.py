@@ -240,9 +240,9 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         context = super(OrderDetail, self).get_context_data(**kwargs)
         self.model = self.model.objects.prefetch_related('carts_set').all()
         if context['object'].deliver:
-            context['order_statuses'] = OrderStatus.objects.exclude(id='4')
+            context['order_statuses'] = OrderStatus.objects.exclude(id='5')
         else:
-            context['order_statuses'] = OrderStatus.objects.exclude(id='3')
+            context['order_statuses'] = OrderStatus.objects.exclude(id='4')
         context['shops'] = Shop.objects.all().order_by('-id')
         return context
 
@@ -255,7 +255,7 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         rests_action = order.update_order_status(new_status)
         if new_status in ['0', '1', '4']:
             order.update_order_quantity(form, rests_action, shop)
-        elif new_status in ['2', '3', '5'] and old_status != new_status:
+        elif new_status in ['1', '3', '4', '6'] and old_status != new_status:
             ready_order_message(chat_id=order.profile.chat_id, order_id=order.id, order_sum=order.order_price,
                                 status=new_status)
 

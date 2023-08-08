@@ -7,11 +7,12 @@ from shop.models import Product, Shop
 
 ORDER_STATUS = (
     ('0', 'Заявка обрабатывается 📝'),
-    ('1', 'Сборка заказа 📦'),
-    ('2', 'Доставка 🚚'),
-    ('3', 'Ожидает в пункте выдачи 🚶‍♂️'),
-    ('4', 'Получен ✅'),
-    ('5', 'Отменен ❌')
+    ('1', 'Выставлен счет 🖩'),
+    ('2', 'Сборка заказа 📦'),
+    ('3', 'Доставка 🚚'),
+    ('4', 'Ожидает в пункте выдачи 🚶‍♂️'),
+    ('5', 'Получен ✅'),
+    ('6', 'Отменен ❌')
 )
 PAYMENT = (
     ('0', '🎟️ Наличными'),
@@ -75,7 +76,9 @@ class Orders(models.Model):
                                     null=True, blank=True)
     deliver = models.BooleanField(verbose_name='Доставить по адресу')
     status = models.ForeignKey(OrderStatus, blank=True, on_delete=models.DO_NOTHING, verbose_name='Статус заказа')
-    payment = models.ForeignKey(Payment, blank=True, null=True, on_delete=models.DO_NOTHING, verbose_name='Вид оплаты')
+    payment = models.ForeignKey(Payment, blank=True, null=True, on_delete=models.DO_NOTHING,
+                                verbose_name='Вид оплаты (не используется)')
+    payed = models.BooleanField(verbose_name='Заказ оплачен', default=False)
 
     def __str__(self):
         return f'Заказ номер: {self.id} , статус {self.status} - {self.profile.user.username} - сумма {self.order_price} - подтвердил {self.admin_check}'

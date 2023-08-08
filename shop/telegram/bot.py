@@ -323,7 +323,7 @@ def get_offer_settings(update: Update, context: CallbackContext):
                                           InlineKeyboardButton(text='Нет', callback_data='offer-stage_2_no')]])
         context.bot.edit_message_text(chat_id=chat_id,
                                       message_id=message_id,
-                                      text=f'Вам доставить? 🚚',
+                                      text=f'Вам доставить? 🚚 (доставка будет расчитана после оформления заказа)',
                                       reply_markup=keyboard)
     if settings_stage == '2' and answer == 'yes':
         save_delivery_settings(value=True, field='delivery', chat_id=chat_id)
@@ -343,34 +343,19 @@ def get_offer_settings(update: Update, context: CallbackContext):
         buttons = []
         for shop in get_shops():
             shop_id, shop_name = shop
-            buttons.append(InlineKeyboardButton(text=shop_name, callback_data=f'offer-stage_4_{shop_id}'))
+            buttons.append(InlineKeyboardButton(text=shop_name, callback_data=f'offer-stage_3_{shop_id}'))
         keyboard = InlineKeyboardMarkup([buttons])
         context.bot.edit_message_text(chat_id=chat_id,
                                       message_id=message_id,
                                       text=f'Выберите предпочтительный магазин',
                                       reply_markup=keyboard)
+
     if settings_stage == '3':
         if answer == "none":
             save_delivery_settings(value=users_message[chat_id], field='delivery_street', chat_id=chat_id)
         save_delivery_settings(value=True, field='delivery', chat_id=chat_id)
         users_message.pop(chat_id)
-        buttons = []
-        for payment in PAYMENT:
-            buttons.append([InlineKeyboardButton(text=payment[1], callback_data=f'offer-stage_4_pay#{payment[0]}')])
-        keyboard = InlineKeyboardMarkup([button for button in buttons])
-        context.bot.edit_message_text(chat_id=update.effective_chat.id,
-                                      message_id=message_id,
-                                      text=f'Выберите вид оплаты',
-                                      reply_markup=keyboard)
-
-    if settings_stage == '4':
-        if 'pay' in answer:
-            _, payment_id = answer.split('#')
-        else:
-            answer = int(answer)
-            payment_id = 0
-            save_delivery_settings(value=answer, field='main_shop_id', chat_id=chat_id)
-        delivery_settings = _user_settings_from_db(get_delivery_settings(chat_id), payment_id)
+        delivery_settings = _user_settings_from_db(get_delivery_settings(chat_id))
 
         cart_price = 0
         cart_info = show_cart(chat_id)
@@ -380,7 +365,7 @@ def get_offer_settings(update: Update, context: CallbackContext):
             cart_price += round(price * amount, 2)
 
         keyboard = InlineKeyboardMarkup(
-            [[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}_{payment_id}')],
+            [[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}')],
              [InlineKeyboardButton(text='Редктировать 📝',
                                    callback_data=f'offer-stage_1_none')]])
 
@@ -394,18 +379,17 @@ offer_settings = CallbackQueryHandler(get_offer_settings, pattern=str('offer-sta
 dispatcher.add_handler(offer_settings)
 
 
-def _user_settings_from_db(data: tuple, payment_id: int) -> str:
+def _user_settings_from_db(data: tuple) -> str:
     """ Настроки заказа """
     delivery, main_shop_id, delivery_street = data
     text = ''
     if delivery:
-        payment = PAYMENT[int(payment_id)]
-        text = f'по адресу {delivery_street}, оплата {payment[1]}'
+        text = f'по адресу {delivery_street}'
     else:
         if main_shop_id == 1:
-            text = 'в магазин пер. Прачечный 3 '
+            text = 'магазин пер. Прачечный 3 '
         if main_shop_id == 0:
-            text = 'в магазин ул. Киевская 3'
+            text = 'магазин ул. Киевская 3'
     return text
 
 
@@ -578,7 +562,6 @@ def orders_history(update: Update, context: CallbackContext):
                 order_products = [f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price}р.']
                 prev_id, prev_sum, prev_status = order_id, order_sum, order_status
 
-
         else:
             text_products = '\n'.join(order_products)
             text += f'''<b><u>Заказ № {order_id}</u></b> \n <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u> \n {text_products} \n <b>на сумму: {order_sum}</b> \n {"_" * 20} \n'''
@@ -709,14 +692,16 @@ dispatcher.add_handler(poll_answer_handler)
 def ready_order_message(chat_id, order_id, order_sum, status):
     """Сообщение о готовности заказа"""
     message = ''
-    if status == '2':
-        message = 'поступил в доставку, ожидайте'
+    if status == '1':
+        message = 'ожидает оплаты'
     elif status == '3':
+        message = 'поступил в доставку, ожидайте'
+    elif status == '4':
         message = 'ожидает вас в магазине'
-    elif status == '5':
+    elif status == '6':
         message = 'был отменен'
     updater.bot.send_message(chat_id=chat_id,
-                             text=f'Ваш заказ №{order_id} на сумму {order_sum} {message}')
+                             text=f'Ваш заказ №{order_id} на сумму {order_sum} \n {message}')
 
 
 """ Утилиты """
