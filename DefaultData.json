@@ -39,6 +39,12 @@
     "pk": 6,
     "fields": {
       "title": "5"
+    },
+  {
+    "model": "users.orderstatus",
+    "pk": 7,
+    "fields": {
+      "title": "6"
     }
   },
   {

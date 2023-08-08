@@ -74,17 +74,19 @@ def start_user(first_name: str, last_name: str, username: str, chat_id: int, car
             cur.close()
             db.close()
 
-            text = f'''Добро пожаловать {first_name}, нужно указать номер телефона. Отправьте в чат номер телефона.'''
+            text = f'''В данный момент бот работает в тестовом режиме, при возникновении проблем обращайтесть к администратору {ADMIN_TG}
+            
+Добро пожаловать {first_name}, для оформления заказов нужно указать номер телефона. Отправьте в чат номер телефона.'''
             error = 'no-phone'
         except Exception as err:
-            text = f'''Извените {first_name} произошла ошибка, попробуйте еще раз нажать /start.
+            text = f'''Извините {first_name} произошла ошибка, попробуйте еще раз нажать /start.
 Если ошибка повторяется, обратитесь к администратору {ADMIN_TG}'''
             error = err
     elif user_phone is None:
         text = f'''Добро пожаловать {first_name}, нужно указать номер телефона. Отправьте в чат номер телефона.'''
         error = 'no-phone'
     else:
-        text, error = f'Добро пожаловать {first_name}', 'ok'
+        text, error = f'Добро пожаловать {first_name}.', 'ok'
     return text, error
 
 
@@ -272,12 +274,24 @@ def save_delivery_settings(value: bool or str, field: str, chat_id: int):
 
 def get_delivery_settings(chat_id: int) -> tuple:
     """Получить настройки заказа"""
-    db, cur = connect_db(f"""SELECT delivery, main_shop_id, delivery_street
-    FROM profile WHERE chat_id='{chat_id}'""")
+    db, cur = connect_db(f"""SELECT profile.delivery, shops.name, profile.delivery_street
+    FROM profile 
+    INNER JOIN shops 
+    ON profile.main_shop_id = shops.id
+    WHERE chat_id='{chat_id}'""")
     settings = cur.fetchone()
     cur.close()
     db.close()
     return settings
+
+
+def get_user_phone(chat_id: int) -> None or str:
+    """Получить магазин пользователя"""
+    db, cur = connect_db(f"SELECT phone FROM profile WHERE chat_id='{chat_id}'")
+    phone = cur.fetchone()[0]
+    cur.close()
+    db.close()
+    return phone
 
 
 def get_user_address(chat_id: int) -> None or str:
@@ -298,7 +312,7 @@ def get_user_shop(chat_id: int) -> None or str:
     return street
 
 
-def save_order(chat_id: int, delivery_info: str, cart_price: int, payment_id: int) -> list and int:
+def save_order(chat_id: int, delivery_info: str, cart_price: int) -> list and int:
     """Сохранить заказ"""
     db, cur = connect_db(f"""SELECT profile.id FROM profile
     WHERE profile.chat_id='{chat_id}'""")
@@ -308,8 +322,8 @@ def save_order(chat_id: int, delivery_info: str, cart_price: int, payment_id: in
     WHERE carts.profile_id={profile_id} AND carts.order_id IS NULL""")
     products_id, products_amount = list(zip(*cur.fetchall()))
 
-    db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, deliver, date, status_id, payment_id) 
-    SELECT id, '{delivery_info}', '{cart_price}', delivery, '{datetime.now().strftime("%m/%d/%Y")}'::date, 1, '{payment_id + 1}'
+    db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, deliver, date, status_id, payed) 
+    SELECT id, '{delivery_info}', '{cart_price}', delivery, '{datetime.now().strftime("%m/%d/%Y")}'::date, 1, '{False}'
     FROM profile WHERE profile.chat_id='{chat_id}'""")
     db.commit()
 

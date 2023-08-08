@@ -128,16 +128,21 @@ class ImportGoodsView(View):
                                 os.path.abspath(f'{settings.MEDIA_ROOT}/{file_for_import.file}')) as workbook:
 
                             exel_data = workbook.sheet_by_index(0)
-                            shop = Shop.objects.get_or_create(name=exel_data.cell_value(0, 3))[0]
+                            shop = Shop.objects.get_or_create(name=exel_data.cell_value(0, 4))[0]
                             try:
                                 for row in range(3, exel_data.nrows - 1):
 
                                     product_price = 0
-                                    product_name = exel_data.cell_value(row, 0)
-                                    product_image = exel_data.cell_value(row, 1)
-                                    product_category = int(exel_data.cell_value(row, 2))
-                                    prachechniy_rests = exel_data.cell_value(row, 3)
-                                    prachechniy_sum = exel_data.cell_value(row, 4)
+                                    product_name = exel_data.cell_value(row, 1)
+                                    product_image = exel_data.cell_value(row, 2)
+                                    product_category = exel_data.cell_value(row, 3)
+                                    prachechniy_rests = exel_data.cell_value(row, 4)
+                                    prachechniy_sum = exel_data.cell_value(row, 5)
+
+                                    if product_category == '':
+                                        product_category = 0
+                                    else:
+                                        product_category = int(product_category)
 
                                     if product_image == ', ':
                                         product_image = 'no-image.jpg'
@@ -253,7 +258,7 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         order.admin_check = request.user
         old_status = order.status.title
         rests_action = order.update_order_status(new_status)
-        if new_status in ['0', '1', '4']:
+        if new_status in ['0', '2', '5']:
             order.update_order_quantity(form, rests_action, shop)
         elif new_status in ['1', '3', '4', '6'] and old_status != new_status:
             ready_order_message(chat_id=order.profile.chat_id, order_id=order.id, order_sum=order.order_price,

@@ -3,13 +3,13 @@ import re
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, InputMediaPhoto, \
     KeyboardButton, error
 from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, \
-    PollAnswerHandler
+    PollAnswerHandler, CallbackDataCache, BasePersistence
 
 from shop.telegram.db_connection import load_last_order, get_category, get_products, \
     save_order, get_user_orders, edit_to_cart, show_cart, db_delete_cart, get_product_id, start_user, \
     old_cart_message, save_cart_message_id, old_cart_message_to_none, check_user_is_staff, get_waiting_orders, \
     get_user_id_chat, status_confirmed_order, save_delivery_settings, get_delivery_settings, get_user_address, \
-    get_shops, user_add_phone, ADMIN_TG
+    get_shops, user_add_phone, ADMIN_TG, get_user_phone
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from users.models import ORDER_STATUS, PAYMENT
 from django_telegram_bot.settings import BASE_DIR
@@ -31,22 +31,19 @@ def main_keyboard(update: Update, context: CallbackContext):
     text, err = start_user(username=user.username, first_name=user.first_name, last_name=user.last_name,
                            chat_id=update.message.chat_id, cart_message_id=0, discount=1)
     if err == 'ok':
-        button_column = [[KeyboardButton(text='Каталог 🧾'), KeyboardButton(text='Корзина 🛒')],
-                         [KeyboardButton(text='Мои заказы 🗃️')]]
+        # button_column = [[KeyboardButton(text='Каталог 🧾'), KeyboardButton(text='Корзина 🛒')],
+        #                  [KeyboardButton(text='Мои заказы 🗃️')]]
         check = check_user_is_staff(update.message.chat_id)
-        if check is not None and check[0]:
-            button_column.append([KeyboardButton(text='Подтвердить заказ'), KeyboardButton(text='Отменить заказ')])
-        keyboard = ReplyKeyboardMarkup([button for button in button_column], resize_keyboard=True)
+        # if check is not None and check[0]:
+        #     button_column.append([KeyboardButton(text='Подтвердить заказ'), KeyboardButton(text='Отменить заказ')])
+        # keyboard = ReplyKeyboardMarkup([button for button in button_column], resize_keyboard=True)
     elif err == 'no-phone':
         users_message[user.id] = 'phone'
-        keyboard = ReplyKeyboardMarkup([[]])
-    else:
-        keyboard = ReplyKeyboardMarkup([[]])
 
-    message = context.bot.send_message(chat_id=update.effective_chat.id, text=text,
-                                       reply_markup=keyboard)
-    context.bot.delete_message(chat_id=update.effective_chat.id,
-                               message_id=message.message_id - 1)
+    message = context.bot.send_message(chat_id=update.effective_chat.id, text=text)
+    if err != 'ok':
+        context.bot.delete_message(chat_id=update.effective_chat.id,
+                                   message_id=message.message_id - 1)
 
 
 start_handler = CommandHandler('start', main_keyboard)
@@ -109,7 +106,7 @@ def catalog(update: Update, context: CallbackContext):
         products_catalog(update, context, chosen_category[1])
 
 
-menu_handler = MessageHandler(Filters.text('Каталог 🧾'), catalog)
+menu_handler = CommandHandler('catalog', catalog)
 dispatcher.add_handler(menu_handler)
 
 catalog_handler = CallbackQueryHandler(catalog, pattern="^" + str('category_'))
@@ -300,7 +297,7 @@ def cart(update: Update, context: CallbackContext):
         pass
 
 
-cart_handler = MessageHandler(Filters.text('Корзина 🛒'), cart)
+cart_handler = CommandHandler('cart', cart)
 dispatcher.add_handler(cart_handler)
 
 cancel_cart_handler = CallbackQueryHandler(cart, pattern=str('cancel-delete-cart'))
@@ -318,61 +315,72 @@ def get_offer_settings(update: Update, context: CallbackContext):
     message_id = call.message.message_id
     _, settings_stage, answer = call.data.split('_')
 
-    if settings_stage == '1':
-        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Да', callback_data='offer-stage_2_yes'),
-                                          InlineKeyboardButton(text='Нет', callback_data='offer-stage_2_no')]])
-        context.bot.edit_message_text(chat_id=chat_id,
-                                      message_id=message_id,
-                                      text=f'Вам доставить? 🚚 (доставка будет расчитана после оформления заказа)',
-                                      reply_markup=keyboard)
-    if settings_stage == '2' and answer == 'yes':
-        save_delivery_settings(value=True, field='delivery', chat_id=chat_id)
-        users_message[chat_id] = ''
-        street = get_user_address(chat_id)
-        buttons = [[InlineKeyboardButton(text='Сохранить адрес 📝', callback_data='offer-stage_3_none')]]
-        if street:
-            buttons.insert(0, [InlineKeyboardButton(text=street, callback_data=f'offer-stage_3_street')])
-        keyboard = InlineKeyboardMarkup(buttons)
-        context.bot.edit_message_text(chat_id=chat_id,
-                                      message_id=message_id,
-                                      text=f'Отправьте сообщение с адресом доставки, а затем нажмите кнопку в этом сообщении "Сохранить адрес"'
-                                           f' или выберите последний адрес доставки',
-                                      reply_markup=keyboard)
-    if settings_stage == '2' and answer == 'no':
-        save_delivery_settings(value=False, field='delivery', chat_id=chat_id)
-        buttons = []
-        for shop in get_shops():
-            shop_id, shop_name = shop
-            buttons.append(InlineKeyboardButton(text=shop_name, callback_data=f'offer-stage_3_{shop_id}'))
-        keyboard = InlineKeyboardMarkup([buttons])
-        context.bot.edit_message_text(chat_id=chat_id,
-                                      message_id=message_id,
-                                      text=f'Выберите предпочтительный магазин',
-                                      reply_markup=keyboard)
+    if not get_user_phone(chat_id):
+        context.bot.send_message(chat_id=update.effective_chat.id,
+                                 text='Для оформления заказа требуется ваш номер телефона, напишите его в чат')
+    else:
+        if settings_stage == '1':
+            keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Да', callback_data='offer-stage_2_yes'),
+                                              InlineKeyboardButton(text='Нет', callback_data='offer-stage_2_no')]])
+            context.bot.edit_message_text(chat_id=chat_id,
+                                          message_id=message_id,
+                                          text=f'Вам доставить? 🚚 (доставка будет расчитана после оформления заказа)',
+                                          reply_markup=keyboard)
+        if settings_stage == '2' and answer == 'yes':
+            save_delivery_settings(value=True, field='delivery', chat_id=chat_id)
+            users_message[chat_id] = ''
+            street = get_user_address(chat_id)
+            buttons = [[InlineKeyboardButton(text='Сохранить адрес 📝', callback_data='offer-stage_3_none')]]
+            if street:
+                buttons.insert(0, [InlineKeyboardButton(text=street, callback_data=f'offer-stage_3_street')])
+            keyboard = InlineKeyboardMarkup(buttons)
+            context.bot.edit_message_text(chat_id=chat_id,
+                                          message_id=message_id,
+                                          text=f'Отправьте сообщение с адресом доставки, а затем нажмите кнопку в этом сообщении "Сохранить адрес"'
+                                               f' или выберите последний адрес доставки',
+                                          reply_markup=keyboard)
+        if settings_stage == '2' and answer == 'no':
+            save_delivery_settings(value=False, field='delivery', chat_id=chat_id)
+            buttons = []
+            for shop in get_shops():
+                shop_id, shop_name = shop
+                buttons.append(InlineKeyboardButton(text=shop_name, callback_data=f'offer-stage_3_{shop_id}'))
+            keyboard = InlineKeyboardMarkup([buttons])
+            context.bot.edit_message_text(chat_id=chat_id,
+                                          message_id=message_id,
+                                          text=f'Выберите предпочтительный магазин',
+                                          reply_markup=keyboard)
 
-    if settings_stage == '3':
-        if answer == "none":
-            save_delivery_settings(value=users_message[chat_id], field='delivery_street', chat_id=chat_id)
-        save_delivery_settings(value=True, field='delivery', chat_id=chat_id)
-        users_message.pop(chat_id)
-        delivery_settings = _user_settings_from_db(get_delivery_settings(chat_id))
+        if settings_stage == '3':
+            if answer == 'none':
+                save_delivery_settings(value=users_message[chat_id], field='delivery_street', chat_id=chat_id)
+                save_delivery_settings(value=True, field='delivery', chat_id=chat_id)
+                users_message.pop(chat_id)
+            elif answer == 'street':
+                save_delivery_settings(value=True, field='delivery', chat_id=chat_id)
+            else:
+                answer = int(answer)
+                save_delivery_settings(value=answer, field='main_shop_id', chat_id=chat_id)
+                save_delivery_settings(value=False, field='delivery', chat_id=chat_id)
 
-        cart_price = 0
-        cart_info = show_cart(chat_id)
+            delivery_settings = _user_settings_from_db(get_delivery_settings(chat_id))
 
-        for num, product in enumerate(cart_info):
-            product_name, amount, price = product
-            cart_price += round(price * amount, 2)
+            cart_price = 0
+            cart_info = show_cart(chat_id)
 
-        keyboard = InlineKeyboardMarkup(
-            [[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}')],
-             [InlineKeyboardButton(text='Редктировать 📝',
-                                   callback_data=f'offer-stage_1_none')]])
+            for num, product in enumerate(cart_info):
+                product_name, amount, price = product
+                cart_price += round(price * amount, 2)
 
-        context.bot.edit_message_text(chat_id=chat_id,
-                                      message_id=message_id,
-                                      text=f'Мы доставим по адресу - {delivery_settings}',
-                                      reply_markup=keyboard)
+            keyboard = InlineKeyboardMarkup(
+                [[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}')],
+                 [InlineKeyboardButton(text='Редктировать 📝',
+                                       callback_data=f'offer-stage_1_none')]])
+
+            context.bot.edit_message_text(chat_id=chat_id,
+                                          message_id=message_id,
+                                          text=f'{delivery_settings}',
+                                          reply_markup=keyboard)
 
 
 offer_settings = CallbackQueryHandler(get_offer_settings, pattern=str('offer-stage'))
@@ -381,15 +389,13 @@ dispatcher.add_handler(offer_settings)
 
 def _user_settings_from_db(data: tuple) -> str:
     """ Настроки заказа """
-    delivery, main_shop_id, delivery_street = data
-    text = ''
+    delivery, shop_name, delivery_street = data
+
     if delivery:
-        text = f'по адресу {delivery_street}'
+        text = f'Доставка по адресу {delivery_street}'
     else:
-        if main_shop_id == 1:
-            text = 'магазин пер. Прачечный 3 '
-        if main_shop_id == 0:
-            text = 'магазин ул. Киевская 3'
+        text = f'Самовывоз из магазина {shop_name} '
+
     return text
 
 
@@ -467,8 +473,8 @@ def order(update: Update, context: CallbackContext):
     chat_id = call.message.chat_id
     user = call.message.chat.username
     order_num = load_last_order()
-    command, cart_price, payment_id = call.data.split('_')
-    order_products, order_price = save_order(chat_id, call.message.text, cart_price, int(payment_id))
+    command, cart_price = call.data.split('_')
+    order_products, order_price = save_order(chat_id, call.message.text, cart_price)
     text_products = ''
     for product_name, product_amount in order_products:
         text_products += f'\n{product_name[0]} - {int(product_amount)} шт.'
@@ -580,7 +586,7 @@ def orders_history(update: Update, context: CallbackContext):
                                    message_id=message.message_id - 1)
 
 
-orders_history_handler = MessageHandler(Filters.text('Мои заказы 🗃️'), orders_history)
+orders_history_handler = CommandHandler('orders', orders_history)
 dispatcher.add_handler(orders_history_handler)
 
 accept_cart_handler = CallbackQueryHandler(accept_delete_cart, pattern=str('history_orders'))
