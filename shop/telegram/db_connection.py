@@ -322,8 +322,8 @@ def save_order(chat_id: int, delivery_info: str, cart_price: int) -> list and in
     WHERE carts.profile_id={profile_id} AND carts.order_id IS NULL""")
     products_id, products_amount = list(zip(*cur.fetchall()))
 
-    db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, deliver, date, status_id, payed) 
-    SELECT id, '{delivery_info}', '{cart_price}', delivery, '{datetime.now().strftime("%m/%d/%Y")}'::date, 1, '{False}'
+    db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, deliver, date, status_id, payed, delivery_price) 
+    SELECT id, '{delivery_info}', '{cart_price}', delivery, '{datetime.now().strftime("%m/%d/%Y")}'::date, 1, '{False}', 0
     FROM profile WHERE profile.chat_id='{chat_id}'""")
     db.commit()
 
@@ -382,9 +382,22 @@ def get_user_id_chat(customer: str) -> int:
 
 
 def status_confirmed_order(order_id: int, admin_username: str, status: int):
-    """Помечает удаленными выполненые ордера и ник администратора отметившего"""
+    """Именить статус ордера"""
     db, cur = connect_db(
         f"UPDATE orders SET status_id='{status}', admin_check='{admin_username}' WHERE id='{order_id}'")
+    db.commit()
+    cur.close()
+    db.close()
+
+
+def order_payed(chat_id: int, order_sum: int):
+    """Помечает ордер оплаченым"""
+    db, cur = connect_db(f"""SELECT profile.id FROM profile
+        WHERE profile.chat_id='{chat_id}'""")
+    profile_id = cur.fetchone()[0]
+    db, cur = connect_db(
+        f"""UPDATE orders SET payed='{True}', status_id='3' 
+        WHERE profile_id='{profile_id}' AND order_price + delivery_price='{order_sum}'""")
     db.commit()
     cur.close()
     db.close()

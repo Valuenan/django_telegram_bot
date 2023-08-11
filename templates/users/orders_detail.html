@@ -71,6 +71,7 @@
                             {% formatted_float rest.amount %}</td>
                     {% endfor %}
                 </tr>
+                {% endfor %}
                 {% if order.deliver %}
                     <tr>
                         <td>
@@ -79,7 +80,6 @@
                         </td>
                     </tr>
                 {% endif %}
-                {% endfor %}
             </table>
             <button type="submit">Записать</button>
         </form>
