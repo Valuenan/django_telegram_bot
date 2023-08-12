@@ -6,6 +6,7 @@ from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandle
     PollAnswerHandler, CallbackDataCache, BasePersistence, PreCheckoutQueryHandler
 
 from shop.telegram import settings
+from shop.telegram.banking import Avangard_Invoice
 from shop.telegram.db_connection import load_last_order, get_category, get_products, \
     save_order, get_user_orders, edit_to_cart, show_cart, db_delete_cart, get_product_id, start_user, \
     old_cart_message, save_cart_message_id, old_cart_message_to_none, check_user_is_staff, get_waiting_orders, \
@@ -700,11 +701,15 @@ def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str
     """Сообщение о готовности заказа"""
     message = ''
     if status == '1':
+        invoice_num, link = Avangard_Invoice(title=f'Заказ № {order_id}, сумма {order_sum} р.', price=order_sum,
+                                             customer=f'{chat_id}',
+                                             shop_order_num=order_id)
         if delivery_price == 0:
-            message = f'ожидает оплаты'
+            message = f'''ожидает оплаты
+ваша ссылка на оплату: {link}'''
         else:
-            message = f',в том числе доставка на сумму {delivery_price}, <u> ожидает оплаты </u>'
-        buy_invoice(label=f'Заказ № {order_id}, сумма {order_sum} р.', amount=order_sum * 100, chat_id=chat_id)
+            message = f''',в том числе доставка на сумму {delivery_price}, <u> ожидает оплаты </u>
+ваша ссылка на оплату: {link}'''
     elif status == '3':
         message = 'поступил в доставку, ожидайте'
     elif status == '4':
@@ -715,44 +720,45 @@ def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str
                              text=f'Ваш заказ № {order_id} на сумму {order_sum} {message}',
                              parse_mode='HTML')
 
+# Оплата интегрированными средставми телеграм
 
-def buy_invoice(label, amount, chat_id):
-    prices = [LabeledPrice(label=label, amount=amount)]
-    provider_token = settings.PAYMENTS_TOKEN
-    if provider_token.split(':')[1] == 'TEST':
-        updater.bot.send_message(chat_id=chat_id, text=f'ТЕСТОВЫЙ ПЛАТЕЖ!!!')
+# def buy_invoice(label, amount, chat_id):
+#     prices = [LabeledPrice(label=label, amount=amount)]
+#     provider_token = settings.PAYMENTS_TOKEN
+#     if provider_token.split(':')[1] == 'TEST':
+#         updater.bot.send_message(chat_id=chat_id, text=f'ТЕСТОВЫЙ ПЛАТЕЖ!!!')
+#
+#     updater.bot.send_invoice(chat_id=chat_id,
+#                              title=label,
+#                              description='Описание',
+#                              payload='Finshop_3',
+#                              provider_token=provider_token,
+#                              currency='RUB',
+#                              prices=prices,
+#                              is_flexible=False,
+#                              start_parameter='start_parameter',
+#                              )
+#
+#
+# def precheckout_callback(update: Update, context: CallbackContext):
+#     query = update.pre_checkout_query
+#     if query.invoice_payload != "Finshop_3":
+#         query.answer(ok=False, error_message="Something went wrong...")
+#     else:
+#         query.answer(ok=True)
+#
+#
+# dispatcher.add_handler(PreCheckoutQueryHandler(precheckout_callback))
+#
+#
+# def successful_payment_callback(update: Update, context: CallbackContext):
+#     chat_id = update.message.chat_id
+#     order_sum = int(update.message.successful_payment.total_amount / 100)
+#     order_payed(chat_id=chat_id, order_sum=order_sum)
+#     update.message.reply_text("Оплата успешно принята")
 
-    updater.bot.send_invoice(chat_id=chat_id,
-                             title=label,
-                             description='Описание',
-                             payload='Finshop_3',
-                             provider_token=provider_token,
-                             currency='RUB',
-                             prices=prices,
-                             is_flexible=False,
-                             start_parameter='start_parameter',
-                             )
-
-
-def precheckout_callback(update: Update, context: CallbackContext):
-    query = update.pre_checkout_query
-    if query.invoice_payload != "Finshop_3":
-        query.answer(ok=False, error_message="Something went wrong...")
-    else:
-        query.answer(ok=True)
-
-
-dispatcher.add_handler(PreCheckoutQueryHandler(precheckout_callback))
-
-
-def successful_payment_callback(update: Update, context: CallbackContext):
-    chat_id = update.message.chat_id
-    order_sum = int(update.message.successful_payment.total_amount / 100)
-    order_payed(chat_id=chat_id, order_sum=order_sum)
-    update.message.reply_text("Оплата успешно принята")
-
-
-dispatcher.add_handler(MessageHandler(Filters.successful_payment, successful_payment_callback))
+#
+# dispatcher.add_handler(MessageHandler(Filters.successful_payment, successful_payment_callback))
 
 """ Утилиты """
 
