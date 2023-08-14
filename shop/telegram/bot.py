@@ -11,7 +11,7 @@ from shop.telegram.db_connection import load_last_order, get_category, get_produ
     save_order, get_user_orders, edit_to_cart, show_cart, db_delete_cart, get_product_id, start_user, \
     old_cart_message, save_cart_message_id, old_cart_message_to_none, check_user_is_staff, get_waiting_orders, \
     get_user_id_chat, status_confirmed_order, save_delivery_settings, get_delivery_settings, get_user_address, \
-    get_shops, user_add_phone, ADMIN_TG, get_user_phone, order_payed
+    get_shops, user_add_phone, ADMIN_TG, get_user_phone, order_payed, get_delivery_shop
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from users.models import ORDER_STATUS, PAYMENT
 from django_telegram_bot.settings import BASE_DIR, env
@@ -329,7 +329,7 @@ def get_offer_settings(update: Update, context: CallbackContext):
                                           text=f'Вам доставить? 🚚 (доставка будет расчитана после оформления заказа)',
                                           reply_markup=keyboard)
         if settings_stage == '2' and answer == 'yes':
-            save_delivery_settings(value=True, field='delivery', chat_id=chat_id)
+            save_delivery_settings(value='1', field='delivery', chat_id=chat_id)
             users_message[chat_id] = ''
             street = get_user_address(chat_id)
             buttons = [[InlineKeyboardButton(text='Сохранить адрес 📝', callback_data='offer-stage_3_none')]]
@@ -342,7 +342,7 @@ def get_offer_settings(update: Update, context: CallbackContext):
                                                f' или выберите последний адрес доставки',
                                           reply_markup=keyboard)
         if settings_stage == '2' and answer == 'no':
-            save_delivery_settings(value=False, field='delivery', chat_id=chat_id)
+            save_delivery_settings(value='0', field='delivery', chat_id=chat_id)
             buttons = []
             for shop in get_shops():
                 shop_id, shop_name = shop
@@ -356,16 +356,16 @@ def get_offer_settings(update: Update, context: CallbackContext):
         if settings_stage == '3':
             if answer == 'none':
                 save_delivery_settings(value=users_message[chat_id], field='delivery_street', chat_id=chat_id)
-                save_delivery_settings(value=True, field='delivery', chat_id=chat_id)
+                save_delivery_settings(value='1', field='delivery', chat_id=chat_id)
                 users_message.pop(chat_id)
             elif answer == 'street':
-                save_delivery_settings(value=True, field='delivery', chat_id=chat_id)
+                save_delivery_settings(value='1', field='delivery', chat_id=chat_id)
             else:
                 answer = int(answer)
                 save_delivery_settings(value=answer, field='main_shop_id', chat_id=chat_id)
-                save_delivery_settings(value=False, field='delivery', chat_id=chat_id)
+                save_delivery_settings(value='0', field='delivery', chat_id=chat_id)
 
-            delivery_settings = _user_settings_from_db(get_delivery_settings(chat_id))
+            delivery_settings = _user_settings_from_db(chat_id)
 
             cart_price = 0
             cart_info = show_cart(chat_id)
@@ -389,13 +389,15 @@ offer_settings = CallbackQueryHandler(get_offer_settings, pattern=str('offer-sta
 dispatcher.add_handler(offer_settings)
 
 
-def _user_settings_from_db(data: tuple) -> str:
+def _user_settings_from_db(chat_id: int) -> str:
     """ Настроки заказа """
-    delivery, shop_name, delivery_street = data
+
+    delivery, delivery_street = get_delivery_settings(chat_id)
 
     if delivery:
         text = f'Доставка по адресу {delivery_street}'
     else:
+        shop_name = get_delivery_shop(chat_id)
         text = f'Самовывоз из магазина {shop_name} '
 
     return text
@@ -719,6 +721,7 @@ def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str
     updater.bot.send_message(chat_id=chat_id,
                              text=f'Ваш заказ № {order_id} на сумму {order_sum} {message}',
                              parse_mode='HTML')
+
 
 # Оплата интегрированными средставми телеграм
 

@@ -1,7 +1,10 @@
 from datetime import datetime
 
-import psycopg2
-from psycopg2.extras import DictCursor
+# import psycopg2
+# from psycopg2.extras import DictCursor
+
+import mysql.connector
+from mysql.connector import Error
 
 from django_telegram_bot.settings import DATABASES
 
@@ -15,14 +18,28 @@ BD_PORT = DATABASES['default']['PORT']
 
 
 def connect_db(sql_request: str) -> object:
-    db = psycopg2.connect(database=DATABASE,
-                          host=HOST,
-                          user=DB_USER,
-                          password=BD_PASSWORD,
-                          port=BD_PORT)
-    cur = db.cursor(cursor_factory=DictCursor)
-    cur.execute(sql_request)
-    return db, cur
+    try:
+        connection = mysql.connector.connect(host=HOST,
+                                             database=DATABASE,
+                                             user=DB_USER,
+                                             password=BD_PASSWORD)
+        if connection.is_connected():
+            cursor = connection.cursor()
+            cursor.execute(sql_request)
+            return connection, cursor
+    except Error as e:
+        print("Error while connecting to MySQL", e)
+
+
+# def connect_db(sql_request: str) -> object:
+#     db = psycopg2.connect(database=DATABASE,
+#                           host=HOST,
+#                           user=DB_USER,
+#                           password=BD_PASSWORD,
+#                           port=BD_PORT)
+#     cur = db.cursor(cursor_factory=DictCursor)
+#     cur.execute(sql_request)
+#     return db, cur
 
 
 def _id_to_name(table: str, ids: list) -> list:
@@ -65,10 +82,10 @@ def start_user(first_name: str, last_name: str, username: str, chat_id: int, car
     if user_id is None:
         try:
             db, cur = connect_db(f"""INSERT INTO auth_user (first_name, last_name, username, is_staff, is_superuser, is_active, email, password, date_joined) 
-            VALUES ('{first_name}', '{last_name}', '{username}','{False}', '{False}','{True}', 'user@email.ru' ,'UserPassword333', CURRENT_TIMESTAMP)""")
+            VALUES ('{first_name}', '{last_name}', '{username}','0', '0','1', 'user@email.ru' ,'UserPassword333', CURRENT_TIMESTAMP)""")
             db.commit()
             db, cur = connect_db(f"""INSERT INTO profile (user_id, chat_id, cart_message_id, discount, delivery) 
-            SELECT auth_user.id, {chat_id}, {cart_message_id}, '{discount}', '{False}'
+            SELECT auth_user.id, {chat_id}, {cart_message_id}, '{discount}', '0'
             FROM auth_user WHERE auth_user.username = '{username}'""")
             db.commit()
             cur.close()
@@ -169,7 +186,7 @@ def edit_to_cart(command: str, chat_id: int, product_id: int) -> (int, list):
     if product_info is None and command == 'add' or product_info is None and command == 'add-cart':
         db, cur = connect_db(
             f"""INSERT INTO carts (profile_id, product_id, amount, price, soft_delete) 
-            VALUES ('{profile_id}', '{product_id}', '1', '{product_price}', 'False')""")
+            VALUES ('{profile_id}', '{product_id}', '1', '{product_price}', '0')""")
         amount = 1
     elif product_info is None and command == 'remove':
         amount = 0
@@ -274,15 +291,26 @@ def save_delivery_settings(value: bool or str, field: str, chat_id: int):
 
 def get_delivery_settings(chat_id: int) -> tuple:
     """Получить настройки заказа"""
-    db, cur = connect_db(f"""SELECT profile.delivery, shops.name, profile.delivery_street
+    db, cur = connect_db(f"""SELECT profile.delivery, profile.delivery_street
     FROM profile 
-    INNER JOIN shops 
-    ON profile.main_shop_id = shops.id
     WHERE chat_id='{chat_id}'""")
     settings = cur.fetchone()
     cur.close()
     db.close()
     return settings
+
+
+def get_delivery_shop(chat_id: int) -> tuple:
+    """Получить магазин доставки"""
+    db, cur = connect_db(f"""SELECT shops.name
+        FROM profile 
+        INNER JOIN shops 
+        ON profile.main_shop_id = shops.id
+        WHERE chat_id='{chat_id}'""")
+    shop = cur.fetchone()[0]
+    cur.close()
+    db.close()
+    return shop
 
 
 def get_user_phone(chat_id: int) -> None or str:
@@ -323,13 +351,13 @@ def save_order(chat_id: int, delivery_info: str, cart_price: int) -> list and in
     products_id, products_amount = list(zip(*cur.fetchall()))
 
     db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, deliver, date, status_id, payed, delivery_price) 
-    SELECT id, '{delivery_info}', '{cart_price}', delivery, '{datetime.now().strftime("%m/%d/%Y")}'::date, 1, '{False}', 0
+    SELECT id, '{delivery_info}', '{cart_price}', delivery, '{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', '1', '0', 0
     FROM profile WHERE profile.chat_id='{chat_id}'""")
     db.commit()
 
     cur.execute(f"""UPDATE carts
     SET order_id = (SELECT MAX(orders.id) FROM orders 
-    WHERE orders.profile_id='{profile_id}' AND soft_delete='False')
+    WHERE orders.profile_id='{profile_id}' AND soft_delete='0')
     WHERE carts.profile_id='{profile_id}' AND carts.order_id IS NULL""")
     db.commit()
     cur.close()
@@ -396,7 +424,7 @@ def order_payed(chat_id: int, order_sum: int):
         WHERE profile.chat_id='{chat_id}'""")
     profile_id = cur.fetchone()[0]
     db, cur = connect_db(
-        f"""UPDATE orders SET payed='{True}', status_id='3' 
+        f"""UPDATE orders SET payed='1', status_id='3' 
         WHERE profile_id='{profile_id}' AND order_price + delivery_price='{order_sum}'""")
     db.commit()
     cur.close()
