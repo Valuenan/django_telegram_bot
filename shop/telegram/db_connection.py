@@ -21,7 +21,7 @@ def connect_db(sql_request: str) -> object:
     try:
         connection = mysql.connector.connect(host=HOST,
                                              database=DATABASE,
-                                             user=DB_USER,
+                                             user=DATABASE,
                                              password=BD_PASSWORD)
         if connection.is_connected():
             cursor = connection.cursor()
