@@ -35,14 +35,18 @@ class ImportCategoryView(View):
             if upload_file_form.is_valid():
                 files = request.FILES.getlist('file_field')
                 for file in files:
+
                     file_for_import = File.objects.create(user=user, file=file)
 
-                    with open(os.path.abspath(f'{settings.MEDIA_ROOT}/{file_for_import.file}')) as csvfile:
-                        reader = csv.DictReader(csvfile)
+                    with open(os.path.abspath(f'{settings.MEDIA_ROOT}/{file_for_import.file}'), encoding='cp1251') as csvfile:
+                        reader = csv.reader(csvfile)
 
                         for row in reader:
                             try:
-                                category_id, category_name, category_parent_id = list(row.values())[0].split(';')
+                                category_id, category_name, category_parent_id = row[0].split(';')
+                                if category_id == 'Id':
+                                    continue
+
                                 category_id = int(category_id.replace('"', "")[-5:])
                                 category_name = category_name.replace('"', "")
                                 category_parent_id = int(category_parent_id.replace('"', "")[-5:])
@@ -94,6 +98,12 @@ class ImportCategoryView(View):
 
         messages.success(request, 'Category updated successfully')
         return redirect('/admin/import_category/')
+
+
+def _unicode_csv_reader(utf8_data, dialect=csv.excel, **kwargs):
+    csv_reader = csv.reader(utf8_data, dialect=dialect, **kwargs)
+    for row in csv_reader:
+        yield [unicode(cell, 'utf-8') for cell in row]
 
 
 class ImportGoodsView(View):

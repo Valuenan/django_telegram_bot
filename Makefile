@@ -4,6 +4,9 @@ runserver:
 runbot:
 	python manage.py bot
 
+runbot_nohup:
+	nohup runbot &
+
 migrate:
 	python manage.py makemigrations
 	python manage.py migrate

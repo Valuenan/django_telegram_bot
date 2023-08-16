@@ -14,8 +14,12 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.conf.urls import url, static
 from django.urls import path, include
+from django_telegram_bot import settings
 from shop.views import ImportGoodsView, Login, ImportCategoryView, Logout
+from django.views.static import serve as mediaserve
+
 
 urlpatterns = [
     path('login/', Login.as_view(), name='login'),
@@ -26,3 +30,20 @@ urlpatterns = [
     path('', include('shop.urls')),
     path('__debug__/', include('debug_toolbar.urls')),
 ]
+
+if settings.DEBUG:
+    import debug_toolbar
+
+    urlpatterns = [
+                      path('__debug__/', include(debug_toolbar.urls)),
+                  ] + urlpatterns
+
+    urlpatterns += static.static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+else:
+    urlpatterns += [
+        url(f'^{settings.MEDIA_URL.lstrip("/")}(?P<path>.*)$',
+            mediaserve, {'document_root': settings.MEDIA_ROOT}),
+        url(f'^{settings.STATIC_URL.lstrip("/")}(?P<path>.*)$',
+            mediaserve, {'document_root': settings.STATIC_ROOT}),
+    ]
