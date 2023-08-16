@@ -82,7 +82,7 @@ def catalog(update: Update, context: CallbackContext):
         call = update.callback_query
         chosen_category = call.data.split('_')
 
-        categories = get_category(int(chosen_category[1]))
+        categories, self_category_name = get_category(int(chosen_category[1]))
 
     else:
         categories = get_category()
@@ -96,7 +96,7 @@ def catalog(update: Update, context: CallbackContext):
         keyboard = InlineKeyboardMarkup([button for button in buttons])
 
         if update.callback_query:
-            text = f'Категория: {chosen_category[1]}'
+            text = f'Категория: {self_category_name[0]}'
         else:
             text = 'Каталог'
         message = context.bot.send_message(chat_id=update.effective_chat.id,
