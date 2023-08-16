@@ -88,7 +88,7 @@ def catalog(update: Update, context: CallbackContext):
         categories = get_category()
     if categories:
         for index, category in enumerate(categories):
-            button = (InlineKeyboardButton(text=category[1], callback_data=f'category_{category[0]}_{category[1]}'))
+            button = (InlineKeyboardButton(text=category[0], callback_data=f'category_{category[1]}_{category[2]}'))
             if index % BUTTONS_IN_ROW_CATEGORY == 0:
                 buttons.append([])
                 row += 1
@@ -96,7 +96,7 @@ def catalog(update: Update, context: CallbackContext):
         keyboard = InlineKeyboardMarkup([button for button in buttons])
 
         if update.callback_query:
-            text = f'Категория: {chosen_category[2]}'
+            text = f'Категория: {chosen_category[1]}'
         else:
             text = 'Каталог'
         message = context.bot.send_message(chat_id=update.effective_chat.id,
