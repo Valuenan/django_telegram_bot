@@ -4,18 +4,20 @@ from .models import Profile, Carts, Orders, OrderStatus, Payment
 
 
 @admin.register(Profile)
-class ProductsAdmin(admin.ModelAdmin):
-    pass
+class ProfileAdmin(admin.ModelAdmin):
+    list_display = ['telegram_name', 'chat_id']
+    search_fields = ['chat_id']
 
 
 @admin.register(Carts)
-class ProductsAdmin(admin.ModelAdmin):
+class CartsAdmin(admin.ModelAdmin):
     pass
 
 
 @admin.register(OrderStatus)
-class ProductsAdmin(admin.ModelAdmin):
+class OrderStatusAdmin(admin.ModelAdmin):
     pass
+
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):

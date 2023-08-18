@@ -19,7 +19,8 @@
     {% endif %}
         <h1>Заказ №{{ order.id }}</h1>
         <p>Дата: {{ order.date }}</p>
-        <p>Клиент: {{ order.profile.user.username }}</p>
+        <p>Клиент: {{ order.profile.telegram_name }}</p>
+        <p>Номер телефона: {{ order.profile.phone }}</p>
         <p>Доставка: {% if order.deliver %}
                     да
                 {% else %}

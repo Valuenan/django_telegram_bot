@@ -63,7 +63,7 @@ def check_user_is_staff(chat_id: int) -> (str or None):
     return is_staff
 
 
-def start_user(first_name: str, last_name: str, chat_id: int, cart_message_id: int,
+def start_user(first_name: str, last_name: str, username: str, chat_id: int, cart_message_id: int,
                discount: int) -> (
         str, str):
     """Запись новых пользователей"""
@@ -84,8 +84,8 @@ def start_user(first_name: str, last_name: str, chat_id: int, cart_message_id: i
             db, cur = connect_db(f"""INSERT INTO auth_user (first_name, last_name, username, is_staff, is_superuser, is_active, email, password, date_joined) 
             VALUES ('{first_name}', '{last_name}', '{chat_id}','0', '0','1', 'user@email.ru' ,'UserPassword333', CURRENT_TIMESTAMP)""")
             db.commit()
-            db, cur = connect_db(f"""INSERT INTO profile (user_id, chat_id, cart_message_id, discount, delivery) 
-            SELECT auth_user.id, {chat_id}, {cart_message_id}, '{discount}', '0'
+            db, cur = connect_db(f"""INSERT INTO profile (user_id, telegram_name, chat_id, cart_message_id, discount, delivery) 
+            SELECT auth_user.id, '{username}', '{chat_id}', '{cart_message_id}', '{discount}', '0'
             FROM auth_user WHERE auth_user.username = '{chat_id}'""")
             db.commit()
             cur.close()

@@ -1,19 +1,15 @@
 import re
 
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, InputMediaPhoto, \
-    KeyboardButton, error, LabeledPrice, Invoice
-from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, \
-    PollAnswerHandler, CallbackDataCache, BasePersistence, PreCheckoutQueryHandler
-
-from shop.telegram import settings
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, error
+from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
 from shop.telegram.banking import Avangard_Invoice
 from shop.telegram.db_connection import load_last_order, get_category, get_products, \
     save_order, get_user_orders, edit_to_cart, show_cart, db_delete_cart, get_product_id, start_user, \
-    old_cart_message, save_cart_message_id, old_cart_message_to_none, check_user_is_staff, get_waiting_orders, \
+    old_cart_message, save_cart_message_id, old_cart_message_to_none, check_user_is_staff, \
     save_delivery_settings, get_delivery_settings, get_user_address, \
-    get_shops, user_add_phone, ADMIN_TG, get_user_phone, order_payed, get_delivery_shop
+    get_shops, user_add_phone, ADMIN_TG, get_user_phone, get_delivery_shop
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
-from users.models import ORDER_STATUS, PAYMENT
+from users.models import ORDER_STATUS
 from django_telegram_bot.settings import BASE_DIR, env
 
 LOG_FILENAME = 'bot_log.txt'
@@ -30,15 +26,10 @@ users_message = {}
 def main_keyboard(update: Update, context: CallbackContext):
     """Основаня клавиатура снизу"""
     user = update.message.from_user
-    text, err = start_user(first_name=user.first_name, last_name=user.last_name,
+    text, err = start_user(username=user.username, first_name=user.first_name, last_name=user.last_name,
                            chat_id=update.message.chat_id, cart_message_id=0, discount=1)
     if err == 'ok':
-        # button_column = [[KeyboardButton(text='Каталог 🧾'), KeyboardButton(text='Корзина 🛒')],
-        #                  [KeyboardButton(text='Мои заказы 🗃️')]]
         check = check_user_is_staff(update.message.chat_id)
-        # if check is not None and check[0]:
-        #     button_column.append([KeyboardButton(text='Подтвердить заказ'), KeyboardButton(text='Отменить заказ')])
-        # keyboard = ReplyKeyboardMarkup([button for button in button_column], resize_keyboard=True)
     elif err == 'no-phone':
         users_message[user.id] = 'phone'
 
