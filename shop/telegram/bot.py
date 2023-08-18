@@ -612,8 +612,6 @@ def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str
     """Сообщение о готовности заказа"""
     message = ''
     if status == '1':
-        updater.bot.send_photo(chat_id=chat_id,
-                               photo=open(f'{BASE_DIR}/static/img/SBP_logo.png', 'rb'))
         invoice_num, link = avangard_invoice(title=f'(Заказ в магазине OttudaSPB № {order_id}, сумма {order_sum} р.)',
                                              price=order_sum,
                                              customer=f'{chat_id}',
