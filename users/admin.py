@@ -5,13 +5,14 @@ from .models import Profile, Carts, Orders, OrderStatus, Payment
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ['telegram_name', 'chat_id']
+    list_display = ['telegram_name', 'chat_id', 'phone', 'discount']
     search_fields = ['chat_id']
 
 
 @admin.register(Carts)
 class CartsAdmin(admin.ModelAdmin):
-    pass
+    list_display = ['profile', 'product', 'order', 'soft_delete']
+    search_fields = ['profile']
 
 
 @admin.register(OrderStatus)
@@ -26,4 +27,5 @@ class PaymentAdmin(admin.ModelAdmin):
 
 @admin.register(Orders)
 class ProductsAdmin(admin.ModelAdmin):
-    pass
+    list_display = ['id', 'date', 'profile', 'admin_check', 'payed']
+    search_fields = ['id']
