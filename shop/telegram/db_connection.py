@@ -142,7 +142,7 @@ def get_products(chosen_category: int, page: int) -> (list, int):
     cur.close()
     db.close()
     if len(products) > PRODUCTS_PAGINATION_NUM:
-        count_pages = len(products) // PRODUCTS_PAGINATION_NUM
+        count_pages = (len(products) - 1) // PRODUCTS_PAGINATION_NUM
         start = page * PRODUCTS_PAGINATION_NUM
         end = start + PRODUCTS_PAGINATION_NUM
         return products[start: end], count_pages
