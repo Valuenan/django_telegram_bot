@@ -63,14 +63,14 @@ def check_user_is_staff(chat_id: int) -> (str or None):
     return is_staff
 
 
-def start_user(first_name: str, last_name: str, username: str, chat_id: int, cart_message_id: int,
+def start_user(first_name: str, last_name: str, chat_id: int, cart_message_id: int,
                discount: int) -> (
         str, str):
     """Запись новых пользователей"""
     db, cur = connect_db(f"""SELECT auth_user.id, profile.phone
     FROM auth_user
     INNER JOIN profile ON auth_user.id = profile.user_id
-    WHERE username='{username}'""")
+    WHERE username='{chat_id}'""")
     data = cur.fetchall()
     if data:
         user_id, user_phone = data[0]
@@ -82,11 +82,11 @@ def start_user(first_name: str, last_name: str, username: str, chat_id: int, car
     if user_id is None:
         try:
             db, cur = connect_db(f"""INSERT INTO auth_user (first_name, last_name, username, is_staff, is_superuser, is_active, email, password, date_joined) 
-            VALUES ('{first_name}', '{last_name}', '{username}','0', '0','1', 'user@email.ru' ,'UserPassword333', CURRENT_TIMESTAMP)""")
+            VALUES ('{first_name}', '{last_name}', '{chat_id}','0', '0','1', 'user@email.ru' ,'UserPassword333', CURRENT_TIMESTAMP)""")
             db.commit()
             db, cur = connect_db(f"""INSERT INTO profile (user_id, chat_id, cart_message_id, discount, delivery) 
             SELECT auth_user.id, {chat_id}, {cart_message_id}, '{discount}', '0'
-            FROM auth_user WHERE auth_user.username = '{username}'""")
+            FROM auth_user WHERE auth_user.username = '{chat_id}'""")
             db.commit()
             cur.close()
             db.close()
@@ -123,10 +123,12 @@ def get_shops() -> list:
     db.close()
     return shops
 
+
 def get_category(category_id: int = None) -> list:
     """Получить список категорй"""
     if category_id is not None:
-        db, cur = connect_db(f"SELECT command, id, parent_category_id FROM categories WHERE parent_category_id='{category_id}'")
+        db, cur = connect_db(
+            f"SELECT command, id, parent_category_id FROM categories WHERE parent_category_id='{category_id}'")
         categories = cur.fetchall()
         db, cur = connect_db(f"SELECT command FROM categories WHERE id='{category_id}'")
         self_category_name = cur.fetchone()
@@ -173,7 +175,7 @@ def get_product_id(product_name: str) -> list:
 
 def edit_to_cart(command: str, chat_id: int, product_id: int) -> (int, list):
     """Добавить/Удалить товар из корзины"""
-    db, cur = connect_db(f"""SELECT profile.id FROM profile WHERE profile.chat_id='{chat_id}'""")
+    db, cur = connect_db(f"""SELECT id FROM profile WHERE chat_id='{chat_id}'""")
     profile_id = cur.fetchone()[0]
 
     db, cur = connect_db(f"""SELECT amount FROM carts 
@@ -397,26 +399,6 @@ def get_waiting_orders() -> list:
     cur.close()
     db.close()
     return request
-
-
-def get_user_id_chat(customer: str) -> int:
-    """Возвращает ид чата по логину"""
-    db, cur = connect_db(f"""SELECT profile.chat_id FROM auth_user 
-    INNER JOIN profile ON profile.user_id = auth_user.id
-    WHERE auth_user.username='{customer}'""")
-    request = cur.fetchone()[0]
-    cur.close()
-    db.close()
-    return request
-
-
-def status_confirmed_order(order_id: int, admin_username: str, status: int):
-    """Именить статус ордера"""
-    db, cur = connect_db(
-        f"UPDATE orders SET status_id='{status}', admin_check='{admin_username}' WHERE id='{order_id}'")
-    db.commit()
-    cur.close()
-    db.close()
 
 
 def order_payed(chat_id: int, order_sum: int):

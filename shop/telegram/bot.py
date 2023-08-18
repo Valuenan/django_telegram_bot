@@ -10,7 +10,7 @@ from shop.telegram.banking import Avangard_Invoice
 from shop.telegram.db_connection import load_last_order, get_category, get_products, \
     save_order, get_user_orders, edit_to_cart, show_cart, db_delete_cart, get_product_id, start_user, \
     old_cart_message, save_cart_message_id, old_cart_message_to_none, check_user_is_staff, get_waiting_orders, \
-    get_user_id_chat, status_confirmed_order, save_delivery_settings, get_delivery_settings, get_user_address, \
+    save_delivery_settings, get_delivery_settings, get_user_address, \
     get_shops, user_add_phone, ADMIN_TG, get_user_phone, order_payed, get_delivery_shop
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from users.models import ORDER_STATUS, PAYMENT
@@ -30,7 +30,7 @@ users_message = {}
 def main_keyboard(update: Update, context: CallbackContext):
     """Основаня клавиатура снизу"""
     user = update.message.from_user
-    text, err = start_user(username=user.username, first_name=user.first_name, last_name=user.last_name,
+    text, err = start_user(first_name=user.first_name, last_name=user.last_name,
                            chat_id=update.message.chat_id, cart_message_id=0, discount=1)
     if err == 'ok':
         # button_column = [[KeyboardButton(text='Каталог 🧾'), KeyboardButton(text='Корзина 🛒')],
@@ -606,97 +606,6 @@ unknown_handler = MessageHandler(Filters.command, unknown)
 dispatcher.add_handler(unknown_handler)
 
 """ АДМИНИСТРАТИВНЫЕ """
-
-
-def poll_orders(update: Update, context: CallbackContext):
-    """Выводит опрос по заказам для подтверждения/ отмены"""
-    if check_user_is_staff(update.message.chat_id)[0]:
-        if update.message.text == 'Подтвердить заказ':
-            poll_type = 'approve'
-        elif update.message.text == 'Отменить заказ':
-            poll_type = 'refuse'
-        user = update.message.from_user.username
-        orders = get_waiting_orders()
-        # не более 10 варианов ответа в опросе
-        options_list = []
-        options = [('Отмена')]
-        for index, order in enumerate(orders):
-            if (index + 1) % 10 == 0:
-                options_list.append(options)
-                options = [('Отмена')]
-            options.append(f'Ордер №{order[0]} - клиент {order[1]} - стоимость {order[2]}р.')
-        if len(options) > 1:
-            options_list.append(options)
-
-        for options in options_list:
-            message = context.bot.send_poll(chat_id=update.effective_chat.id,
-                                            question=f'Опрос {update.message.text} создан пользователем {user}',
-                                            options=options,
-                                            is_anonymous=False,
-                                            allows_multiple_answers=True)
-        if not options_list:
-            keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
-            message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                               text='Нет заявок',
-                                               reply_markup=keyboard)
-            context.bot.delete_message(chat_id=update.effective_chat.id,
-                                       message_id=message.message_id - 1)
-            return
-        poll = {
-            message.poll.id: {
-                "admin_username": user,
-                "orders": orders,
-                "message_id": message.message_id,
-                "chat_id": update.effective_chat.id,
-                "poll_type": poll_type
-            }
-        }
-        context.bot_data.update(poll)
-    else:
-        context.bot.send_message(chat_id=update.effective_chat.id,
-                                 text='Извините, я не знаю такой команды')
-
-
-poll_orders_handler = MessageHandler(Filters.text('Подтвердить заказ'), poll_orders)
-dispatcher.add_handler(poll_orders_handler)
-
-poll_orders_handler = MessageHandler(Filters.text('Отменить заказ'), poll_orders)
-dispatcher.add_handler(poll_orders_handler)
-
-
-def poll_orders_answer(update: Update, context: CallbackContext):
-    """Ответ на опрос по заказам"""
-    print(context)
-    answer = update.poll_answer
-    poll_id = answer.poll_id
-
-    try:
-        orders = context.bot_data[poll_id]["orders"]
-        admin_username = context.bot_data[poll_id]['admin_username']
-    except KeyError:
-        context.bot.send_message(chat_id=update.poll_answer.user.id,
-                                 text=f'Не получилось отправить пуши по заказам. Попробуйте еще раз.'
-                                      f'Если ошибка повторится обратитесь к администратору @Vesselii')
-
-        return
-    selected_options = answer.option_ids
-
-    if 0 in selected_options:
-        return
-
-    for order_index in selected_options:
-        confirm_order = orders[order_index - 1]
-        chat_id = get_user_id_chat(confirm_order[1])
-        if context.bot_data[poll_id]['poll_type'] == 'approve':
-            status_confirmed_order(order_id=confirm_order[0], admin_username=admin_username, status=5)
-        if context.bot_data[poll_id]['poll_type'] == 'refuse':
-            context.bot.send_message(chat_id=chat_id,
-                                     text=f'Ваш заказ №{confirm_order[0]} отменен')
-            status_confirmed_order(order_id=confirm_order[0], admin_username=admin_username, status=6)
-
-
-poll_answer_handler = PollAnswerHandler(poll_orders_answer)
-dispatcher.add_handler(poll_answer_handler)
 
 
 def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str, delivery_price: int = 0):
