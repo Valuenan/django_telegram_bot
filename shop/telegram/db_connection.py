@@ -1,8 +1,5 @@
 from datetime import datetime
 
-# import psycopg2
-# from psycopg2.extras import DictCursor
-
 import mysql.connector
 from mysql.connector import Error
 
@@ -29,17 +26,6 @@ def connect_db(sql_request: str) -> object:
             return connection, cursor
     except Error as e:
         print("Error while connecting to MySQL", e)
-
-
-# def connect_db(sql_request: str) -> object:
-#     db = psycopg2.connect(database=DATABASE,
-#                           host=HOST,
-#                           user=DB_USER,
-#                           password=BD_PASSWORD,
-#                           port=BD_PORT)
-#     cur = db.cursor(cursor_factory=DictCursor)
-#     cur.execute(sql_request)
-#     return db, cur
 
 
 def _id_to_name(table: str, ids: list) -> list:
@@ -96,11 +82,11 @@ def start_user(first_name: str, last_name: str, username: str, chat_id: int, car
 Добро пожаловать {first_name}, для оформления заказов нужно указать номер телефона. Отправьте в чат номер телефона.'''
             error = 'no-phone'
         except Exception as err:
-            text = f'''Извините {first_name} произошла ошибка, попробуйте еще раз нажать /start.
+            text = f'''Извините {first_name} произошла ошибка, попробуйте еще раз нажать -> /start <-.
 Если ошибка повторяется, обратитесь к администратору {ADMIN_TG}'''
             error = err
     elif user_phone is None:
-        text = f'''Добро пожаловать {first_name}, нужно указать номер телефона. Отправьте в чат номер телефона.'''
+        text = f'''Добро пожаловать {first_name}, нужно указать номер телефона. Отправьте в чат номер телефона. (формат +7*** или 8***)'''
         error = 'no-phone'
     else:
         text, error = f'Добро пожаловать {first_name}.', 'ok'

@@ -146,7 +146,7 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
                                    photo=product_photo,
                                    disable_notification=True)
             context.bot.send_message(chat_id=update.effective_chat.id, text=f'{product_name} '
-                                                                            f'\n <b>Цена: {price}</b>'
+                                                                            f'\n <b>Цена: {price} р.</b>'
                                                                             f'\n <i>Количество: {int(rests)} шт.</i>',
                                      reply_markup=keyboard,
                                      parse_mode='HTML')
@@ -192,7 +192,7 @@ def roll_photo(update: Update, context: CallbackContext):
             message_id=call.message.message_id,
             reply_markup=keyboard)
     except:
-        context.bot.send_message(call.message.chat.id, "Хм... состава не оказалось")
+        context.bot.send_message(call.message.chat.id, "Состава не оказалось 😨")
 
 
 roll_photo_handler = CallbackQueryHandler(roll_photo, pattern="^" + str('roll_'))
@@ -389,7 +389,7 @@ def _user_settings_from_db(chat_id: int) -> str:
         text = f'Доставка по адресу {delivery_street}'
     else:
         shop_name = get_delivery_shop(chat_id)
-        text = f'Самовывоз из магазина {shop_name} '
+        text = f'Товары зарезервированы в магазине {shop_name} '
 
     return text
 
@@ -481,7 +481,7 @@ def order(update: Update, context: CallbackContext):
                                   message_id=call.message.message_id, parse_mode='HTML')
     context.bot.forward_message(chat_id=ORDERS_CHAT_ID,
                                 from_chat_id=call.message.chat_id,
-                                message_id=call.message.message_id, parse_mode='HTML')
+                                message_id=call.message.message_id)
     context.bot.edit_message_text(text=f'Ваш {order_message}',
                                   chat_id=call.message.chat.id,
                                   message_id=call.message.message_id, parse_mode='HTML')
@@ -537,7 +537,7 @@ def orders_history(update: Update, context: CallbackContext):
 
     if not orders:
         message = context.bot.send_message(chat_id=chat_id,
-                                           text='Вы еще ничего не покупали :(',
+                                           text='У вас нет заказов',
                                            reply_markup=keyboard)
     else:
         prev_id = None
@@ -558,14 +558,14 @@ def orders_history(update: Update, context: CallbackContext):
             if prev_id != order_id:
                 position = 1
                 text_products = '\n'.join(order_products)
-                text += f'''<b><u>Заказ № {prev_id}</u></b>\n <u>Статус заказа: {ORDER_STATUS[int(prev_status)][1]}</u> \n {text_products} \n <b>на сумму:{prev_sum}</b> \n {"_" * 20} \n'''
+                text += f'''<b><u>Заказ № {prev_id}</u></b>\n <u>Статус заказа: {ORDER_STATUS[int(prev_status)][1]}</u> \n {text_products} \n <b>на сумму:{prev_sum} р.</b> \n {"_" * 20} \n'''
 
                 order_products = [f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price}р.']
                 prev_id, prev_sum, prev_status = order_id, order_sum, order_status
 
         else:
             text_products = '\n'.join(order_products)
-            text += f'''<b><u>Заказ № {order_id}</u></b> \n <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u> \n {text_products} \n <b>на сумму: {order_sum}</b> \n {"_" * 20} \n'''
+            text += f'''<b><u>Заказ № {order_id}</u></b> \n <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u> \n {text_products} \n <b>на сумму: {order_sum} р.</b> \n {"_" * 20} \n'''
 
         if update.callback_query:
             context.bot.edit_message_text(chat_id=chat_id,
@@ -610,7 +610,7 @@ def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str
             message = f'''ожидает оплаты
 ваша ссылка на оплату: {link}'''
         else:
-            message = f''',в том числе доставка на сумму {delivery_price}, <u> ожидает оплаты </u>
+            message = f''',в том числе доставка на сумму {delivery_price} р., <u> ожидает оплаты </u>
 ваша ссылка на оплату: {link}'''
     elif status == '3':
         message = 'поступил в доставку, ожидайте'
@@ -619,7 +619,7 @@ def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str
     elif status == '6':
         message = 'был отменен'
     updater.bot.send_message(chat_id=chat_id,
-                             text=f'Ваш заказ № {order_id} на сумму {order_sum} {message}',
+                             text=f'Ваш заказ № {order_id} на сумму {order_sum} р. {message}',
                              parse_mode='HTML')
 
 
