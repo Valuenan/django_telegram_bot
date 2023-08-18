@@ -10,7 +10,7 @@ from shop.telegram import settings
 user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.97 Safari/537.36'
 
 
-def Avangard_Invoice(title: str, price: int, customer: str, shop_order_num: int, pay_type: int = 1):
+def avangard_invoice(title: str, price: int, customer: str, shop_order_num: int, pay_type: int = 1):
     http.client.HTTPConnection.debuglevel = 0
 
     logging.basicConfig(filename='banking.log')

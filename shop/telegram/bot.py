@@ -2,12 +2,12 @@ import re
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, error
 from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
-from shop.telegram.banking import Avangard_Invoice
+from shop.telegram.banking import avangard_invoice
 from shop.telegram.db_connection import load_last_order, get_category, get_products, \
     save_order, get_user_orders, edit_to_cart, show_cart, db_delete_cart, get_product_id, start_user, \
     old_cart_message, save_cart_message_id, old_cart_message_to_none, check_user_is_staff, \
     save_delivery_settings, get_delivery_settings, get_user_address, \
-    get_shops, user_add_phone, ADMIN_TG, get_user_phone, get_delivery_shop
+    get_shops, user_add_phone, ADMIN_TG, get_user_phone, get_delivery_shop, save_payment_link
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from users.models import ORDER_STATUS
 from django_telegram_bot.settings import BASE_DIR, env
@@ -603,9 +603,13 @@ def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str
     """Сообщение о готовности заказа"""
     message = ''
     if status == '1':
-        invoice_num, link = Avangard_Invoice(title=f'Заказ № {order_id}, сумма {order_sum} р.', price=order_sum,
+        updater.bot.send_photo(chat_id=chat_id,
+                               photo=open(f'{BASE_DIR}/static/img/SBP_logo.png', 'rb'))
+        invoice_num, link = avangard_invoice(title=f'(Заказ в магазине OttudaSPB № {order_id}, сумма {order_sum} р.',
+                                             price=order_sum,
                                              customer=f'{chat_id}',
                                              shop_order_num=order_id)
+        save_payment_link(order_id, link)
         if delivery_price == 0:
             message = f'''ожидает оплаты
 ваша ссылка на оплату: {link}'''

@@ -95,10 +95,11 @@ class Orders(models.Model):
     delivery_price = models.IntegerField(verbose_name='Стомость доставки', default=0, blank=True, null=True)
     payment = models.ForeignKey(Payment, blank=True, null=True, on_delete=models.DO_NOTHING,
                                 verbose_name='Вид оплаты (не используется)')
+    payment_url = models.URLField(verbose_name='Ссылка на оплату Авангард', blank=True, null=True)
     payed = models.BooleanField(verbose_name='Заказ оплачен', default=False)
 
     def __str__(self):
-        return f'Заказ номер: {self.id} , статус {self.status} - {self.profile.user.username} - сумма {self.order_price} - подтвердил {self.admin_check}'
+        return f'{self.id}'
 
     def update_order_sum(self, order_carts):
         order_sum = 0
@@ -160,7 +161,7 @@ class Carts(models.Model):
     soft_delete = models.BooleanField(verbose_name='Удалить', default=False)
 
     def __str__(self):
-        return f'{self.profile.user.username} - товар {self.product} - работник {self.amount} - цена {self.product}'
+        return self.profile.telegram_name
 
     class Meta:
         db_table = 'carts'
