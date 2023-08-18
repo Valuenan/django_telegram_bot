@@ -542,10 +542,12 @@ def orders_history(update: Update, context: CallbackContext):
     else:
         prev_id = None
         text = ''
+        url_list = {}
 
         for order in orders:
+            order_id, product_name, product_price, product_amount, order_sum, order_status, payment_url = order
+            url_list[order_id] = payment_url
 
-            order_id, product_name, product_price, product_amount, order_sum, order_status = order
             if not prev_id:
                 position = 1
                 prev_id, prev_sum, prev_status = order_id, order_sum, order_status
@@ -558,14 +560,21 @@ def orders_history(update: Update, context: CallbackContext):
             if prev_id != order_id:
                 position = 1
                 text_products = '\n'.join(order_products)
-                text += f'''<b><u>Заказ № {prev_id}</u></b>\n <u>Статус заказа: {ORDER_STATUS[int(prev_status)][1]}</u> \n {text_products} \n <b>на сумму:{prev_sum} р.</b> \n {"_" * 20} \n'''
+                text += f'''<b><u>Заказ № {prev_id}</u></b>\n <u>Статус заказа: {ORDER_STATUS[int(prev_status)][1]}</u> \n {text_products} \n <b>на сумму:{prev_sum} р.</b>'''
+                if prev_status == '1' and url_list and prev_id in url_list:
+                    text += f'\n ссылка на оплату (чек): {url_list[prev_id]}'
+                text += f'\n {"_" * 20} \n'
 
                 order_products = [f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price}р.']
                 prev_id, prev_sum, prev_status = order_id, order_sum, order_status
 
+
         else:
             text_products = '\n'.join(order_products)
-            text += f'''<b><u>Заказ № {order_id}</u></b> \n <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u> \n {text_products} \n <b>на сумму: {order_sum} р.</b> \n {"_" * 20} \n'''
+            text += f'''<b><u>Заказ № {order_id}</u></b> \n <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u> \n {text_products} \n <b>на сумму: {order_sum} р.</b>'''
+            if order_status == '1' and url_list and order_id in url_list:
+                text += f'\n ссылка на оплату (чек): {url_list[order_id]}'
+            text += f'\n {"_" * 20} \n'
 
         if update.callback_query:
             context.bot.edit_message_text(chat_id=chat_id,
@@ -605,7 +614,7 @@ def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str
     if status == '1':
         updater.bot.send_photo(chat_id=chat_id,
                                photo=open(f'{BASE_DIR}/static/img/SBP_logo.png', 'rb'))
-        invoice_num, link = avangard_invoice(title=f'(Заказ в магазине OttudaSPB № {order_id}, сумма {order_sum} р.',
+        invoice_num, link = avangard_invoice(title=f'(Заказ в магазине OttudaSPB № {order_id}, сумма {order_sum} р.)',
                                              price=order_sum,
                                              customer=f'{chat_id}',
                                              shop_order_num=order_id)

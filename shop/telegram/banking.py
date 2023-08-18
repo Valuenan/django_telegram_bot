@@ -1,4 +1,4 @@
-from datetime import date
+import datetime
 
 import requests
 from bs4 import BeautifulSoup
@@ -37,7 +37,8 @@ def avangard_invoice(title: str, price: int, customer: str, shop_order_num: int,
     bs = BeautifulSoup(resp.text, 'html.parser')
     view_state = bs.find(id='j_id1:javax.faces.ViewState:0')['value']
     order_num = bs.find(id='order_form:num')['value']
-    date_today = date.today().strftime('%d.%m.%Y')
+    date_today = datetime.date.today()
+    date_to = date_today + datetime.timedelta(days=2)
 
     order_form = {'javax.faces.partial.ajax': 'true',
                   'javax.faces.source': 'order_form:j_idt59',
@@ -50,8 +51,8 @@ def avangard_invoice(title: str, price: int, customer: str, shop_order_num: int,
                   'order_form:price_input': f'{price},00',
                   'order_form:price_hinput': f'{price}',
                   'order_form:customer': customer,
-                  'order_form:deliveryDateFrom_input': date_today,
-                  'order_form:deliveryDateTo_input': date_today,
+                  'order_form:deliveryDateFrom_input': date_today.strftime('%d.%m.%Y'),
+                  'order_form:deliveryDateTo_input': date_to.strftime('%d.%m.%Y'),
                   'order_form:pay_type': pay_type,
                   'order_form:comments': shop_order_num,
                   'order_form:timeLimitType': 'LIMIT_TYPE_WHILE',
