@@ -26,15 +26,15 @@ users_message = {}
 def main_keyboard(update: Update, context: CallbackContext):
     """Основаня клавиатура снизу"""
     user = update.message.from_user
-    text, err = start_user(username=user.username, first_name=user.first_name, last_name=user.last_name,
+    text, status = start_user(username=user.username, first_name=user.first_name, last_name=user.last_name,
                            chat_id=update.message.chat_id, cart_message_id=0, discount=1)
-    if err == 'ok':
-        check = check_user_is_staff(update.message.chat_id)
-    elif err == 'no-phone':
-        users_message[user.id] = 'phone'
-
     message = context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-    if err != 'ok':
+    if status == 'ok':
+        check = check_user_is_staff(update.message.chat_id)
+    elif status in ['no-phone', 'new_user']:
+        users_message[user.id] = 'phone'
+        context.bot.pin_chat_message(chat_id=update.effective_chat.id, message_id=message.message_id)
+    if status != 'ok':
         context.bot.delete_message(chat_id=update.effective_chat.id,
                                    message_id=message.message_id - 1)
 

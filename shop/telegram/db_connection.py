@@ -5,7 +5,7 @@ from mysql.connector import Error
 
 from django_telegram_bot.settings import DATABASES
 
-ADMIN_TG = '@Vassagio'
+ADMIN_TG = '@OttudaSPB_help'
 PRODUCTS_PAGINATION_NUM = 5
 DATABASE = DATABASES['default']['NAME']
 HOST = DATABASES['default']['HOST']
@@ -77,20 +77,20 @@ def start_user(first_name: str, last_name: str, username: str, chat_id: int, car
             cur.close()
             db.close()
 
-            text = f'''В данный момент бот работает в тестовом режиме, при возникновении проблем обращайтесть к администратору {ADMIN_TG}
+            text = f'''При возникновении проблем обратитесь в канал {ADMIN_TG}. В данный момент бот работает в тестовом режиме. 
             
-Добро пожаловать {first_name}, для оформления заказов нужно указать номер телефона. Отправьте в чат номер телефона.'''
-            error = 'no-phone'
+Добро пожаловать {first_name}, для оформления заказов нужно указать номер телефона. Отправьте в чат номер телефона (формат +7** или 8**).'''
+            status = 'new_user'
         except Exception as err:
             text = f'''Извините {first_name} произошла ошибка, попробуйте еще раз нажать -> /start <-.
-Если ошибка повторяется, обратитесь к администратору {ADMIN_TG}'''
-            error = err
+Если ошибка повторяется, обратитесь за помощью в канал {ADMIN_TG}'''
+            status = err
     elif user_phone is None:
         text = f'''Добро пожаловать {first_name}, нужно указать номер телефона. Отправьте в чат номер телефона. (формат +7*** или 8***)'''
-        error = 'no-phone'
+        status = 'no-phone'
     else:
-        text, error = f'Добро пожаловать {first_name}.', 'ok'
-    return text, error
+        text, status = f'Добро пожаловать {first_name}.', 'ok'
+    return text, status
 
 
 def user_add_phone(chat_id: int, phone_num: str):
