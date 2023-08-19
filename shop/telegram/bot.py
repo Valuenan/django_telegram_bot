@@ -309,8 +309,9 @@ def get_offer_settings(update: Update, context: CallbackContext):
     _, settings_stage, answer = call.data.split('_')
 
     if not get_user_phone(chat_id):
+        users_message[update.effective_user.id] = 'phone'
         context.bot.send_message(chat_id=update.effective_chat.id,
-                                 text='Для оформления заказа требуется ваш номер телефона, напишите его в чат')
+                                 text='Для оформления заказа требуется ваш номер телефона, напишите его в чат. Формат (+7** или 8**)')
     else:
         if settings_stage == '1':
             keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Да', callback_data='offer-stage_2_yes'),
