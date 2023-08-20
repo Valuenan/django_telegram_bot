@@ -233,7 +233,7 @@ class Logout(LogoutView):
 class OrdersList(LoginRequiredMixin, ListView):
     login_url = '/login'
     model = Orders
-    queryset = Orders.objects.exclude(status__in=[5, 6])
+    queryset = Orders.objects.exclude(status__in=[6, 7])
     context_object_name = 'orders'
     ordering = ['id']
 
@@ -241,7 +241,7 @@ class OrdersList(LoginRequiredMixin, ListView):
 class OrdersHistory(LoginRequiredMixin, ListView):
     login_url = '/login'
     model = Orders
-    queryset = Orders.objects.filter(status__in=[5, 6])
+    queryset = Orders.objects.filter(status__in=[6, 7])
     context_object_name = 'orders'
     ordering = ['id']
 

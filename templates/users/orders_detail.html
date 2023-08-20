@@ -19,7 +19,8 @@
     {% endif %}
         <h1>Заказ №{{ order.id }}</h1>
         <p>Дата: {{ order.date }}</p>
-        <p>Клиент: {{ order.profile.telegram_name }}</p>
+        <p>Ник в телеграм: {{ order.profile.telegram_name }}</p>
+        <p>ФИО: {{ order.profile.user.first_name }} {{ order.profile.user.last_name }}</p>
         <p>Номер телефона: {{ order.profile.phone }}</p>
         <p>Доставка: {% if order.deliver %}
                     да
@@ -86,9 +87,9 @@
         </form>
         <p>Сумма: {{ order_sum }}</p>
         <p> {% if not order.admin_check %}
-            Обработанна: -
+            Обработана: -
         {% else %}
-            Обработанна: {{ order.admin_check.first_name }} {{ order.admin_check.last_name }}
+            Обработана: {{ order.admin_check.first_name }} {{ order.admin_check.last_name }}
         {% endif %}
         </p>
     </body>
