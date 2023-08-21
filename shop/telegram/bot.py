@@ -147,7 +147,7 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
                                    disable_notification=True)
             context.bot.send_message(chat_id=update.effective_chat.id, text=f'{product_name} '
                                                                             f'\n <b>Цена: {price} р.</b>'
-                                                                            f'\n <i>Количество: {int(rests)} шт.</i>',
+                                                                            f'\n <i>В наличии: {int(rests)} шт.</i>',
                                      reply_markup=keyboard,
                                      parse_mode='HTML')
         if pagination and page < pages:
