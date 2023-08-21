@@ -18,7 +18,7 @@ class ShopAdmin(admin.ModelAdmin):
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ['command', 'parent_category']
-    search_fields = ['command']
+    search_fields = ['id']
 
 
 @admin.register(Product)

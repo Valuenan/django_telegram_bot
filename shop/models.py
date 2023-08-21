@@ -35,7 +35,7 @@ class Category(models.Model):
                                         null=True, blank=True)
 
     def __str__(self):
-        return self.command
+        return f'{self.id}.{self.command}'
 
     class Meta:
         db_table = 'categories'
