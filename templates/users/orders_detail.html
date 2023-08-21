@@ -17,19 +17,20 @@
             {% endfor %}
         </ul>
     {% endif %}
+    <form action="" method="post" class="mt-4" id="formReview">
+        {% csrf_token %}
         <h1>Заказ №{{ order.id }}</h1>
-        <p>Дата: {{ order.date }}</p>
-        <p>Клиент: {{ order.profile.telegram_name }}</p>
-        <p>Номер телефона: {{ order.profile.phone }}</p>
+        <p>Дата: {{ order.date }} |
+        Клиент: {{ order.profile.telegram_name }} |
+        Номер телефона: {{ order.profile.phone }}</p>
         <p>Доставка: {% if order.deliver %}
                     да
                 {% else %}
                     нет
                 {% endif %}
         </p>
-        <p>Адрес: {{ order.delivery_info }}</p>
-        <form action="" method="post" class="mt-4" id="formReview">
-        {% csrf_token %}
+        <p>Адрес: {{ order.delivery_info }} | Изменить адрес: <input type="text" name="delivery_info" value="{{ order.delivery_info }}"></p>
+
             <p>Статус:
                 <select name="new_status">
                     {% for status in order_statuses %}

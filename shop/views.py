@@ -279,6 +279,13 @@ class OrderDetail(LoginRequiredMixin, DetailView):
             order.save()
         elif 'tracing_num' in form:
             form.pop('tracing_num')
+        print(form)
+        if 'delivery_info' in form and form['delivery_info'] != '':
+            delivery_info = form.pop('delivery_info')[0]
+            order.delivery_info = delivery_info
+            order.save()
+        elif 'delivery_info' in form:
+            form.pop('delivery_info')
 
         order.admin_check = request.user
         old_status = order.status.title
