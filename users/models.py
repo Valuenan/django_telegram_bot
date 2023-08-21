@@ -97,6 +97,7 @@ class Orders(models.Model):
                                 verbose_name='Вид оплаты (не используется)')
     payment_url = models.URLField(verbose_name='Ссылка на оплату Авангард', blank=True, null=True)
     payed = models.BooleanField(verbose_name='Заказ оплачен', default=False)
+    tracing_num = models.CharField(max_length=30, verbose_name='Трек номер', null=True, blank=True)
 
     def __str__(self):
         return f'{self.id}'

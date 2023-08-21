@@ -80,6 +80,14 @@
                         <input {% if order.status.title != "0" %} disabled {% endif %} type="number" name="delivery_price" value="{{ order.delivery_price }}">
                         </td>
                     </tr>
+                    {% if order.status.title != "0" %}
+                    <tr>
+                        <td>
+                        Трек номер
+                        <input type="text" name="tracing_num" value="{{ order.tracing_num }}">
+                        </td>
+                    </tr>
+                    {% endif %}
                 {% endif %}
             </table>
             <button type="submit">Записать</button>

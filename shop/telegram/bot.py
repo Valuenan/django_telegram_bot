@@ -622,7 +622,7 @@ dispatcher.add_handler(unknown_handler)
 """ АДМИНИСТРАТИВНЫЕ """
 
 
-def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str, delivery_price: int = 0):
+def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str, delivery_price: int = 0, tracing_num: str = 'нет'):
     """Сообщение о готовности заказа"""
     message = ''
     if status == '1':
@@ -640,7 +640,7 @@ def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str
             message = f''',в том числе доставка на сумму {delivery_price} р., <u> ожидает оплаты </u>
 ваша ссылка на оплату: {link}'''
     elif status == '3':
-        message = 'поступил в доставку, ожидайте'
+        message = f'поступил в доставку, трек номер: {tracing_num}'
     elif status == '4':
         message = 'ожидает вас в магазине'
     elif status == '6':

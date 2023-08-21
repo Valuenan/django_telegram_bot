@@ -273,6 +273,9 @@ class OrderDetail(LoginRequiredMixin, DetailView):
             order.delivery_price = delivery_price
         else:
             delivery_price = order.delivery_price
+        if 'tracing_num' in form:
+            tracing_num = form.pop('tracing_num')[0]
+            order.tracing_num = tracing_num
         order.admin_check = request.user
         old_status = order.status.title
         rests_action = order.update_order_status(new_status)
@@ -281,6 +284,6 @@ class OrderDetail(LoginRequiredMixin, DetailView):
             order.update_order_quantity(form, rests_action, shop)
         elif new_status in ['1', '3', '4', '6'] and old_status != new_status:
             ready_order_message(chat_id=order.profile.chat_id, order_id=order.id, order_sum=int(order_sum),
-                                status=new_status, delivery_price=delivery_price)
+                                status=new_status, delivery_price=delivery_price, tracing_num=order.tracing_num)
 
         return redirect(f'/order/{pk}')
