@@ -307,6 +307,7 @@ def get_offer_settings(update: Update, context: CallbackContext):
     chat_id = update.effective_chat.id
     message_id = call.message.message_id
     _, settings_stage, answer = call.data.split('_')
+    break_flag = False
 
     if not get_user_phone(chat_id):
         context.bot.send_message(chat_id=update.effective_chat.id,
@@ -319,7 +320,7 @@ def get_offer_settings(update: Update, context: CallbackContext):
                                           message_id=message_id,
                                           text=f'Вам доставить? 🚚 (доставка будет расчитана после оформления заказа)',
                                           reply_markup=keyboard)
-        if settings_stage == '2' and answer == 'yes':
+        elif settings_stage == '2' and answer == 'yes':
             save_delivery_settings(value='1', field='delivery', chat_id=chat_id)
             users_message[chat_id] = ''
             street = get_user_address(chat_id)
@@ -329,10 +330,10 @@ def get_offer_settings(update: Update, context: CallbackContext):
             keyboard = InlineKeyboardMarkup(buttons)
             context.bot.edit_message_text(chat_id=chat_id,
                                           message_id=message_id,
-                                          text=f'Отправьте сообщение с адресом доставки, а затем нажмите кнопку в этом сообщении "Сохранить адрес"'
+                                          text=f'Отправьте сообщение с адресом доставки, а затем нажмите кнопку в этом сообщении "Сохранить адрес  📝"'
                                                f' или выберите последний адрес доставки',
                                           reply_markup=keyboard)
-        if settings_stage == '2' and answer == 'no':
+        elif settings_stage == '2' and answer == 'no':
             save_delivery_settings(value='0', field='delivery', chat_id=chat_id)
             buttons = []
             for shop in get_shops():
@@ -344,11 +345,23 @@ def get_offer_settings(update: Update, context: CallbackContext):
                                           text=f'Выберите предпочтительный магазин',
                                           reply_markup=keyboard)
 
-        if settings_stage == '3':
+        elif settings_stage == '3':
             if answer == 'none':
-                save_delivery_settings(value=users_message[chat_id], field='delivery_street', chat_id=chat_id)
-                save_delivery_settings(value='1', field='delivery', chat_id=chat_id)
-                users_message.pop(chat_id)
+                if users_message[chat_id]:
+                    save_delivery_settings(value=users_message[chat_id], field='delivery_street', chat_id=chat_id)
+                    save_delivery_settings(value='1', field='delivery', chat_id=chat_id)
+                    users_message.pop(chat_id)
+                else:
+                    street = get_user_address(chat_id)
+                    buttons = [[InlineKeyboardButton(text='Сохранить адрес 📝', callback_data='offer-stage_3_none')]]
+                    keyboard = InlineKeyboardMarkup(buttons)
+                    if street:
+                        buttons.insert(0, [InlineKeyboardButton(text=street, callback_data=f'offer-stage_3_street')])
+                    context.bot.edit_message_text(chat_id=chat_id,
+                                                  message_id=message_id,
+                                                  text=f'Нужно указать адрес. Для этого отправьте в чат сообщение с адресом а потом нажмите "Сохранить адрес 📝"',
+                                                  reply_markup=keyboard)
+                    break_flag = True
             elif answer == 'street':
                 save_delivery_settings(value='1', field='delivery', chat_id=chat_id)
             else:
@@ -356,24 +369,25 @@ def get_offer_settings(update: Update, context: CallbackContext):
                 save_delivery_settings(value=answer, field='main_shop_id', chat_id=chat_id)
                 save_delivery_settings(value='0', field='delivery', chat_id=chat_id)
 
-            delivery_settings = _user_settings_from_db(chat_id)
+            if not break_flag:
+                delivery_settings = _user_settings_from_db(chat_id)
 
-            cart_price = 0
-            cart_info = show_cart(chat_id)
+                cart_price = 0
+                cart_info = show_cart(chat_id)
 
-            for num, product in enumerate(cart_info):
-                product_name, amount, price = product
-                cart_price += round(price * amount, 2)
+                for num, product in enumerate(cart_info):
+                    product_name, amount, price = product
+                    cart_price += round(price * amount, 2)
 
-            keyboard = InlineKeyboardMarkup(
-                [[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}')],
-                 [InlineKeyboardButton(text='Редктировать 📝',
-                                       callback_data=f'offer-stage_1_none')]])
+                keyboard = InlineKeyboardMarkup(
+                    [[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}')],
+                     [InlineKeyboardButton(text='Редктировать 📝',
+                                           callback_data=f'offer-stage_1_none')]])
 
-            context.bot.edit_message_text(chat_id=chat_id,
-                                          message_id=message_id,
-                                          text=f'{delivery_settings}',
-                                          reply_markup=keyboard)
+                context.bot.edit_message_text(chat_id=chat_id,
+                                              message_id=message_id,
+                                              text=f'{delivery_settings}',
+                                              reply_markup=keyboard)
 
 
 offer_settings = CallbackQueryHandler(get_offer_settings, pattern=str('offer-stage'))
