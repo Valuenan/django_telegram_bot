@@ -14,7 +14,7 @@ from django.views.generic import ListView, DetailView
 from .forms import ImportGoodsForm, ImportCategoryForm
 from users.models import Orders, Carts, Profile, OrderStatus
 from .models import File, Category, Product, Rests, Shop
-from .telegram.bot import ready_order_message
+from .telegram.bot import ready_order_message, send_message_to_user
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,8 @@ class ImportCategoryView(View):
 
                     file_for_import = File.objects.create(user=user, file=file)
 
-                    with open(os.path.abspath(f'{settings.MEDIA_ROOT}/{file_for_import.file}'), encoding='cp1251') as csvfile:
+                    with open(os.path.abspath(f'{settings.MEDIA_ROOT}/{file_for_import.file}'),
+                              encoding='cp1251') as csvfile:
                         reader = csv.reader(csvfile)
 
                         for row in reader:
@@ -295,6 +296,20 @@ class OrderDetail(LoginRequiredMixin, DetailView):
             order.update_order_quantity(form, rests_action, shop)
         elif new_status in ['1', '3', '4', '6'] and old_status != new_status:
             ready_order_message(chat_id=order.profile.chat_id, order_id=order.id, order_sum=int(order_sum),
-                                status=new_status, delivery_price=delivery_price, pay_type=order.payment.title, tracing_num=order.tracing_num)
+                                status=new_status, delivery_price=delivery_price, pay_type=order.payment.title,
+                                tracing_num=order.tracing_num)
 
         return redirect(f'/order/{pk}')
+
+
+class SendMessageToUser(LoginRequiredMixin, View):
+    login_url = '/login'
+    context_object_name = 'user'
+
+    def get(self, request):
+        return render(request, 'users/send_message.html')
+
+    def post(self, request):
+        form = request.POST.copy()
+        send_message_to_user(chat_id=form['chat_id'], message=form['message'])
+        return render(request, 'users/send_message.html')

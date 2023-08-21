@@ -27,7 +27,7 @@ def main_keyboard(update: Update, context: CallbackContext):
     """Основаня клавиатура снизу"""
     user = update.message.from_user
     text, status = start_user(username=user.username, first_name=user.first_name, last_name=user.last_name,
-                           chat_id=update.message.chat_id, cart_message_id=0, discount=1)
+                              chat_id=update.message.chat_id, cart_message_id=0, discount=1)
     message = context.bot.send_message(chat_id=update.effective_chat.id, text=text)
     if status == 'ok':
         check = check_user_is_staff(update.message.chat_id)
@@ -307,7 +307,6 @@ def get_offer_settings(update: Update, context: CallbackContext):
     chat_id = update.effective_chat.id
     message_id = call.message.message_id
     _, settings_stage, answer = call.data.split('_')
-
 
     if not get_user_phone(chat_id):
         users_message[update.effective_user.id] = 'phone'
@@ -650,7 +649,8 @@ dispatcher.add_handler(unknown_handler)
 """ АДМИНИСТРАТИВНЫЕ """
 
 
-def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str, delivery_price: int = 0, pay_type: int = 1,tracing_num: str = 'нет'):
+def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str, delivery_price: int = 0,
+                        pay_type: int = 1, tracing_num: str = 'нет'):
     """Сообщение о готовности заказа"""
     message = ''
     if status == '1':
@@ -675,6 +675,12 @@ def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str
     updater.bot.send_message(chat_id=chat_id,
                              text=f'Ваш заказ № {order_id} на сумму {order_sum} р. {message}',
                              parse_mode='HTML')
+
+
+def send_message_to_user(chat_id: int, message: str):
+    updater.bot.send_message(chat_id=chat_id,
+                             text=f'''{message}''')
+
 
 
 # Оплата интегрированными средставми телеграм
