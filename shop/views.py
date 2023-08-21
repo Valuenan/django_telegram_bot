@@ -273,9 +273,13 @@ class OrderDetail(LoginRequiredMixin, DetailView):
             order.delivery_price = delivery_price
         else:
             delivery_price = order.delivery_price
-        if 'tracing_num' in form:
+        if 'tracing_num' in form and form['tracing_num'] != 'None':
             tracing_num = form.pop('tracing_num')[0]
             order.tracing_num = tracing_num
+            order.save()
+        elif 'tracing_num' in form:
+            form.pop('tracing_num')
+
         order.admin_check = request.user
         old_status = order.status.title
         rests_action = order.update_order_status(new_status)

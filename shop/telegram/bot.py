@@ -570,10 +570,12 @@ def orders_history(update: Update, context: CallbackContext):
         prev_id = None
         text = ''
         url_list = {}
+        tracing_list = {}
 
         for order in orders:
-            order_id, product_name, product_price, product_amount, order_sum, order_status, payment_url = order
+            order_id, product_name, product_price, product_amount, order_sum, order_status, payment_url, tracing_num = order
             url_list[order_id] = payment_url
+            tracing_list[order_id] = tracing_num
 
             if not prev_id:
                 position = 1
@@ -590,6 +592,12 @@ def orders_history(update: Update, context: CallbackContext):
                 text += f'''<b><u>Заказ № {prev_id}</u></b>\n <u>Статус заказа: {ORDER_STATUS[int(prev_status)][1]}</u> \n {text_products} \n <b>на сумму:{prev_sum} р.</b>'''
                 if prev_status == '1' and url_list and prev_id in url_list:
                     text += f'\n ссылка на оплату (чек): {url_list[prev_id]}'
+                elif prev_status == '3':
+                    if tracing_list[prev_id] not in [None, 'None', '']:
+                        tracing = tracing_list[prev_id]
+                    else:
+                        tracing = 'нет'
+                    text += f'\n Трек номер: {tracing}'
                 text += f'\n {"_" * 20} \n'
 
                 order_products = [f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price}р.']
@@ -601,6 +609,12 @@ def orders_history(update: Update, context: CallbackContext):
             text += f'''<b><u>Заказ № {order_id}</u></b> \n <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u> \n {text_products} \n <b>на сумму: {order_sum} р.</b>'''
             if order_status == '1' and url_list and order_id in url_list:
                 text += f'\n ссылка на оплату (чек): {url_list[order_id]}'
+            elif order_status == '3':
+                if tracing_list[order_id] not in [None, 'None', '']:
+                    tracing = tracing_list[order_id]
+                else:
+                    tracing = 'нет'
+                text += f'\n Трек номер: {tracing}'
             text += f'\n {"_" * 20} \n'
 
         if update.callback_query:
