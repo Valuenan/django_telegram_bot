@@ -307,7 +307,7 @@ def get_offer_settings(update: Update, context: CallbackContext):
     chat_id = update.effective_chat.id
     message_id = call.message.message_id
     _, settings_stage, answer = call.data.split('_')
-    break_flag = False
+
 
     if not get_user_phone(chat_id):
         context.bot.send_message(chat_id=update.effective_chat.id,
@@ -346,6 +346,7 @@ def get_offer_settings(update: Update, context: CallbackContext):
                                           reply_markup=keyboard)
 
         elif settings_stage == '3':
+            break_flag = False
             if answer == 'none':
                 if users_message[chat_id]:
                     save_delivery_settings(value=users_message[chat_id], field='delivery_street', chat_id=chat_id)
@@ -362,6 +363,7 @@ def get_offer_settings(update: Update, context: CallbackContext):
                                                   text=f'Нужно указать адрес. Для этого отправьте в чат сообщение с адресом а потом нажмите "Сохранить адрес 📝"',
                                                   reply_markup=keyboard)
                     break_flag = True
+
             elif answer == 'street':
                 save_delivery_settings(value='1', field='delivery', chat_id=chat_id)
             else:
@@ -370,24 +372,35 @@ def get_offer_settings(update: Update, context: CallbackContext):
                 save_delivery_settings(value='0', field='delivery', chat_id=chat_id)
 
             if not break_flag:
-                delivery_settings = _user_settings_from_db(chat_id)
-
-                cart_price = 0
-                cart_info = show_cart(chat_id)
-
-                for num, product in enumerate(cart_info):
-                    product_name, amount, price = product
-                    cart_price += round(price * amount, 2)
-
+                # Оплата: 2 - qr код, 1 - ввод карты
                 keyboard = InlineKeyboardMarkup(
-                    [[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}')],
-                     [InlineKeyboardButton(text='Редктировать 📝',
-                                           callback_data=f'offer-stage_1_none')]])
+                    [[InlineKeyboardButton(text='Через банковское приложение', callback_data=f'offer-stage_4_2')],
+                     [InlineKeyboardButton(text='Ввести реквизиты карты', callback_data=f'offer-stage_4_1')]])
 
                 context.bot.edit_message_text(chat_id=chat_id,
                                               message_id=message_id,
-                                              text=f'{delivery_settings}',
+                                              text=f'''Выберите вид оплаты:''',
                                               reply_markup=keyboard)
+
+        elif settings_stage == '4':
+            delivery_settings = _user_settings_from_db(chat_id)
+
+            cart_price = 0
+            cart_info = show_cart(chat_id)
+
+            for num, product in enumerate(cart_info):
+                product_name, amount, price = product
+                cart_price += round(price * amount, 2)
+
+            keyboard = InlineKeyboardMarkup(
+                [[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}_{answer}')],
+                 [InlineKeyboardButton(text='Редктировать 📝',
+                                       callback_data=f'offer-stage_1_none')]])
+
+            context.bot.edit_message_text(chat_id=chat_id,
+                                          message_id=message_id,
+                                          text=f'{delivery_settings}',
+                                          reply_markup=keyboard)
 
 
 offer_settings = CallbackQueryHandler(get_offer_settings, pattern=str('offer-stage'))
@@ -482,8 +495,8 @@ def order(update: Update, context: CallbackContext):
     chat_id = call.message.chat_id
     user = call.message.chat.username
     order_num = load_last_order()
-    command, cart_price = call.data.split('_')
-    order_products, order_price = save_order(chat_id, call.message.text, cart_price)
+    command, cart_price, payment_type = call.data.split('_')
+    order_products, order_price = save_order(chat_id, call.message.text, cart_price, int(payment_type))
     text_products = ''
     for product_name, product_amount in order_products:
         text_products += f'\n{product_name[0]} - {int(product_amount)} шт.'
@@ -622,16 +635,15 @@ dispatcher.add_handler(unknown_handler)
 """ АДМИНИСТРАТИВНЫЕ """
 
 
-def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str, delivery_price: int = 0, tracing_num: str = 'нет'):
+def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str, delivery_price: int = 0, pay_type: int = 1,tracing_num: str = 'нет'):
     """Сообщение о готовности заказа"""
     message = ''
     if status == '1':
-        updater.bot.send_photo(chat_id=chat_id,
-                               photo=open(f'{BASE_DIR}/static/img/SBP_logo.png', 'rb'))
         invoice_num, link = avangard_invoice(title=f'(Заказ в магазине OttudaSPB № {order_id}, сумма {order_sum} р.)',
                                              price=order_sum,
                                              customer=f'{chat_id}',
-                                             shop_order_num=order_id)
+                                             shop_order_num=order_id,
+                                             pay_type=pay_type)
         save_payment_link(order_id, link)
         if delivery_price == 0:
             message = f'''ожидает оплаты
