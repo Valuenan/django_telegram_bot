@@ -5,7 +5,7 @@ from mysql.connector import Error
 
 from django_telegram_bot.settings import DATABASES
 
-ADMIN_TG = '@OttudaSPB_help'
+ADMIN_TG = '@Ottuda_SPB_help'
 PRODUCTS_PAGINATION_NUM = 5
 DATABASE = DATABASES['default']['NAME']
 HOST = DATABASES['default']['HOST']

@@ -59,7 +59,7 @@ def phone_check(update: Update, context: CallbackContext, phone):
         main_keyboard(update, context)
     else:
         message = context.bot.send_message(chat_id=update.message.chat_id,
-                                           text=f"""К сожалению номер {phone}, некоректный повторите ввод или обратитесь к менеджеру {ADMIN_TG} (r1)""")
+                                           text=f"""К сожалению номер {phone}, некоректный повторите ввод или обратитесь к канал помощи {ADMIN_TG} (r1)""")
         context.bot.delete_message(chat_id=update.effective_chat.id,
                                    message_id=message.message_id - 2)
 
