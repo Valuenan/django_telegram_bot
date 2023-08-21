@@ -271,7 +271,7 @@ def load_last_order() -> int:
 
 
 def save_delivery_settings(value: bool or str, field: str, chat_id: int):
-    """Сохранить настроки заказа"""
+    """Сохранить настроки доставки"""
     db, cur = connect_db(f"UPDATE profile SET {field}='{value}' WHERE chat_id='{chat_id}'")
     db.commit()
     cur.close()
@@ -329,7 +329,7 @@ def get_user_shop(chat_id: int) -> None or str:
     return street
 
 
-def save_order(chat_id: int, delivery_info: str, cart_price: int) -> list and int:
+def save_order(chat_id: int, delivery_info: str, cart_price: int, payment_type: int = 2) -> list and int:
     """Сохранить заказ"""
     db, cur = connect_db(f"""SELECT profile.id FROM profile
     WHERE profile.chat_id='{chat_id}'""")
@@ -339,8 +339,8 @@ def save_order(chat_id: int, delivery_info: str, cart_price: int) -> list and in
     WHERE carts.profile_id={profile_id} AND carts.order_id IS NULL""")
     products_id, products_amount = list(zip(*cur.fetchall()))
 
-    db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, deliver, date, status_id, payed, delivery_price) 
-    SELECT id, '{delivery_info}', '{cart_price}', delivery, '{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', '1', '0', 0
+    db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, deliver, date, status_id, payment_id ,payed, delivery_price) 
+    SELECT id, '{delivery_info}', '{cart_price}', delivery, '{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}','1' ,'{payment_type}' ,'0', 0
     FROM profile WHERE profile.chat_id='{chat_id}'""")
     db.commit()
 
@@ -358,7 +358,7 @@ def save_order(chat_id: int, delivery_info: str, cart_price: int) -> list and in
 
 def get_user_orders(chat_id: int, filter: str = '') -> list:
     """Получить список заказов пользователя"""
-    db, cur = connect_db(f"""SELECT orders.id, products.name, products.price ,carts.amount, orders.order_price, order_status.title, orders.payment_url
+    db, cur = connect_db(f"""SELECT orders.id, products.name, products.price ,carts.amount, orders.order_price, order_status.title, orders.payment_url, orders.tracing_num
     FROM orders
     INNER JOIN carts ON orders.id = carts.order_id 
     INNER JOIN products ON carts.product_id = products.id

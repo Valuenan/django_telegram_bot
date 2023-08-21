@@ -308,6 +308,7 @@ def get_offer_settings(update: Update, context: CallbackContext):
     message_id = call.message.message_id
     _, settings_stage, answer = call.data.split('_')
 
+
     if not get_user_phone(chat_id):
         users_message[update.effective_user.id] = 'phone'
         context.bot.send_message(chat_id=update.effective_chat.id,
@@ -320,7 +321,7 @@ def get_offer_settings(update: Update, context: CallbackContext):
                                           message_id=message_id,
                                           text=f'Вам доставить? 🚚 (доставка будет расчитана после оформления заказа)',
                                           reply_markup=keyboard)
-        if settings_stage == '2' and answer == 'yes':
+        elif settings_stage == '2' and answer == 'yes':
             save_delivery_settings(value='1', field='delivery', chat_id=chat_id)
             users_message[chat_id] = ''
             street = get_user_address(chat_id)
@@ -330,10 +331,10 @@ def get_offer_settings(update: Update, context: CallbackContext):
             keyboard = InlineKeyboardMarkup(buttons)
             context.bot.edit_message_text(chat_id=chat_id,
                                           message_id=message_id,
-                                          text=f'Отправьте сообщение с адресом доставки, а затем нажмите кнопку в этом сообщении "Сохранить адрес"'
+                                          text=f'Отправьте сообщение с адресом доставки, а затем нажмите кнопку в этом сообщении "Сохранить адрес  📝"'
                                                f' или выберите последний адрес доставки',
                                           reply_markup=keyboard)
-        if settings_stage == '2' and answer == 'no':
+        elif settings_stage == '2' and answer == 'no':
             save_delivery_settings(value='0', field='delivery', chat_id=chat_id)
             buttons = []
             for shop in get_shops():
@@ -345,11 +346,25 @@ def get_offer_settings(update: Update, context: CallbackContext):
                                           text=f'Выберите предпочтительный магазин',
                                           reply_markup=keyboard)
 
-        if settings_stage == '3':
+        elif settings_stage == '3':
+            break_flag = False
             if answer == 'none':
-                save_delivery_settings(value=users_message[chat_id], field='delivery_street', chat_id=chat_id)
-                save_delivery_settings(value='1', field='delivery', chat_id=chat_id)
-                users_message.pop(chat_id)
+                if users_message[chat_id]:
+                    save_delivery_settings(value=users_message[chat_id], field='delivery_street', chat_id=chat_id)
+                    save_delivery_settings(value='1', field='delivery', chat_id=chat_id)
+                    users_message.pop(chat_id)
+                else:
+                    street = get_user_address(chat_id)
+                    buttons = [[InlineKeyboardButton(text='Сохранить адрес 📝', callback_data='offer-stage_3_none')]]
+                    keyboard = InlineKeyboardMarkup(buttons)
+                    if street:
+                        buttons.insert(0, [InlineKeyboardButton(text=street, callback_data=f'offer-stage_3_street')])
+                    context.bot.edit_message_text(chat_id=chat_id,
+                                                  message_id=message_id,
+                                                  text=f'Нужно указать адрес. Для этого отправьте в чат сообщение с адресом а потом нажмите "Сохранить адрес 📝"',
+                                                  reply_markup=keyboard)
+                    break_flag = True
+
             elif answer == 'street':
                 save_delivery_settings(value='1', field='delivery', chat_id=chat_id)
             else:
@@ -357,6 +372,18 @@ def get_offer_settings(update: Update, context: CallbackContext):
                 save_delivery_settings(value=answer, field='main_shop_id', chat_id=chat_id)
                 save_delivery_settings(value='0', field='delivery', chat_id=chat_id)
 
+            if not break_flag:
+                # Оплата: 2 - qr код, 1 - ввод карты
+                keyboard = InlineKeyboardMarkup(
+                    [[InlineKeyboardButton(text='Через банковское приложение', callback_data=f'offer-stage_4_2')],
+                     [InlineKeyboardButton(text='Ввести реквизиты карты', callback_data=f'offer-stage_4_1')]])
+
+                context.bot.edit_message_text(chat_id=chat_id,
+                                              message_id=message_id,
+                                              text=f'''Выберите вид оплаты:''',
+                                              reply_markup=keyboard)
+
+        elif settings_stage == '4':
             delivery_settings = _user_settings_from_db(chat_id)
 
             cart_price = 0
@@ -367,7 +394,7 @@ def get_offer_settings(update: Update, context: CallbackContext):
                 cart_price += round(price * amount, 2)
 
             keyboard = InlineKeyboardMarkup(
-                [[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}')],
+                [[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}_{answer}')],
                  [InlineKeyboardButton(text='Редктировать 📝',
                                        callback_data=f'offer-stage_1_none')]])
 
@@ -469,8 +496,8 @@ def order(update: Update, context: CallbackContext):
     chat_id = call.message.chat_id
     user = call.message.chat.username
     order_num = load_last_order()
-    command, cart_price = call.data.split('_')
-    order_products, order_price = save_order(chat_id, call.message.text, cart_price)
+    command, cart_price, payment_type = call.data.split('_')
+    order_products, order_price = save_order(chat_id, call.message.text, cart_price, int(payment_type))
     text_products = ''
     for product_name, product_amount in order_products:
         text_products += f'\n{product_name[0]} - {int(product_amount)} шт.'
@@ -531,7 +558,7 @@ def orders_history(update: Update, context: CallbackContext):
     """Вызов истории покупок (в статусе кроме исполненно или отменено)"""
     chat_id = update.effective_chat.id
 
-    orders = get_user_orders(chat_id, 'AND orders.status_id NOT IN (5,6)')
+    orders = get_user_orders(chat_id, 'AND orders.status_id NOT IN (6,7)')
     orders.sort()
 
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
@@ -544,10 +571,12 @@ def orders_history(update: Update, context: CallbackContext):
         prev_id = None
         text = ''
         url_list = {}
+        tracing_list = {}
 
         for order in orders:
-            order_id, product_name, product_price, product_amount, order_sum, order_status, payment_url = order
+            order_id, product_name, product_price, product_amount, order_sum, order_status, payment_url, tracing_num = order
             url_list[order_id] = payment_url
+            tracing_list[order_id] = tracing_num
 
             if not prev_id:
                 position = 1
@@ -564,6 +593,12 @@ def orders_history(update: Update, context: CallbackContext):
                 text += f'''<b><u>Заказ № {prev_id}</u></b>\n <u>Статус заказа: {ORDER_STATUS[int(prev_status)][1]}</u> \n {text_products} \n <b>на сумму:{prev_sum} р.</b>'''
                 if prev_status == '1' and url_list and prev_id in url_list:
                     text += f'\n ссылка на оплату (чек): {url_list[prev_id]}'
+                elif prev_status == '3':
+                    if tracing_list[prev_id] not in [None, 'None', '']:
+                        tracing = tracing_list[prev_id]
+                    else:
+                        tracing = 'нет'
+                    text += f'\n Трек номер: {tracing}'
                 text += f'\n {"_" * 20} \n'
 
                 order_products = [f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price}р.']
@@ -575,6 +610,12 @@ def orders_history(update: Update, context: CallbackContext):
             text += f'''<b><u>Заказ № {order_id}</u></b> \n <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u> \n {text_products} \n <b>на сумму: {order_sum} р.</b>'''
             if order_status == '1' and url_list and order_id in url_list:
                 text += f'\n ссылка на оплату (чек): {url_list[order_id]}'
+            elif order_status == '3':
+                if tracing_list[order_id] not in [None, 'None', '']:
+                    tracing = tracing_list[order_id]
+                else:
+                    tracing = 'нет'
+                text += f'\n Трек номер: {tracing}'
             text += f'\n {"_" * 20} \n'
 
         if update.callback_query:
@@ -609,14 +650,15 @@ dispatcher.add_handler(unknown_handler)
 """ АДМИНИСТРАТИВНЫЕ """
 
 
-def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str, delivery_price: int = 0):
+def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str, delivery_price: int = 0, pay_type: int = 1,tracing_num: str = 'нет'):
     """Сообщение о готовности заказа"""
     message = ''
     if status == '1':
         invoice_num, link = avangard_invoice(title=f'(Заказ в магазине OttudaSPB № {order_id}, сумма {order_sum} р.)',
                                              price=order_sum,
                                              customer=f'{chat_id}',
-                                             shop_order_num=order_id)
+                                             shop_order_num=order_id,
+                                             pay_type=pay_type)
         save_payment_link(order_id, link)
         if delivery_price == 0:
             message = f'''ожидает оплаты
@@ -625,7 +667,7 @@ def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str
             message = f''',в том числе доставка на сумму {delivery_price} р., <u> ожидает оплаты </u>
 ваша ссылка на оплату: {link}'''
     elif status == '3':
-        message = 'поступил в доставку, ожидайте'
+        message = f'поступил в доставку, трек номер: {tracing_num}'
     elif status == '4':
         message = 'ожидает вас в магазине'
     elif status == '6':

@@ -5,21 +5,6 @@ from django.db import models
 
 from shop.models import Product, Shop
 
-# ORDER_STATUS = (
-#     ('0', 'Заявка обрабатывается 📝'),
-#     ('1', 'Ожидается оплата 📑'),
-#     ('2', 'Сборка заказа 📦'),
-#     ('3', 'Доставка 🚚'),
-#     ('4', 'Ожидает в пункте выдачи 🚶‍♂️'),
-#     ('5', 'Получен ✅'),
-#     ('6', 'Отменен ❌')
-# )
-# PAYMENT = (
-#     ('0', '🎟️ Наличными'),
-#     ('1', '💳 Безналично'),
-#     ('2', '📱 Перевод'),
-# )
-
 ORDER_STATUS = (
     ('0', 'Заявка обрабатывается'),
     ('1', 'Ожидается оплата'),
@@ -30,8 +15,8 @@ ORDER_STATUS = (
     ('6', 'Отменен')
 )
 PAYMENT = (
-    ('0', 'Наличными'),
-    ('1', 'Безналично'),
+    ('0', 'Карта'),
+    ('1', 'QR код'),
     ('2', 'Перевод'),
 )
 
@@ -93,10 +78,10 @@ class Orders(models.Model):
     deliver = models.BooleanField(verbose_name='Доставить по адресу')
     status = models.ForeignKey(OrderStatus, blank=True, on_delete=models.DO_NOTHING, verbose_name='Статус заказа')
     delivery_price = models.IntegerField(verbose_name='Стомость доставки', default=0, blank=True, null=True)
-    payment = models.ForeignKey(Payment, blank=True, null=True, on_delete=models.DO_NOTHING,
-                                verbose_name='Вид оплаты (не используется)')
+    payment = models.ForeignKey(Payment, on_delete=models.DO_NOTHING, verbose_name='Вид оплаты', blank=True, null=True)
     payment_url = models.URLField(verbose_name='Ссылка на оплату Авангард', blank=True, null=True)
     payed = models.BooleanField(verbose_name='Заказ оплачен', default=False)
+    tracing_num = models.CharField(max_length=30, verbose_name='Трек номер', null=True, blank=True)
 
     def __str__(self):
         return f'{self.id}'

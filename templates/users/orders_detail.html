@@ -17,6 +17,8 @@
             {% endfor %}
         </ul>
     {% endif %}
+    <form action="" method="post" class="mt-4" id="formReview">
+        {% csrf_token %}
         <h1>Заказ №{{ order.id }}</h1>
         <p>Дата: {{ order.date }}</p>
         <p>Ник в телеграм: {{ order.profile.telegram_name }}</p>
@@ -28,9 +30,8 @@
                     нет
                 {% endif %}
         </p>
-        <p>Адрес: {{ order.delivery_info }}</p>
-        <form action="" method="post" class="mt-4" id="formReview">
-        {% csrf_token %}
+        <p>Адрес: {{ order.delivery_info }} | Изменить адрес: <input type="text" name="delivery_info" value="{{ order.delivery_info }}"></p>
+
             <p>Статус:
                 <select name="new_status">
                     {% for status in order_statuses %}
@@ -81,15 +82,23 @@
                         <input {% if order.status.title != "0" %} disabled {% endif %} type="number" name="delivery_price" value="{{ order.delivery_price }}">
                         </td>
                     </tr>
+                    {% if order.status.title != "0" %}
+                    <tr>
+                        <td>
+                        Трек номер
+                        <input type="text" name="tracing_num" value="{{ order.tracing_num }}">
+                        </td>
+                    </tr>
+                    {% endif %}
                 {% endif %}
             </table>
             <button type="submit">Записать</button>
         </form>
         <p>Сумма: {{ order_sum }}</p>
         <p> {% if not order.admin_check %}
-            Обработана: -
+            Обработанна: -
         {% else %}
-            Обработана: {{ order.admin_check.first_name }} {{ order.admin_check.last_name }}
+            Обработанна: {{ order.admin_check.first_name }} {{ order.admin_check.last_name }}
         {% endif %}
         </p>
     </body>
