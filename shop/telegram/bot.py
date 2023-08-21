@@ -544,7 +544,7 @@ def orders_history(update: Update, context: CallbackContext):
     """Вызов истории покупок (в статусе кроме исполненно или отменено)"""
     chat_id = update.effective_chat.id
 
-    orders = get_user_orders(chat_id, 'AND orders.status_id NOT IN (5,6)')
+    orders = get_user_orders(chat_id, 'AND orders.status_id NOT IN (6,7)')
     orders.sort()
 
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
