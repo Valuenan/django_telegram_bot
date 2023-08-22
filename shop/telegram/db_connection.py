@@ -78,7 +78,8 @@ def start_user(first_name: str, last_name: str, username: str, chat_id: int, car
             db.close()
 
             text = f'''При возникновении проблем обратитесь в канал {ADMIN_TG}. В данный момент бот работает в тестовом режиме. 
-            
+Вы можете ознакомиться с инструкциями по работе с ботом по ссылке -> /info <-
+
 Добро пожаловать {first_name}, для оформления заказов нужно указать номер телефона. Отправьте в чат номер телефона (формат +7** или 8**).'''
             status = 'new_user'
         except Exception as err:
@@ -89,7 +90,9 @@ def start_user(first_name: str, last_name: str, username: str, chat_id: int, car
         text = f'''Добро пожаловать {first_name}, нужно указать номер телефона. Отправьте в чат номер телефона. (формат +7*** или 8***)'''
         status = 'no-phone'
     else:
-        text, status = f'Добро пожаловать {first_name}.', 'ok'
+        text, status = f'''Добро пожаловать {first_name}.
+Вы можете ознакомиться с инструкциями по работе с ботом по ссылке -> /info <-''', 'ok'
+
     return text, status
 
 
