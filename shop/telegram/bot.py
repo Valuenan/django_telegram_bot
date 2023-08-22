@@ -11,6 +11,7 @@ from shop.telegram.db_connection import load_last_order, get_category, get_produ
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from users.models import ORDER_STATUS
 from django_telegram_bot.settings import BASE_DIR, env
+import shop.telegram.bot_texts as text
 
 LOG_FILENAME = 'bot_log.txt'
 
@@ -20,7 +21,8 @@ dispatcher = updater.dispatcher
 BUTTONS_IN_ROW_CATEGORY = 2
 users_message = {}
 
-""" ДЛЯ ПОЛЬЗОВАТЕЛЕЙ """
+
+# ДЛЯ ПОЛЬЗОВАТЕЛЕЙ
 
 
 def main_keyboard(update: Update, context: CallbackContext):
@@ -638,15 +640,219 @@ accept_cart_handler = CallbackQueryHandler(accept_delete_cart, pattern=str('hist
 dispatcher.add_handler(accept_cart_handler)
 
 
-def unknown(update: Update, context: CallbackContext):
-    """Неизветсные команды"""
-    context.bot.send_message(chat_id=update.effective_chat.id, text="Извините, я не знаю такой команды")
+# Информация
+
+def info_main_menu(update: Update, context: CallbackContext):
+    """Меню информации"""
+    menu = InlineKeyboardMarkup([[InlineKeyboardButton(text='Адреса магазинов', callback_data='info_address')],
+                                 [InlineKeyboardButton(text='Функции меню', callback_data='info_menu')],
+                                 [InlineKeyboardButton(text='Меню: «Каталог»', callback_data='info_catalog')],
+                                 [InlineKeyboardButton(text='Меню: «Корзина»', callback_data='info_cart')],
+                                 [InlineKeyboardButton(text='Меню:  «Заказы»', callback_data='info_orders')],
+                                 [InlineKeyboardButton(text='Об оплате', callback_data='info_payment_menu')],
+                                 [InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
+    text = "Выберите раздел справочной информации:"
+    context.bot.send_message(chat_id=update.effective_chat.id, text=text, reply_markup=menu, disable_notification=True)
 
 
-unknown_handler = MessageHandler(Filters.command, unknown)
-dispatcher.add_handler(unknown_handler)
+info_handler = CommandHandler('info', info_main_menu)
+dispatcher.add_handler(info_handler)
 
-""" АДМИНИСТРАТИВНЫЕ """
+
+def info_address(update: Update, context: CallbackContext):
+    """Информация об адресе"""
+
+    context.bot.edit_message_text(chat_id=update.effective_chat.id, text=text.text_address, parse_mode='HTML',
+                                  message_id=update.callback_query.message.message_id)
+    img_1 = open(f'{BASE_DIR}/static/img/bot_info/map.png', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_1,
+                           disable_notification=True)
+
+
+info_address_handler = CallbackQueryHandler(info_address, pattern=str('info_address'))
+dispatcher.add_handler(info_address_handler)
+
+
+def info_menu(update: Update, context: CallbackContext):
+    """Информация о меню"""
+
+    context.bot.edit_message_text(chat_id=update.effective_chat.id, text=text.text_menu_1, parse_mode='HTML',
+                                  message_id=update.callback_query.message.message_id)
+    img_1 = open(f'{BASE_DIR}/static/img/bot_info/23b4eb4b4b.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_1,
+                           disable_notification=True)
+
+    context.bot.send_message(chat_id=update.effective_chat.id, text=text.text_menu_2, parse_mode='HTML',
+                             disable_notification=True)
+
+
+info_menu_handler = CallbackQueryHandler(info_menu, pattern=str('info_menu'))
+dispatcher.add_handler(info_menu_handler)
+
+
+def info_menu_catalog(update: Update, context: CallbackContext):
+    """Информация о каталоге"""
+
+    context.bot.edit_message_text(chat_id=update.effective_chat.id, text=text.text_catalog_1, parse_mode='HTML',
+                                  message_id=update.callback_query.message.message_id)
+    img_1 = open(f'{BASE_DIR}/static/img/bot_info/photo_2023-08-22_10-44-02.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_1,
+                           disable_notification=True)
+
+
+info_menu_catalog_handler = CallbackQueryHandler(info_menu_catalog, pattern=str('info_catalog'))
+dispatcher.add_handler(info_menu_catalog_handler)
+
+
+def info_menu_cart(update: Update, context: CallbackContext):
+    """Информация о корзине"""
+
+    context.bot.edit_message_text(chat_id=update.effective_chat.id, text=text.text_cart_1, parse_mode='HTML',
+                                  message_id=update.callback_query.message.message_id)
+    img_1 = open(f'{BASE_DIR}/static/img/bot_info/98f1613ad4.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_1,
+                           disable_notification=True)
+
+    context.bot.send_message(chat_id=update.effective_chat.id, text=text.text_cart_2, parse_mode='HTML',
+                             disable_notification=True)
+
+    img_2 = open(f'{BASE_DIR}/static/img/bot_info/ba2772b058.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_2,
+                           disable_notification=True)
+
+    context.bot.send_message(chat_id=update.effective_chat.id, text=text.text_cart_3, parse_mode='HTML',
+                             disable_notification=True)
+    img_3 = open(f'{BASE_DIR}/static/img/bot_info/98f1613ad4.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_3,
+                           disable_notification=True)
+
+    context.bot.send_message(chat_id=update.effective_chat.id, text=text.text_cart_4, parse_mode='HTML',
+                             disable_notification=True)
+    img_4 = open(f'{BASE_DIR}/static/img/bot_info/48e8a35e69.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_4,
+                           disable_notification=True)
+
+    context.bot.send_message(chat_id=update.effective_chat.id, text=text.text_cart_5, parse_mode='HTML',
+                             disable_notification=True)
+
+    img_5 = open(f'{BASE_DIR}/static/img/bot_info/3bcd2b3173.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_5,
+                           disable_notification=True)
+
+    context.bot.send_message(chat_id=update.effective_chat.id, text=text.text_cart_6, parse_mode='HTML',
+                             disable_notification=True)
+
+    img_6 = open(f'{BASE_DIR}/static/img/bot_info/50b4bfd232.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_6,
+                           disable_notification=True)
+
+
+info_menu_cart_handler = CallbackQueryHandler(info_menu_cart, pattern=str('info_cart'))
+dispatcher.add_handler(info_menu_cart_handler)
+
+
+def info_menu_orders(update: Update, context: CallbackContext):
+    """Информация о заказах"""
+
+    context.bot.edit_message_text(chat_id=update.effective_chat.id, text=text.text_orders_1, parse_mode='HTML',
+                                  message_id=update.callback_query.message.message_id)
+    img_1 = open(f'{BASE_DIR}/static/img/bot_info/4d0846a4fe.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_1,
+                           disable_notification=True)
+
+    context.bot.send_message(chat_id=update.effective_chat.id, text=text.text_orders_2, parse_mode='HTML',
+                             disable_notification=True)
+
+    img_2 = open(f'{BASE_DIR}/static/img/bot_info/5b8b3884e3.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_2,
+                           disable_notification=True)
+
+
+info_menu_orders_handler = CallbackQueryHandler(info_menu_orders, pattern=str('info_orders'))
+dispatcher.add_handler(info_menu_orders_handler)
+
+
+def info_payment_menu(update: Update, context: CallbackContext):
+    """Меню информации об оплате"""
+    menu = InlineKeyboardMarkup(
+        [[InlineKeyboardButton(text='Оплата: «Через банковское приложение»', callback_data='info_payment_qr')],
+         [InlineKeyboardButton(text='Оплата: «Ввод реквизитов»', callback_data='info_payment_card')],
+         [InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
+
+    context.bot.edit_message_text(chat_id=update.effective_chat.id, text=text.text_payment_1, reply_markup=menu,
+                                  message_id=update.callback_query.message.message_id)
+
+
+info_payment_menu_handler = CallbackQueryHandler(info_payment_menu, pattern=str('info_payment_menu'))
+dispatcher.add_handler(info_payment_menu_handler)
+
+
+def info_payment_qr(update: Update, context: CallbackContext):
+    """Информация об оплате по qr"""
+
+    context.bot.edit_message_text(chat_id=update.effective_chat.id, text=text.text_payment_qr_1, parse_mode='HTML',
+                                  message_id=update.callback_query.message.message_id)
+    img_1 = open(f'{BASE_DIR}/static/img/bot_info/photo_2023-08-22_11-45-18.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_1,
+                           disable_notification=True)
+
+    context.bot.send_message(chat_id=update.effective_chat.id, text=text.text_payment_qr_2, parse_mode='HTML',
+                             disable_notification=True)
+
+    img_2 = open(f'{BASE_DIR}/static/img/bot_info/photo_2023-08-22_11-59-12.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_2,
+                           disable_notification=True)
+
+    context.bot.send_message(chat_id=update.effective_chat.id, text=text.text_payment_qr_3, parse_mode='HTML',
+                             disable_notification=True)
+
+    img_3 = open(f'{BASE_DIR}/static/img/bot_info/photo_2023-08-22_11-59-16.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_3,
+                           disable_notification=True)
+
+    context.bot.send_message(chat_id=update.effective_chat.id, text=text.text_payment_qr_4, parse_mode='HTML',
+                             disable_notification=True)
+
+    img_4 = open(f'{BASE_DIR}/static/img/bot_info/photo_2023-08-22_11-59-19.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_4,
+                           disable_notification=True)
+
+
+info_payment_qr_handler = CallbackQueryHandler(info_payment_qr, pattern=str('info_payment_qr'))
+dispatcher.add_handler(info_payment_qr_handler)
+
+
+def info_payment_card(update: Update, context: CallbackContext):
+    """Информация об оплате по карте"""
+
+    context.bot.edit_message_text(chat_id=update.effective_chat.id, text=text.text_payment_card_1, parse_mode='HTML',
+                                  message_id=update.callback_query.message.message_id)
+    img_1 = open(f'{BASE_DIR}/static/img/bot_info/photo_2023-08-22_12-10-00.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_1,
+                           disable_notification=True)
+
+
+info_payment_card_handler = CallbackQueryHandler(info_payment_card, pattern=str('info_payment_card'))
+dispatcher.add_handler(info_payment_card_handler)
+
+
+# АДМИНИСТРАТИВНЫЕ
 
 
 def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str, delivery_price: int = 0,
@@ -680,7 +886,6 @@ def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str
 def send_message_to_user(chat_id: int, message: str):
     updater.bot.send_message(chat_id=chat_id,
                              text=f'''{message}''')
-
 
 
 # Оплата интегрированными средставми телеграм
@@ -723,7 +928,15 @@ def send_message_to_user(chat_id: int, message: str):
 #
 # dispatcher.add_handler(MessageHandler(Filters.successful_payment, successful_payment_callback))
 
-""" Утилиты """
+
+# Утилиты
+def unknown(update: Update, context: CallbackContext):
+    """Неизветсные команды"""
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Извините, я не знаю такой команды")
+
+
+unknown_handler = MessageHandler(Filters.command, unknown)
+dispatcher.add_handler(unknown_handler)
 
 
 def user_message(update: Update, context: CallbackContext):
