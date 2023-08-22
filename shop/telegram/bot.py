@@ -208,7 +208,7 @@ def edit(update: Update, context: CallbackContext):
 
     product_amount, product = edit_to_cart(command, user, product_id)
     context.bot.answer_callback_query(callback_query_id=call.id,
-                                      text=f'В корзине {product[0]} - {int(product_amount)} шт.')
+                                      text=f'В корзине {product[0][:20]}... {int(product_amount)} шт.')
 
 
 catalog_handler = CallbackQueryHandler(edit, pattern="^" + str('add_'))
