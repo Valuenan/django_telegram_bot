@@ -671,11 +671,19 @@ def info_main_menu(update: Update, context: CallbackContext):
                                  [InlineKeyboardButton(text='Об оплате', callback_data='info_payment_menu')],
                                  [InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
     text = "Выберите раздел справочной информации:"
-    context.bot.send_message(chat_id=update.effective_chat.id, text=text, reply_markup=menu, disable_notification=True)
+    if update.callback_query:
+        context.bot.edit_message_text(chat_id=update.effective_chat.id, text=text, reply_markup=menu,
+                                      message_id=update.callback_query.message.message_id)
+    else:
+        context.bot.send_message(chat_id=update.effective_chat.id, text=text, reply_markup=menu,
+                                 disable_notification=True)
 
 
 info_handler = CommandHandler('info', info_main_menu)
 dispatcher.add_handler(info_handler)
+
+info_query_handler = CallbackQueryHandler(info_main_menu, pattern=str('info_main_menu'))
+dispatcher.add_handler(info_query_handler)
 
 
 def info_address(update: Update, context: CallbackContext):
@@ -807,6 +815,7 @@ def info_payment_menu(update: Update, context: CallbackContext):
     menu = InlineKeyboardMarkup(
         [[InlineKeyboardButton(text='Оплата: «Через банковское приложение»', callback_data='info_payment_qr')],
          [InlineKeyboardButton(text='Оплата: «Ввод реквизитов»', callback_data='info_payment_card')],
+         [InlineKeyboardButton(text='Назад', callback_data='info_main_menu')],
          [InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
 
     context.bot.edit_message_text(chat_id=update.effective_chat.id, text=text.text_payment_1, reply_markup=menu,
