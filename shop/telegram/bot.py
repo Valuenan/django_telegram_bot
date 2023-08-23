@@ -160,7 +160,7 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
                                                                             f'\n <i>В наличии: {int(rests)} шт.</i>',
                                      reply_markup=keyboard,
                                      parse_mode='HTML')
-        if not pagination:
+        if not pagination or page == pages:
             prew_category = get_parent_category_id(category_id=chosen_category)[0]
             keyboard_next = InlineKeyboardMarkup(
                 [[InlineKeyboardButton(text='Назад', callback_data=f'category_{prew_category}_{prew_category}')]])
