@@ -120,16 +120,26 @@ def get_category(category_id: int = None) -> list:
             f"SELECT command, id, parent_category_id FROM categories WHERE parent_category_id='{category_id}'")
         categories = cur.fetchall()
         db, cur = connect_db(f"SELECT command FROM categories WHERE id='{category_id}'")
-        self_category_name = cur.fetchone()
+        this_category_name = cur.fetchone()
         cur.close()
         db.close()
-        return categories, self_category_name
+        return categories, this_category_name
     else:
         db, cur = connect_db("SELECT command, id, parent_category_id FROM categories WHERE parent_category_id is NULL")
         categories = cur.fetchall()
         cur.close()
         db.close()
         return categories
+
+
+def get_parent_category_id(category_id: int) -> list:
+    """ Получить родительскую категорию """
+    db, cur = connect_db(
+        f"SELECT parent_category_id FROM categories WHERE id='{category_id}'")
+    parent_category_id = cur.fetchone()
+    cur.close()
+    db.close()
+    return parent_category_id
 
 
 def get_products(chosen_category: int, page: int) -> (list, int):

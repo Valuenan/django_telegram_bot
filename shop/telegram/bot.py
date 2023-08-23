@@ -7,7 +7,7 @@ from shop.telegram.db_connection import load_last_order, get_category, get_produ
     save_order, get_user_orders, edit_to_cart, show_cart, db_delete_cart, get_product_id, start_user, \
     old_cart_message, save_cart_message_id, old_cart_message_to_none, check_user_is_staff, \
     save_delivery_settings, get_delivery_settings, get_user_address, \
-    get_shops, user_add_phone, ADMIN_TG, get_user_phone, get_delivery_shop, save_payment_link
+    get_shops, user_add_phone, ADMIN_TG, get_user_phone, get_delivery_shop, save_payment_link, get_parent_category_id
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from users.models import ORDER_STATUS
 from django_telegram_bot.settings import BASE_DIR, env
@@ -71,27 +71,35 @@ def catalog(update: Update, context: CallbackContext):
 
     buttons = [[]]
     row = 0
+    flag_prew_category = True
+
     if update.callback_query:
         call = update.callback_query
         chosen_category = call.data.split('_')
-
-        categories, self_category_name = get_category(int(chosen_category[1]))
-
+        if chosen_category[1] != 'None':
+            categories, this_category_name = get_category(int(chosen_category[1]))
+        else:
+            categories = get_category()
+            flag_prew_category = False
     else:
         categories = get_category()
     if categories:
         for index, category in enumerate(categories):
-            button = (InlineKeyboardButton(text=category[0], callback_data=f'category_{category[1]}_{category[2]}'))
+            next_command, next_category, this_category = category
+            button = (InlineKeyboardButton(text=category[0], callback_data=f'category_{next_category}_{this_category}'))
             if index % BUTTONS_IN_ROW_CATEGORY == 0:
                 buttons.append([])
                 row += 1
             buttons[row].append(button)
-        keyboard = InlineKeyboardMarkup([button for button in buttons])
 
-        if update.callback_query:
-            text = f'Категория: {self_category_name[0]}'
+        if update.callback_query and flag_prew_category:
+            text = f'Категория: {this_category_name[0]}'
+            prew_category = get_parent_category_id(category_id=this_category)[0]
+            buttons.append(
+                [InlineKeyboardButton(text='Назад', callback_data=f'category_{prew_category}_{prew_category}')])
         else:
             text = 'Каталог'
+        keyboard = InlineKeyboardMarkup([button for button in buttons])
         message = context.bot.send_message(chat_id=update.effective_chat.id,
                                            text=text,
                                            reply_markup=keyboard)
@@ -152,9 +160,20 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
                                                                             f'\n <i>В наличии: {int(rests)} шт.</i>',
                                      reply_markup=keyboard,
                                      parse_mode='HTML')
-        if pagination and page < pages:
+        if not pagination:
+            prew_category = get_parent_category_id(category_id=chosen_category)[0]
             keyboard_next = InlineKeyboardMarkup(
-                [[InlineKeyboardButton(text='Еще товары', callback_data=f'product_{chosen_category}#{page + 1}')]])
+                [[InlineKeyboardButton(text='Назад', callback_data=f'category_{prew_category}_{prew_category}')]])
+            context.bot.send_message(chat_id=update.effective_chat.id,
+                                     text=f'Вернуться в категории?',
+                                     disable_notification=True,
+                                     reply_markup=keyboard_next, parse_mode='HTML')
+
+        if pagination and page < pages:
+            prew_category = get_parent_category_id(category_id=chosen_category)[0]
+            keyboard_next = InlineKeyboardMarkup(
+                [[InlineKeyboardButton(text='Еще товары', callback_data=f'product_{chosen_category}#{page + 1}')],
+                 [InlineKeyboardButton(text='Назад', callback_data=f'category_{prew_category}_{prew_category}')]])
             context.bot.send_message(chat_id=update.effective_chat.id,
                                      text=f'Страница <b>{page + 1}</b> из {pages + 1}',
                                      disable_notification=True,
