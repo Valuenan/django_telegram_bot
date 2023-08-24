@@ -662,15 +662,6 @@ accept_cart_handler = CallbackQueryHandler(accept_delete_cart, pattern=str('hist
 dispatcher.add_handler(accept_cart_handler)
 
 
-def get_message_from_user(update: Update, context: CallbackContext):
-    """ Получить сообщение от пользователя"""
-    message = save_user_message(update.message.chat_id, update.message.text)
-    update.message.reply_text(message)
-
-
-dispatcher.add_handler(MessageHandler(filters.Filters.text, get_message_from_user))
-
-
 # Информация
 
 def info_main_menu(update: Update, context: CallbackContext):
@@ -893,6 +884,13 @@ dispatcher.add_handler(info_payment_card_handler)
 
 
 # АДМИНИСТРАТИВНЫЕ
+def get_message_from_user(update: Update, context: CallbackContext):
+    """ Получить сообщение от пользователя"""
+    message = save_user_message(update.message.chat_id, update.message.text)
+    update.message.reply_text(message)
+
+
+dispatcher.add_handler(MessageHandler(filters.Filters.text, get_message_from_user))
 
 
 def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str, delivery_price: int = 0,
