@@ -42,6 +42,22 @@ class Profile(models.Model):
         verbose_name_plural = 'Профили'
 
 
+class UserMessage(models.Model):
+    date = models.DateTimeField(verbose_name='Дата, время сообщениея', auto_now_add=True)
+    user = models.ForeignKey(Profile, on_delete=models.PROTECT, verbose_name='Пользователь')
+    manager = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name='Менеждер', blank=True, null=True)
+    message = models.CharField(max_length=500, verbose_name='Сообщение')
+    checked = models.BooleanField(verbose_name='Прочитано')
+
+    def __str__(self):
+        return self.user.__str__()
+
+    class Meta:
+        db_table = 'user_message'
+        verbose_name = 'Сообщение'
+        verbose_name_plural = 'Сообщения'
+
+
 class OrderStatus(models.Model):
     title = models.CharField(max_length=50, verbose_name='Статус заказа', choices=ORDER_STATUS, blank=False,
                              default='Заявка обрабатывается 📝')

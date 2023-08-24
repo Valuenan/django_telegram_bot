@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    {% for user_message in user_messages %}
+        <table>
+            <tr>
+            {% if user_message.manager %}
+                <td></td><td>{{ user_message.date }} | {{ user_message.message }} <br> {{ user_message.manager }}</td>
+            {% else %}
+                <td>{{ user_message.date }} | {{ user_message.message }} <br> {{ user_message.user }}</td><td></td>
+            {% endif %}
+            </tr>
+        </table>
+    {% endfor %}
+    <form class="form" action="{% url 'send_message' %}" method="post">
+       {% csrf_token %}
+
+        <input hidden type="text" name="chat_id" value="{{ pk }}">
+        <p>Сообщение: <input type="text" name="message" value=""></p>
+        <p>Тихое уведомление: <input name="disable_notification" type="checkbox" checked></p>
+        <button type="submit">Отправить</button>
+    </form>
+{% endblock %}

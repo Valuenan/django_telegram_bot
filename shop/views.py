@@ -6,13 +6,15 @@ import csv
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
+from django.db import transaction, Error as DbError
+from django.db.transaction import Error as TransactionError
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views import View
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.views.generic import ListView, DetailView
 from .forms import ImportGoodsForm, ImportCategoryForm
-from users.models import Orders, Carts, Profile, OrderStatus
+from users.models import Orders, Carts, Profile, OrderStatus, UserMessage
 from .models import File, Category, Product, Rests, Shop
 from .telegram.bot import ready_order_message, send_message_to_user
 
@@ -261,10 +263,12 @@ class OrderDetail(LoginRequiredMixin, DetailView):
             context['order_statuses'] = OrderStatus.objects.exclude(id='4')
         context['order_sum'] = context['order'].order_price + context['order'].delivery_price
         context['shops'] = Shop.objects.all().order_by('-id')
+        context['user_messages'] = UserMessage.objects.filter(user=self.model[0].profile)
         return context
 
     def post(self, request, pk):
         form = request.POST.copy()
+
         _, new_status, shop = form.pop('csrfmiddlewaretoken'), form.pop('new_status')[0], int(form.pop('shop')[0])
 
         order = Orders.objects.get(id=pk)
@@ -280,7 +284,6 @@ class OrderDetail(LoginRequiredMixin, DetailView):
             order.save()
         elif 'tracing_num' in form:
             form.pop('tracing_num')
-        print(form)
         if 'delivery_info' in form and form['delivery_info'] != '':
             delivery_info = form.pop('delivery_info')[0]
             order.delivery_info = delivery_info
@@ -302,14 +305,57 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         return redirect(f'/order/{pk}')
 
 
+def _send_message_to_user(request, form, user_chat_id):
+    if 'disable_notification' in form:
+        disable_notification = True
+    else:
+        disable_notification = False
+
+    try:
+
+        if form['message']:
+            UserMessage.objects.create(user=user_chat_id, manager=request.user, message=form['message'],
+                                       checked=True)
+        result, text = send_message_to_user(chat_id=form['chat_id'], message=form['message'],
+                                            disable_notification=disable_notification)
+
+        if result == 'ok':
+            messages.success(request, text)
+        else:
+            messages.error(request, f'Сообщение не отправлено, {text}. Обратитесь к администратору')
+
+    except (DbError, TransactionError) as error:
+        messages.error(request, f'Возникла ошибка, {error}. Обратитесь к администратору')
+
+
 class SendMessageToUser(LoginRequiredMixin, View):
     login_url = '/login'
-    context_object_name = 'user'
-
-    def get(self, request):
-        return render(request, 'users/send_message.html')
 
     def post(self, request):
+        print(request.META.get('HTTP_REFERER'))
         form = request.POST.copy()
-        send_message_to_user(chat_id=form['chat_id'], message=form['message'])
-        return render(request, 'users/send_message.html')
+        user_chat_id = Profile.objects.get(chat_id=form['chat_id'])
+        messages_not_checked = UserMessage.objects.filter(user=user_chat_id, checked=False)
+        if messages_not_checked:
+            messages_not_checked.update(checked=True)
+        _send_message_to_user(request, form, user_chat_id)
+        return redirect(request.META.get('HTTP_REFERER'))
+
+
+class UsersMessagesList(LoginRequiredMixin, ListView):
+    login_url = '/login'
+    model = UserMessage
+    queryset = UserMessage.objects.filter(checked=False).order_by('user')
+    context_object_name = 'users'
+    template_name = 'users/messages_list.html'
+
+
+class UsersMessagesDetail(LoginRequiredMixin, View):
+    login_url = '/login'
+    model = UserMessage
+    context_object_name = 'user_messages'
+
+    def get(self, request, pk):
+        user = Profile.objects.get(chat_id=pk)
+        user_messages = UserMessage.objects.filter(user=user)
+        return render(request, 'users/messages_detail.html', context={'user_messages': user_messages, 'pk': pk})

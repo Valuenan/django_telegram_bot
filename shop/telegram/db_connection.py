@@ -385,6 +385,20 @@ def get_user_orders(chat_id: int, filter: str = '') -> list:
     return orders
 
 
+def save_user_message(chat_id: int, message: str):
+    """ Сохранить сообщение от пользователя """
+    try:
+        db, cur = connect_db(f"""INSERT INTO user_message (date, user_id, manager_id, message, checked) 
+        SELECT '{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', id, NULL, '{message}', '0'
+        FROM profile WHERE profile.chat_id='{chat_id}'""")
+        db.commit()
+        cur.close()
+        db.close()
+    except Exception:
+        return f'К сожалению произошла ошибка попробуйте отправить сообщение еще раз или обратитесь в поддержку {ADMIN_TG}'
+    return 'Мы получили ваше сообщение.В ближайшее время менеджер c вами свяжется...'
+
+
 """ Административные """
 
 

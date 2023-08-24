@@ -1,14 +1,17 @@
 import re
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, error
-from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
+from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, \
+    MessageFilter, filters
 from shop.telegram.banking import avangard_invoice
 from shop.telegram.db_connection import load_last_order, get_category, get_products, \
     save_order, get_user_orders, edit_to_cart, show_cart, db_delete_cart, get_product_id, start_user, \
     old_cart_message, save_cart_message_id, old_cart_message_to_none, check_user_is_staff, \
     save_delivery_settings, get_delivery_settings, get_user_address, \
-    get_shops, user_add_phone, ADMIN_TG, get_user_phone, get_delivery_shop, save_payment_link, get_parent_category_id
+    get_shops, user_add_phone, ADMIN_TG, get_user_phone, get_delivery_shop, save_payment_link, get_parent_category_id, \
+    save_user_message
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
+from telegram.error import TelegramError
 from users.models import ORDER_STATUS
 from django_telegram_bot.settings import BASE_DIR, env
 import shop.telegram.bot_texts as text
@@ -659,6 +662,15 @@ accept_cart_handler = CallbackQueryHandler(accept_delete_cart, pattern=str('hist
 dispatcher.add_handler(accept_cart_handler)
 
 
+def get_message_from_user(update: Update, context: CallbackContext):
+    """ Получить сообщение от пользователя"""
+    message = save_user_message(update.message.chat_id, update.message.text)
+    update.message.reply_text(message)
+
+
+dispatcher.add_handler(MessageHandler(filters.Filters.text, get_message_from_user))
+
+
 # Информация
 
 def info_main_menu(update: Update, context: CallbackContext):
@@ -911,9 +923,15 @@ def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str
                              parse_mode='HTML')
 
 
-def send_message_to_user(chat_id: int, message: str):
-    updater.bot.send_message(chat_id=chat_id,
-                             text=f'''{message}''')
+def send_message_to_user(chat_id: int, message: str, disable_notification: bool = True) -> tuple:
+    try:
+        updater.bot.send_message(chat_id=chat_id,
+                                 text=f'''{message}''',
+                                 parse_mode='HTML',
+                                 disable_notification=disable_notification)
+        return 'ok', 'Сообщение отправлено'
+    except TelegramError as error:
+        return 'error', error
 
 
 # Оплата интегрированными средставми телеграм

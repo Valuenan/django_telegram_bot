@@ -41,6 +41,7 @@
                 <div class="menu-item"><a class="menu-link" href="{% url 'orders_list' %}">Список активных заказов</a>
                 </div>
                 <div class="menu-item"><a class="menu-link" href="{% url 'orders_history' %}">Исторя заказов</a></div>
+                <div class="menu-item"><a class="menu-link" href="{% url 'user_messages_list' %}">Сообщения пользователей</a></div>
                 {% if request.user.is_superuser %}
                     <div class="menu-item"><a class="menu-link" href="/admin">Админка</a></div>
                 {% endif %}

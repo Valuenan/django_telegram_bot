@@ -1,12 +1,18 @@
 from django.contrib import admin
 
-from .models import Profile, Carts, Orders, OrderStatus, Payment
+from .models import Profile, Carts, Orders, OrderStatus, Payment, UserMessage
 
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
     list_display = ['telegram_name', 'chat_id', 'phone', 'discount']
     search_fields = ['chat_id']
+
+
+@admin.register(UserMessage)
+class UserMessageAdmin(admin.ModelAdmin):
+    list_display = ['user', 'manager', 'message', 'checked']
+    search_fields = ['from_user']
 
 
 @admin.register(Carts)

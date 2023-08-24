@@ -2,21 +2,7 @@
 {% load shop_tags %}
 
 {% block content %}
-<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <title>Заказ №{{ order.id }}</title>
-    </head>
-    <body>
     <a href="/">Вернуться к заказам</a>
-    {% if messages %}
-        <ul class="messages">
-            {% for message in messages %}
-            <li>{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
     <form action="" method="post" class="mt-4" id="formReview">
         {% csrf_token %}
         <h1>Заказ №{{ order.id }}</h1>
@@ -101,6 +87,24 @@
             Обработанна: {{ order.admin_check.first_name }} {{ order.admin_check.last_name }}
         {% endif %}
         </p>
-    </body>
-</html>
+    <br>
+    <h2>Общение с пользователем</h2>
+    {% for user_message in user_messages %}
+        <table>
+            <tr>
+            {% if user_message.manager %}
+                <td></td><td>{{ user_message.date }} | {{ user_message.message }} <br> {{ user_message.manager }}</td>
+            {% else %}
+                <td>{{ user_message.date }} | {{ user_message.message }} <br> {{ user_message.user }}</td><td></td>
+            {% endif %}
+            </tr>
+        </table>
+    {% endfor %}
+    <form class="form" action="{% url 'send_message' %}" method="post">
+       {% csrf_token %}
+        <input hidden type="text" name="chat_id" value="{{ order.profile.chat_id }}">
+        <p>Сообщение: <input type="text" name="message" value=""></p>
+        <p>Тихое уведомление: <input name="disable_notification" type="checkbox" checked></p>
+        <button type="submit">Отправить</button>
+    </form>
 {% endblock %}

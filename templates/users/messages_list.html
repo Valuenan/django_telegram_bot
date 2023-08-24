@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <table border="1px">
+    <tr>
+        <td>Пользователь</td>
+        <td>Последние не прочитанное сообщение</td>
+    </tr>
+    {% for user in users %}
+        <tr>
+            <td><a href="{% url 'user_messages_detail' user.user.chat_id  %}">{{ user.user }}</a></td>
+            <td><a href="{% url 'user_messages_detail' user.user.chat_id  %}">{{ user.message }}</a></td>
+        </tr>
+    {% endfor %}
+</table>
+{% endblock %}
