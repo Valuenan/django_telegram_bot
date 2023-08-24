@@ -240,6 +240,13 @@ class OrdersList(LoginRequiredMixin, ListView):
     context_object_name = 'orders'
     ordering = ['id']
 
+    def get_context_data(self, **kwargs):
+        context = super(OrdersList, self).get_context_data(**kwargs)
+        users = Profile.objects.values('phone')
+        context['count_users'] = users.count()
+        context['count_users_phone'] = users.exclude(phone=None).count()
+        return context
+
 
 class OrdersHistory(LoginRequiredMixin, ListView):
     login_url = '/login'

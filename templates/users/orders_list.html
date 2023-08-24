@@ -2,6 +2,9 @@
 {% load shop_tags %}
 
 {% block content %}
+{% if request.user.is_superuser %}
+    <p>Пользователей {{ count_users }}, указали номер телефона {{ count_users_phone }}</p>
+{% endif %}
 <h1>Список заявок</h1>
 <table border="1px">
     <tr>
