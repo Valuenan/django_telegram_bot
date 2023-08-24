@@ -1001,6 +1001,7 @@ def remove_bot_message(update: Update, context: CallbackContext):
 remove_message = CallbackQueryHandler(remove_bot_message, pattern=str('remove-message'))
 dispatcher.add_handler(remove_message)
 
+
 def get_message_from_user(update: Update, context: CallbackContext):
     """ Получить сообщение от пользователя"""
     message = save_user_message(update.message.chat_id, update.message.text)
