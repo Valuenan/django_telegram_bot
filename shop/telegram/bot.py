@@ -7,9 +7,9 @@ from shop.telegram.banking import avangard_invoice
 from shop.telegram.db_connection import load_last_order, get_category, get_products, \
     save_order, get_user_orders, edit_to_cart, show_cart, db_delete_cart, get_product_id, start_user, \
     old_cart_message, save_cart_message_id, old_cart_message_to_none, check_user_is_staff, \
-    save_delivery_settings, get_delivery_settings, get_user_address, \
+    edit_profile, get_delivery_settings, get_user_address, \
     get_shops, user_add_phone, ADMIN_TG, get_user_phone, get_delivery_shop, save_payment_link, get_parent_category_id, \
-    save_user_message
+    save_user_message, get_user_profile, edit_user
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from telegram.error import TelegramError
 from users.models import ORDER_STATUS
@@ -37,7 +37,7 @@ def main_keyboard(update: Update, context: CallbackContext):
     if status == 'ok':
         check = check_user_is_staff(update.message.chat_id)
     elif status in ['no-phone', 'new_user']:
-        users_message[user.id] = 'phone'
+        users_message[user.id] = 'phone_main'
         context.bot.pin_chat_message(chat_id=update.effective_chat.id, message_id=message.message_id)
     if status != 'ok':
         context.bot.delete_message(chat_id=update.effective_chat.id,
@@ -48,9 +48,9 @@ start_handler = CommandHandler('start', main_keyboard)
 dispatcher.add_handler(start_handler)
 
 
-def phone_check(update: Update, context: CallbackContext, phone):
-    """Основаня клавиатура снизу"""
-    user = update.message.from_user
+def phone_check(update: Update, context: CallbackContext, phone, trace_back):
+    """Проверка номера телефона"""
+    user = update.effective_user
 
     result = re.match(r'^(\+7|7|8)?[\s\-]?\(?[489][0-9]{2}\)?[\s\-]?[0-9]{3}[\s\-]?[0-9]{2}[\s\-]?[0-9]{2}$',
                       phone)
@@ -61,12 +61,55 @@ def phone_check(update: Update, context: CallbackContext, phone):
                                            text=f"""Спасибо, номер телефона принят""")
         context.bot.delete_message(chat_id=update.effective_chat.id,
                                    message_id=message.message_id - 2)
-        main_keyboard(update, context)
+        if trace_back == 'phone_profile':
+            profile_menu(update, context)
+        elif trace_back == 'phone_main':
+            main_keyboard(update, context)
+        else:
+            pass
+
     else:
         message = context.bot.send_message(chat_id=update.message.chat_id,
                                            text=f"""К сожалению номер {phone}, некоректный повторите ввод или обратитесь к канал помощи {ADMIN_TG} (r1)""")
         context.bot.delete_message(chat_id=update.effective_chat.id,
                                    message_id=message.message_id - 2)
+
+
+def profile_check(update: Update, context: CallbackContext, first_name: str = None, last_name: str = None,
+                  address: str = None):
+    """Основаня клавиатура снизу"""
+    user = update.message.from_user
+    chat_id = update.message.chat_id
+
+    if first_name:
+        del users_message[user.id]
+        value = first_name[:20]
+        field = 'first_name'
+        text = "Имя было изменено"
+        result = edit_user(chat_id=chat_id, field=field, value=value)
+    elif last_name:
+        del users_message[user.id]
+        value = last_name[:20]
+        field = 'last_name'
+        text = "Фамилия была изменена"
+        result = edit_user(chat_id=chat_id, field=field, value=value)
+
+    elif address:
+        del users_message[user.id]
+        value = address[:200]
+        field = 'delivery_street'
+        text = "Адрес был изменен"
+        result = edit_profile(chat_id=chat_id, field=field, value=value)
+    else:
+        text = 'Произошла ошибка при изменении профиля, попробуйте еще раз. Или напишите в чат для помощи'
+        result = False
+    if not result:
+        text = 'Произошла ошибка при изменении профиля, попробуйте еще раз. Или напишите в чат для помощи'
+
+    message = context.bot.send_message(chat_id=update.message.chat_id, text=text)
+    context.bot.delete_message(chat_id=update.effective_chat.id,
+                               message_id=message.message_id - 2)
+    profile_menu(update, context)
 
 
 def catalog(update: Update, context: CallbackContext):
@@ -329,11 +372,12 @@ def get_offer_settings(update: Update, context: CallbackContext):
     global users_message
     call = update.callback_query
     chat_id = update.effective_chat.id
+    user = update.effective_user
     message_id = call.message.message_id
     _, settings_stage, answer = call.data.split('_')
 
     if not get_user_phone(chat_id):
-        users_message[update.effective_user.id] = 'phone'
+        users_message[user.id] = 'phone'
         context.bot.send_message(chat_id=update.effective_chat.id,
                                  text='Для оформления заказа требуется ваш номер телефона, напишите его в чат. Формат (+7** или 8**)')
     else:
@@ -345,8 +389,8 @@ def get_offer_settings(update: Update, context: CallbackContext):
                                           text=f'Вам доставить? 🚚 (доставка будет расчитана после оформления заказа)',
                                           reply_markup=keyboard)
         elif settings_stage == '2' and answer == 'yes':
-            save_delivery_settings(value='1', field='delivery', chat_id=chat_id)
-            users_message[chat_id] = ''
+            edit_profile(value='1', field='delivery', chat_id=chat_id)
+            users_message[user.id] = ''
             street = get_user_address(chat_id)
             buttons = [[InlineKeyboardButton(text='Сохранить адрес 📝', callback_data='offer-stage_3_none')]]
             if street:
@@ -358,7 +402,7 @@ def get_offer_settings(update: Update, context: CallbackContext):
                                                f' или выберите последний адрес доставки',
                                           reply_markup=keyboard)
         elif settings_stage == '2' and answer == 'no':
-            save_delivery_settings(value='0', field='delivery', chat_id=chat_id)
+            edit_profile(value='0', field='delivery', chat_id=chat_id)
             buttons = []
             for shop in get_shops():
                 shop_id, shop_name = shop
@@ -372,9 +416,9 @@ def get_offer_settings(update: Update, context: CallbackContext):
         elif settings_stage == '3':
             break_flag = False
             if answer == 'none':
-                if users_message[chat_id]:
-                    save_delivery_settings(value=users_message[chat_id], field='delivery_street', chat_id=chat_id)
-                    save_delivery_settings(value='1', field='delivery', chat_id=chat_id)
+                if users_message[user.id]:
+                    edit_profile(value=users_message[user.id], field='delivery_street', chat_id=chat_id)
+                    edit_profile(value='1', field='delivery', chat_id=chat_id)
                     users_message.pop(chat_id)
                 else:
                     street = get_user_address(chat_id)
@@ -389,11 +433,11 @@ def get_offer_settings(update: Update, context: CallbackContext):
                     break_flag = True
 
             elif answer == 'street':
-                save_delivery_settings(value='1', field='delivery', chat_id=chat_id)
+                edit_profile(value='1', field='delivery', chat_id=chat_id)
             else:
                 answer = int(answer)
-                save_delivery_settings(value=answer, field='main_shop_id', chat_id=chat_id)
-                save_delivery_settings(value='0', field='delivery', chat_id=chat_id)
+                edit_profile(value=answer, field='main_shop_id', chat_id=chat_id)
+                edit_profile(value='0', field='delivery', chat_id=chat_id)
 
             if not break_flag:
                 # Оплата: 2 - qr код, 1 - ввод карты
@@ -664,6 +708,91 @@ dispatcher.add_handler(accept_cart_handler)
 
 # Информация
 
+def profile_menu(update: Update, context: CallbackContext):
+    """Меню информации"""
+    if update.callback_query:
+        call = update.callback_query
+        user = update.effective_user
+        _, action, field = call.data.split('_')
+
+        del users_message[user.id]
+
+    menu = InlineKeyboardMarkup([[InlineKeyboardButton(text='Изменить имя', callback_data='edit_firstname')],
+                                 [InlineKeyboardButton(text='Изменить фамилию', callback_data='edit_lastname')],
+                                 [InlineKeyboardButton(text='Изменить номер телефона', callback_data='edit_phone')],
+                                 [InlineKeyboardButton(text='Изменить адрес доставки', callback_data='edit_address')],
+                                 [InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
+    firstname, lastname, phone, delivery_street = get_user_profile(update.effective_chat.id)
+    if delivery_street is None:
+        delivery_street = 'нет'
+    if phone is None:
+        phone = 'нет'
+    profile = f'''Профиль: \n Имя: <b>{firstname}</b> \n Фамилия: <b>{lastname}</b> \n Телефон №: <b>{phone}</b> \n Адрес доставки: <b>{delivery_street}</b>'''
+    if update.callback_query:
+        context.bot.edit_message_text(chat_id=update.effective_chat.id, text=profile, reply_markup=menu,
+                                      parse_mode='HTML', message_id=update.callback_query.message.message_id)
+    else:
+        message = context.bot.send_message(chat_id=update.effective_chat.id, text=profile, reply_markup=menu,
+                                           parse_mode='HTML', disable_notification=True)
+        context.bot.delete_message(chat_id=update.effective_chat.id,
+                                   message_id=message.message_id - 1)
+
+
+dispatcher.add_handler(CommandHandler('profile', profile_menu))
+
+dispatcher.add_handler(CallbackQueryHandler(profile_menu, pattern=str('profile_roll-back_firstname')))
+dispatcher.add_handler(CallbackQueryHandler(profile_menu, pattern=str('profile_roll-back_lastname')))
+dispatcher.add_handler(CallbackQueryHandler(profile_menu, pattern=str('profile_roll-back_phone')))
+dispatcher.add_handler(CallbackQueryHandler(profile_menu, pattern=str('profile_roll-back_address')))
+
+
+def message_edit_profile(update: Update, context: CallbackContext):
+    """Профиль: Изменить имя"""
+    call = update.callback_query
+    user = update.effective_user
+    _, select = call.data.split('_')
+
+    if select == 'firstname':
+        field = 'имя'
+        new_field = 'новым именем'
+        restrictions = '* не более 20 символов'
+        users_message[user.id] = 'first_name'
+    elif select == 'lastname':
+        field = 'фамилия'
+        new_field = 'новой фамилией'
+        restrictions = '* не более 20 символов'
+        users_message[user.id] = 'last_name'
+    elif select == 'phone':
+        field = 'номер телефона'
+        new_field = 'новым номером'
+        restrictions = '* формат ввода +7** или 8**'
+        users_message[user.id] = 'phone_profile'
+    elif select == 'address':
+        field = 'фдрес доставки'
+        new_field = 'новым адресом'
+        restrictions = '* не более 200 символов'
+        users_message[user.id] = 'address'
+    else:
+        field = 'ПАРМЕТР НЕИЗВЕСТЕН'
+        new_field = 'ПАРМЕТР НЕИЗВЕСТЕН'
+        restrictions = 'ПАРМЕТР НЕИЗВЕСТЕН'
+
+    text = f'''Редактируется <b>{field}</b>. Отправьте сообщение с {new_field}. Для отмены нажмите "Отменить"
+
+{restrictions}'''
+
+    menu = InlineKeyboardMarkup([[InlineKeyboardButton(text='Отменить', callback_data=f'profile_roll-back_{select}')]])
+
+    context.bot.edit_message_text(chat_id=update.effective_chat.id, text=f'{text}, {users_message}, {update.effective_user.id}', parse_mode='HTML',
+                                  message_id=update.callback_query.message.message_id, reply_markup=menu)
+
+
+dispatcher.add_handler(CallbackQueryHandler(message_edit_profile, pattern=str('edit_firstname')))
+dispatcher.add_handler(CallbackQueryHandler(message_edit_profile, pattern=str('edit_lastname')))
+dispatcher.add_handler(CallbackQueryHandler(message_edit_profile, pattern=str('edit_phone')))
+dispatcher.add_handler(CallbackQueryHandler(message_edit_profile, pattern=str('edit_address')))
+
+
 def info_main_menu(update: Update, context: CallbackContext):
     """Меню информации"""
     menu = InlineKeyboardMarkup([[InlineKeyboardButton(text='Адреса магазинов', callback_data='info_address')],
@@ -678,8 +807,10 @@ def info_main_menu(update: Update, context: CallbackContext):
         context.bot.edit_message_text(chat_id=update.effective_chat.id, text=text, reply_markup=menu,
                                       message_id=update.callback_query.message.message_id)
     else:
-        context.bot.send_message(chat_id=update.effective_chat.id, text=text, reply_markup=menu,
-                                 disable_notification=True)
+        message = context.bot.send_message(chat_id=update.effective_chat.id, text=text, reply_markup=menu,
+                                           disable_notification=True)
+        context.bot.delete_message(chat_id=update.effective_chat.id,
+                                   message_id=message.message_id - 1)
 
 
 info_handler = CommandHandler('info', info_main_menu)
@@ -924,47 +1055,6 @@ def send_message_to_user(chat_id: int, message: str, disable_notification: bool 
         return 'error', error
 
 
-# Оплата интегрированными средставми телеграм
-
-# def buy_invoice(label, amount, chat_id):
-#     prices = [LabeledPrice(label=label, amount=amount)]
-#     provider_token = settings.PAYMENTS_TOKEN
-#     if provider_token.split(':')[1] == 'TEST':
-#         updater.bot.send_message(chat_id=chat_id, text=f'ТЕСТОВЫЙ ПЛАТЕЖ!!!')
-#
-#     updater.bot.send_invoice(chat_id=chat_id,
-#                              title=label,
-#                              description='Описание',
-#                              payload='Finshop_3',
-#                              provider_token=provider_token,
-#                              currency='RUB',
-#                              prices=prices,
-#                              is_flexible=False,
-#                              start_parameter='start_parameter',
-#                              )
-#
-#
-# def precheckout_callback(update: Update, context: CallbackContext):
-#     query = update.pre_checkout_query
-#     if query.invoice_payload != "Finshop_3":
-#         query.answer(ok=False, error_message="Something went wrong...")
-#     else:
-#         query.answer(ok=True)
-#
-#
-# dispatcher.add_handler(PreCheckoutQueryHandler(precheckout_callback))
-#
-#
-# def successful_payment_callback(update: Update, context: CallbackContext):
-#     chat_id = update.message.chat_id
-#     order_sum = int(update.message.successful_payment.total_amount / 100)
-#     order_payed(chat_id=chat_id, order_sum=order_sum)
-#     update.message.reply_text("Оплата успешно принята")
-
-#
-# dispatcher.add_handler(MessageHandler(Filters.successful_payment, successful_payment_callback))
-
-
 # Утилиты
 def unknown(update: Update, context: CallbackContext):
     """Неизветсные команды"""
@@ -976,13 +1066,25 @@ dispatcher.add_handler(unknown_handler)
 
 
 def user_message(update: Update, context: CallbackContext):
-    """Принять сообщение пользователя (телефон, адрес)"""
-    chat_id = update.message.chat_id
-    if chat_id in users_message:
-        if users_message[chat_id] == 'phone':
-            phone_check(update=update, context=context, phone=update.message.text)
-        elif users_message[chat_id] == '':
-            users_message[chat_id] = update.message.text
+    """Принять сообщение пользователя (телефон, адрес, имя, фамилию)"""
+    user = update.effective_user
+
+    if user.id in users_message:
+        if users_message[user.id] in ['phone_main', 'phone_profile', 'phone']:
+            phone_check(update=update, context=context, phone=update.message.text, trace_back=users_message[user.id])
+            context.bot.edit_message_text(chat_id=update.effective_chat.id, text='phone',
+                                          parse_mode='HTML',
+                                          message_id=update.callback_query.message.message_id)
+        elif users_message[user.id] == 'first_name':
+            profile_check(update=update, context=context, first_name=update.message.text)
+        elif users_message[user.id] == 'last_name':
+            profile_check(update=update, context=context, last_name=update.message.text)
+        elif users_message[user.id] == 'address':
+            profile_check(update=update, context=context, address=update.message.text)
+        elif users_message[user.id] == '':
+            users_message[user.id] = update.message.text
+        else:
+            del users_message[user.id]
     else:
         pass
 

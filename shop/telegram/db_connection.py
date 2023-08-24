@@ -283,12 +283,42 @@ def load_last_order() -> int:
     return prev_order + 1
 
 
-def save_delivery_settings(value: bool or str, field: str, chat_id: int):
+def edit_profile(value: bool or str, field: str, chat_id: int):
     """Сохранить настроки доставки"""
-    db, cur = connect_db(f"UPDATE profile SET {field}='{value}' WHERE chat_id='{chat_id}'")
-    db.commit()
+    try:
+        db, cur = connect_db(f"UPDATE profile SET {field}='{value}' WHERE chat_id='{chat_id}'")
+        db.commit()
+        cur.close()
+        db.close()
+        return True
+    except TypeError:
+        return False
+
+
+def edit_user(chat_id: int, field: str, value: str) -> bool:
+    """Изменить профиль"""
+    try:
+        db, cur = connect_db(f"UPDATE auth_user SET {field}='{value}' WHERE username='{chat_id}'")
+        db.commit()
+        cur.close()
+        db.close()
+        return True
+    except TypeError:
+        return False
+
+
+
+def get_user_profile(chat_id: int) -> tuple:
+    """Получить профиль пользователя"""
+    db, cur = connect_db(f"""SELECT auth_user.first_name, auth_user.last_name, profile.phone, profile.delivery_street
+        FROM profile 
+        INNER JOIN auth_user
+        ON profile.user_id=auth_user.id
+        WHERE chat_id='{chat_id}'""")
+    user_profile = cur.fetchone()
     cur.close()
     db.close()
+    return user_profile
 
 
 def get_delivery_settings(chat_id: int) -> tuple:
