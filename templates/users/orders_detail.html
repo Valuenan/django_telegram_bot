@@ -89,17 +89,7 @@
         </p>
     <br>
     <h2>Общение с пользователем</h2>
-    {% for user_message in user_messages %}
-        <table>
-            <tr>
-            {% if user_message.manager %}
-                <td></td><td>{{ user_message.date }} | {{ user_message.message }} <br> {{ user_message.manager }}</td>
-            {% else %}
-                <td>{{ user_message.date }} | {{ user_message.message }} <br> {{ user_message.user }}</td><td></td>
-            {% endif %}
-            </tr>
-        </table>
-    {% endfor %}
+    <a href="{% url 'user_messages_detail' order.profile.chat_id %}">Перейти к сообщениям пользователя</a>
     <form class="form" action="{% url 'send_message' %}" method="post">
        {% csrf_token %}
         <input hidden type="text" name="chat_id" value="{{ order.profile.chat_id }}">

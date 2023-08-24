@@ -270,7 +270,6 @@ class OrderDetail(LoginRequiredMixin, DetailView):
             context['order_statuses'] = OrderStatus.objects.exclude(id='4')
         context['order_sum'] = context['order'].order_price + context['order'].delivery_price
         context['shops'] = Shop.objects.all().order_by('-id')
-        context['user_messages'] = UserMessage.objects.filter(user=self.model[0].profile)
         return context
 
     def post(self, request, pk):
