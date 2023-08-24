@@ -884,14 +884,6 @@ dispatcher.add_handler(info_payment_card_handler)
 
 
 # АДМИНИСТРАТИВНЫЕ
-def get_message_from_user(update: Update, context: CallbackContext):
-    """ Получить сообщение от пользователя"""
-    message = save_user_message(update.message.chat_id, update.message.text)
-    update.message.reply_text(message)
-
-
-dispatcher.add_handler(MessageHandler(filters.Filters.text, get_message_from_user))
-
 
 def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str, delivery_price: int = 0,
                         pay_type: int = 1, tracing_num: str = 'нет'):
@@ -1008,6 +1000,14 @@ def remove_bot_message(update: Update, context: CallbackContext):
 
 remove_message = CallbackQueryHandler(remove_bot_message, pattern=str('remove-message'))
 dispatcher.add_handler(remove_message)
+
+def get_message_from_user(update: Update, context: CallbackContext):
+    """ Получить сообщение от пользователя"""
+    message = save_user_message(update.message.chat_id, update.message.text)
+    update.message.reply_text(message)
+
+
+dispatcher.add_handler(MessageHandler(filters.Filters.text, get_message_from_user))
 
 if __name__ == '__main__':
     updater.start_polling()
