@@ -533,7 +533,7 @@ def order(update: Update, context: CallbackContext):
     context.bot.forward_message(chat_id=ORDERS_CHAT_ID,
                                 from_chat_id=call.message.chat_id,
                                 message_id=call.message.message_id)
-    context.bot.edit_message_text(text=f'Ваш {order_message}',
+    context.bot.edit_message_text(text=f'Ваш {order_message} \n\n ожидайте счет на оплату...',
                                   chat_id=call.message.chat.id,
                                   message_id=call.message.message_id, parse_mode='HTML')
 
@@ -898,7 +898,7 @@ def ready_order_message(chat_id: int, order_id: int, order_sum: int, status: str
         save_payment_link(order_id, link)
         if delivery_price == 0:
             message = f'''ожидает оплаты
-ваша ссылка на оплату: {link}'''
+ваша зссылка на оплату: {link}'''
         else:
             message = f''',в том числе доставка на сумму {delivery_price} р., <u> ожидает оплаты </u>
 ваша ссылка на оплату: {link}'''
