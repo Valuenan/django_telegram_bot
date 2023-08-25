@@ -72,7 +72,10 @@ def phone_check(update: Update, context: CallbackContext, phone, trace_back):
         message = context.bot.send_message(chat_id=update.message.chat_id,
                                            text=f"""К сожалению номер {phone}, некоректный повторите ввод или обратитесь к канал помощи {ADMIN_TG} (r1)""")
         context.bot.delete_message(chat_id=update.effective_chat.id,
-                                   message_id=message.message_id - 2)
+                                   message_id=message.message_id - 1)
+    if trace_back == 'phone_profile' and bool(result):
+        context.bot.delete_message(chat_id=update.effective_chat.id,
+                                   message_id=message.message_id - 4)
 
 
 def profile_check(update: Update, context: CallbackContext, first_name: str = None, last_name: str = None,
@@ -727,6 +730,10 @@ def profile_menu(update: Update, context: CallbackContext):
         delivery_street = 'нет'
     if phone is None:
         phone = 'нет'
+    if firstname is None:
+        firstname = 'нет'
+    if lastname is None:
+        lastname = 'нет'
     profile = f'''Профиль: \n Имя: <b>{firstname}</b> \n Фамилия: <b>{lastname}</b> \n Телефон №: <b>{phone}</b> \n Адрес доставки: <b>{delivery_street}</b>'''
     if update.callback_query:
         context.bot.edit_message_text(chat_id=update.effective_chat.id, text=profile, reply_markup=menu,
@@ -783,7 +790,7 @@ def message_edit_profile(update: Update, context: CallbackContext):
 
     menu = InlineKeyboardMarkup([[InlineKeyboardButton(text='Отменить', callback_data=f'profile_roll-back_{select}')]])
 
-    context.bot.edit_message_text(chat_id=update.effective_chat.id, text=f'{text}, {users_message}, {update.effective_user.id}', parse_mode='HTML',
+    context.bot.edit_message_text(chat_id=update.effective_chat.id, text=text, parse_mode='HTML',
                                   message_id=update.callback_query.message.message_id, reply_markup=menu)
 
 
