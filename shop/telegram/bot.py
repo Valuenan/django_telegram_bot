@@ -9,7 +9,7 @@ from shop.telegram.db_connection import load_last_order, get_category, get_produ
     old_cart_message, save_cart_message_id, old_cart_message_to_none, check_user_is_staff, \
     edit_profile, get_delivery_settings, get_user_address, \
     get_shops, user_add_phone, ADMIN_TG, get_user_phone, get_delivery_shop, save_payment_link, get_parent_category_id, \
-    save_user_message, get_user_profile, edit_user
+    save_user_message, get_user_profile, edit_user, count_user_messages
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from telegram.error import TelegramError
 from users.models import ORDER_STATUS
@@ -1093,7 +1093,7 @@ def user_message(update: Update, context: CallbackContext):
         else:
             del users_message[user.id]
     else:
-        pass
+        get_message_from_user(update, context)
 
 
 get_user_message = MessageHandler(Filters.text, user_message)
@@ -1113,7 +1113,11 @@ dispatcher.add_handler(remove_message)
 
 def get_message_from_user(update: Update, context: CallbackContext):
     """ Получить сообщение от пользователя"""
-    message = save_user_message(update.message.chat_id, update.message.text)
+    messages = count_user_messages(update.message.chat_id)
+    if messages < 2:
+        message = save_user_message(update.message.chat_id, update.message.text)
+    else:
+        message = 'Мы уже получили от вас сообщение, подождите пока менеджер вам ответит...'
     update.message.reply_text(message)
 
 

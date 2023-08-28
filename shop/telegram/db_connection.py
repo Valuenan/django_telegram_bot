@@ -307,7 +307,6 @@ def edit_user(chat_id: int, field: str, value: str) -> bool:
         return False
 
 
-
 def get_user_profile(chat_id: int) -> tuple:
     """Получить профиль пользователя"""
     db, cur = connect_db(f"""SELECT auth_user.first_name, auth_user.last_name, profile.phone, profile.delivery_street
@@ -413,6 +412,19 @@ def get_user_orders(chat_id: int, filter: str = '') -> list:
     cur.close()
     db.close()
     return orders
+
+
+def count_user_messages(chat_id: int):
+    """ Сохранить сообщение от пользователя """
+    db, cur = connect_db(f"""SELECT count(user_message.id) 
+    FROM user_message 
+    INNER JOIN profile 
+    ON profile.id = user_message.user_id
+    WHERE profile.chat_id='{chat_id}' and user_message.checked='0'""")
+    messages = cur.fetchone()
+    cur.close()
+    db.close()
+    return messages[0]
 
 
 def save_user_message(chat_id: int, message: str):

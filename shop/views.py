@@ -245,6 +245,7 @@ class OrdersList(LoginRequiredMixin, ListView):
         users = Profile.objects.values('phone')
         context['count_users'] = users.count()
         context['count_users_phone'] = users.exclude(phone=None).count()
+        context['new_message'] = UserMessage.objects.filter(checked=False)
         return context
 
 
@@ -254,6 +255,11 @@ class OrdersHistory(LoginRequiredMixin, ListView):
     queryset = Orders.objects.filter(status__in=[6, 7])
     context_object_name = 'orders'
     ordering = ['id']
+
+    def get_context_data(self, **kwargs):
+        context = super(OrdersHistory, self).get_context_data(**kwargs)
+        context['new_message'] = UserMessage.objects.filter(checked=False)
+        return context
 
 
 class OrderDetail(LoginRequiredMixin, DetailView):
@@ -270,6 +276,7 @@ class OrderDetail(LoginRequiredMixin, DetailView):
             context['order_statuses'] = OrderStatus.objects.exclude(id='4')
         context['order_sum'] = context['order'].order_price + context['order'].delivery_price
         context['shops'] = Shop.objects.all().order_by('-id')
+        context['new_message'] = UserMessage.objects.filter(checked=False)
         return context
 
     def post(self, request, pk):
@@ -355,6 +362,11 @@ class UsersMessagesList(LoginRequiredMixin, ListView):
     context_object_name = 'users'
     template_name = 'users/messages_list.html'
 
+    def get_context_data(self, **kwargs):
+        context = super(UsersMessagesList, self).get_context_data(**kwargs)
+        context['new_message'] = UserMessage.objects.filter(checked=False)
+        return context
+
 
 class UsersMessagesDetail(LoginRequiredMixin, View):
     login_url = '/login'
@@ -364,4 +376,6 @@ class UsersMessagesDetail(LoginRequiredMixin, View):
     def get(self, request, pk):
         user = Profile.objects.get(chat_id=pk)
         user_messages = UserMessage.objects.filter(user=user)
-        return render(request, 'users/messages_detail.html', context={'user_messages': user_messages, 'pk': pk})
+        new_message = self.model.objects.filter(checked=False)
+        return render(request, 'users/messages_detail.html',
+                      context={'user_messages': user_messages, 'new_message': new_message, 'pk': pk})
