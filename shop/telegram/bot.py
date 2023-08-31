@@ -109,7 +109,7 @@ def profile_check(update: Update, context: CallbackContext, first_name: str = No
     if not result:
         text = 'Произошла ошибка при изменении профиля, попробуйте еще раз. Или напишите в чат для помощи'
 
-    message = context.bot.send_message(chat_id=update.message.chat_id, text=text)
+    message = context.bot.send_message(chat_id=update.message.chat_id, text=text, disable_notification=True)
     context.bot.delete_message(chat_id=update.effective_chat.id,
                                message_id=message.message_id - 2)
     profile_menu(update, context)
@@ -150,8 +150,7 @@ def catalog(update: Update, context: CallbackContext):
             text = 'Каталог'
         keyboard = InlineKeyboardMarkup([button for button in buttons])
         message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                           text=text,
-                                           reply_markup=keyboard)
+                                           text=text, reply_markup=keyboard, disable_notification=True)
         context.bot.delete_message(chat_id=update.effective_chat.id,
                                    message_id=message.message_id - 1)
     else:
@@ -208,7 +207,7 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
                                                                             f'\n <b>Цена: {price} р.</b>'
                                                                             f'\n <i>В наличии: {int(rests)} шт.</i>',
                                      reply_markup=keyboard,
-                                     parse_mode='HTML')
+                                     parse_mode='HTML', disable_notification=True)
         if not pagination or page == pages:
             prew_category = get_parent_category_id(category_id=chosen_category)[0]
             keyboard_next = InlineKeyboardMarkup(
@@ -230,7 +229,8 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
 
 
     else:
-        context.bot.send_message(chat_id=update.effective_chat.id, text=f'В данной категории ненашлось товаров 😨')
+        context.bot.send_message(chat_id=update.effective_chat.id, text=f'В данной категории ненашлось товаров 😨',
+                                 disable_notification=True)
 
 
 catalog_handler = CallbackQueryHandler(products_catalog, pattern="^" + str('product_'))
@@ -262,7 +262,7 @@ def roll_photo(update: Update, context: CallbackContext):
             message_id=call.message.message_id,
             reply_markup=keyboard)
     except:
-        context.bot.send_message(call.message.chat.id, "Состава не оказалось 😨")
+        context.bot.send_message(call.message.chat.id, "Состава не оказалось 😨", disable_notification=True)
 
 
 roll_photo_handler = CallbackQueryHandler(roll_photo, pattern="^" + str('roll_'))
@@ -343,14 +343,14 @@ def cart(update: Update, context: CallbackContext):
         else:
             message = context.bot.send_message(chat_id=update.effective_chat.id,
                                                text=cart_message,
-                                               reply_markup=keyboard)
+                                               reply_markup=keyboard, disable_notification=True)
             context.bot.delete_message(chat_id=update.effective_chat.id,
                                        message_id=message.message_id - 1)
 
     else:
 
         message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                           text='Корзина пустая')
+                                           text='Корзина пустая', disable_notification=True)
 
         context.bot.delete_message(chat_id=update.effective_chat.id,
                                    message_id=message.message_id - 1)
@@ -545,7 +545,9 @@ def start_edit(update: Update, context: CallbackContext):
             message = f'{product_name} - {int(amount)} шт. по {price} р.\n'
             message = context.bot.send_message(chat_id=chat_id,
                                                text=message,
-                                               reply_markup=keyboard_edit)
+                                               reply_markup=keyboard_edit,
+                                               disable_notification=True)
+
             messages_ids += f'{message.message_id}-'
 
         keyboard = InlineKeyboardMarkup(
@@ -553,7 +555,7 @@ def start_edit(update: Update, context: CallbackContext):
 
         context.bot.send_message(chat_id=chat_id,
                                  text=f'Для посчета суммы нажмите обновить',
-                                 reply_markup=keyboard)
+                                 reply_markup=keyboard,  disable_notification=True)
 
 
 cart_list_handler = CallbackQueryHandler(start_edit, pattern=str('correct-cart'))
@@ -636,7 +638,7 @@ def orders_history(update: Update, context: CallbackContext):
     if not orders:
         message = context.bot.send_message(chat_id=chat_id,
                                            text='У вас нет заказов',
-                                           reply_markup=keyboard)
+                                           reply_markup=keyboard,  disable_notification=True)
     else:
         prev_id = None
         text = ''
@@ -696,7 +698,7 @@ def orders_history(update: Update, context: CallbackContext):
         else:
             message = context.bot.send_message(chat_id=chat_id,
                                                text=text,
-                                               reply_markup=keyboard, parse_mode='HTML')
+                                               reply_markup=keyboard, parse_mode='HTML',  disable_notification=True)
     if not update.callback_query:
         context.bot.delete_message(chat_id=chat_id,
                                    message_id=message.message_id - 1)
