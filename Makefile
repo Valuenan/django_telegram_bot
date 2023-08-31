@@ -7,6 +7,16 @@ runbot:
 runbot_nohup:
 	nohup runbot &
 
+runcheck:
+	python manage.py pay_check
+
+runcheck_nohup:
+	nohup pay_check &
+
+runservices:
+	runbot_nohup
+	runcheck_nohup
+
 migrate:
 	python manage.py makemigrations
 	python manage.py migrate
