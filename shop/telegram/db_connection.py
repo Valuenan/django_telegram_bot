@@ -444,13 +444,12 @@ def save_user_message(chat_id: int, message: str):
 """ Административные """
 
 
-def get_waiting_orders() -> list:
-    """Возврачает список заявок ожидающих отгрузки"""
-    db, cur = connect_db(f"""SELECT orders.id, auth_user.username, orders.order_price, orders.status_id 
-    FROM orders
-    INNER JOIN profile ON profile.id = orders.profile_id
-    INNER JOIN auth_user ON profile.user_id = auth_user.id
-    WHERE orders.status_id='2' OR orders.status_id='3'""")
+def get_waiting_payment_orders() -> list:
+    """Возврачает список заявок ожидающих оплаты"""
+    db, cur = connect_db(f"""SELECT orders.id, profile.chat_id, orders.order_price + orders.delivery_price
+        FROM orders
+        INNER JOIN profile ON profile.id = orders.profile_id
+        WHERE orders.status_id='2'""")
     request = cur.fetchall()
     cur.close()
     db.close()
@@ -464,14 +463,11 @@ def save_payment_link(order_id: int, link: str):
     db.close()
 
 
-def order_payed(chat_id: int, order_sum: int):
+def order_payed(order_id: int):
     """Помечает ордер оплаченым"""
-    db, cur = connect_db(f"""SELECT profile.id FROM profile
-        WHERE profile.chat_id='{chat_id}'""")
-    profile_id = cur.fetchone()[0]
     db, cur = connect_db(
         f"""UPDATE orders SET payed='1', status_id='3' 
-        WHERE profile_id='{profile_id}' AND order_price + delivery_price='{order_sum}'""")
+        WHERE id='{order_id}'""")
     db.commit()
     cur.close()
     db.close()
