@@ -5,17 +5,17 @@ runbot:
 	python manage.py bot
 
 runbot_nohup:
-	nohup runbot &
+	nohup make runbot &
 
 runcheck:
 	python manage.py pay_check
 
 runcheck_nohup:
-	nohup pay_check &
+	nohup make runcheck &
 
 runservices:
-	runbot_nohup
-	runcheck_nohup
+	make runbot_nohup
+	make runcheck_nohup
 
 migrate:
 	python manage.py makemigrations
