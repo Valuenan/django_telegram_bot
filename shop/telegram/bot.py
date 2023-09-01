@@ -38,7 +38,6 @@ def main_keyboard(update: Update, context: CallbackContext):
         check = check_user_is_staff(update.message.chat_id)
     elif status in ['no-phone', 'new_user']:
         users_message[user.id] = 'phone_main'
-        context.bot.pin_chat_message(chat_id=update.effective_chat.id, message_id=message.message_id)
     if status != 'ok':
         context.bot.delete_message(chat_id=update.effective_chat.id,
                                    message_id=message.message_id - 1)
@@ -48,7 +47,7 @@ start_handler = CommandHandler('start', main_keyboard)
 dispatcher.add_handler(start_handler)
 
 
-def phone_check(update: Update, context: CallbackContext, phone, trace_back):
+def phone_check(update: Update, context: CallbackContext, phone, trace_back) -> bool:
     """Проверка номера телефона"""
     user = update.effective_user
 
@@ -76,6 +75,7 @@ def phone_check(update: Update, context: CallbackContext, phone, trace_back):
     if trace_back == 'phone_profile' and bool(result):
         context.bot.delete_message(chat_id=update.effective_chat.id,
                                    message_id=message.message_id - 4)
+    return bool(result)
 
 
 def profile_check(update: Update, context: CallbackContext, first_name: str = None, last_name: str = None,
@@ -288,7 +288,7 @@ catalog_handler = CallbackQueryHandler(edit, pattern="^" + str('remove_'))
 dispatcher.add_handler(catalog_handler)
 
 
-def cart(update: Update, context: CallbackContext):
+def cart(update: Update, context: CallbackContext, call_func=False):
     """Показать корзину покупателя/ Отмена удаления корзины"""
     if update.callback_query:
         call = update.callback_query
@@ -344,16 +344,17 @@ def cart(update: Update, context: CallbackContext):
             message = context.bot.send_message(chat_id=update.effective_chat.id,
                                                text=cart_message,
                                                reply_markup=keyboard, disable_notification=True)
-            context.bot.delete_message(chat_id=update.effective_chat.id,
-                                       message_id=message.message_id - 1)
+            if not call_func:
+                context.bot.delete_message(chat_id=update.effective_chat.id,
+                                           message_id=message.message_id - 1)
 
     else:
 
         message = context.bot.send_message(chat_id=update.effective_chat.id,
                                            text='Корзина пустая', disable_notification=True)
-
-        context.bot.delete_message(chat_id=update.effective_chat.id,
-                                   message_id=message.message_id - 1)
+        if not call_func:
+            context.bot.delete_message(chat_id=update.effective_chat.id,
+                                       message_id=message.message_id - 1)
     try:
         save_cart_message_id(message.chat_id, message.message_id)
     except ReferenceError:
@@ -1106,10 +1107,10 @@ def user_message(update: Update, context: CallbackContext):
 
     if user.id in users_message:
         if users_message[user.id] in ['phone_main', 'phone_profile', 'phone']:
-            phone_check(update=update, context=context, phone=update.message.text, trace_back=users_message[user.id])
-            context.bot.edit_message_text(chat_id=update.effective_chat.id, text='phone',
-                                          parse_mode='HTML',
-                                          message_id=update.callback_query.message.message_id)
+            call_back = users_message[user.id]
+            check_result = phone_check(update=update, context=context, phone=update.message.text, trace_back=users_message[user.id])
+            if check_result and call_back == 'phone':
+                cart(update, context, call_func=True)
         elif users_message[user.id] == 'first_name':
             profile_check(update=update, context=context, first_name=update.message.text)
         elif users_message[user.id] == 'last_name':
