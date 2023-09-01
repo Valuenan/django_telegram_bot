@@ -825,9 +825,9 @@ def info_main_menu(update: Update, context: CallbackContext):
     """Меню информации"""
     menu = InlineKeyboardMarkup([[InlineKeyboardButton(text='Адреса магазинов', callback_data='info_address')],
                                  [InlineKeyboardButton(text='Функции меню', callback_data='info_menu')],
-                                 [InlineKeyboardButton(text='Меню: «Каталог»', callback_data='info_catalog')],
-                                 [InlineKeyboardButton(text='Меню: «Корзина»', callback_data='info_cart')],
-                                 [InlineKeyboardButton(text='Меню:  «Заказы»', callback_data='info_orders')],
+                                 [InlineKeyboardButton(text='Меню: «Каталог товаров»', callback_data='info_catalog')],
+                                 [InlineKeyboardButton(text='Меню: «Корзина / Оформление заказа»', callback_data='info_cart')],
+                                 [InlineKeyboardButton(text='Меню:  «Статусы заказов»', callback_data='info_orders')],
                                  [InlineKeyboardButton(text='Об оплате', callback_data='info_payment_menu')],
                                  [InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
     text = "Выберите раздел справочной информации:"
