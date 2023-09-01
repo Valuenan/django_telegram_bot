@@ -1,6 +1,7 @@
 from django.urls import path
 
-from shop.views import OrdersList, OrderDetail, OrdersHistory, SendMessageToUser, UsersMessagesList, UsersMessagesDetail
+from shop.views import OrdersList, OrderDetail, OrdersHistory, SendMessageToUser, UsersMessagesList, \
+    UsersMessagesDetail, SendMessageToEveryone
 
 urlpatterns = [
     path('', OrdersList.as_view(), name='orders_list'),
@@ -9,4 +10,5 @@ urlpatterns = [
     path('send_message/', SendMessageToUser.as_view(), name='send_message'),
     path('user_messages/', UsersMessagesList.as_view(), name='user_messages_list'),
     path('user_messages/<int:pk>', UsersMessagesDetail.as_view(), name='user_messages_detail'),
+    path('send_everyone/', SendMessageToEveryone.as_view(), name='send_everyone'),
 ]

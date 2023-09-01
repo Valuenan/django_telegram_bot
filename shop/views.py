@@ -318,7 +318,7 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         return redirect(f'/order/{pk}')
 
 
-def _send_message_to_user(request, form, user_chat_id):
+def _send_message_to_user(request, form, user_chat_id, everyone=False):
     if 'disable_notification' in form:
         disable_notification = True
     else:
@@ -326,26 +326,28 @@ def _send_message_to_user(request, form, user_chat_id):
 
     try:
 
-        if form['message']:
+        if form['message'] and not everyone:
             UserMessage.objects.create(user=user_chat_id, manager=request.user, message=form['message'],
                                        checked=True)
-        result, text = send_message_to_user(chat_id=form['chat_id'], message=form['message'],
+            user_chat_id = user_chat_id.chat_id
+        result, text = send_message_to_user(chat_id=user_chat_id, message=form['message'],
                                             disable_notification=disable_notification)
 
-        if result == 'ok':
+        if result == 'ok' and not everyone:
             messages.success(request, text)
+        elif result == 'ok' and everyone:
+            pass
         else:
-            messages.error(request, f'Сообщение не отправлено, {text}. Обратитесь к администратору')
+            messages.error(request, f'Сообщение не отправлено пользователю ид {user_chat_id}, {text}. Обратитесь к администратору')
 
     except (DbError, TransactionError) as error:
-        messages.error(request, f'Возникла ошибка, {error}. Обратитесь к администратору')
+        messages.error(request, f'Возникла ошибка ид пользователя {user_chat_id}, {error}. Обратитесь к администратору')
 
 
 class SendMessageToUser(LoginRequiredMixin, View):
     login_url = '/login'
 
     def post(self, request):
-        print(request.META.get('HTTP_REFERER'))
         form = request.POST.copy()
         user_chat_id = Profile.objects.get(chat_id=form['chat_id'])
         messages_not_checked = UserMessage.objects.filter(user=user_chat_id, checked=False)
@@ -379,3 +381,19 @@ class UsersMessagesDetail(LoginRequiredMixin, View):
         new_message = self.model.objects.filter(checked=False)
         return render(request, 'users/messages_detail.html',
                       context={'user_messages': user_messages, 'new_message': new_message, 'pk': pk})
+
+
+class SendMessageToEveryone(LoginRequiredMixin, View):
+    login_url = '/login'
+
+    def get(self, request):
+        return render(request, 'users/send_everyone.html')
+
+    def post(self, request):
+        form = request.POST.copy()
+        users_ids = Profile.objects.all().values('chat_id')
+        for user_chat_id in users_ids:
+            _send_message_to_user(request, form, user_chat_id['chat_id'], everyone=True)
+        if not list(messages.get_messages(request)):
+            messages.success(request, 'Все сообщения были отправленны')
+        return render(request, 'users/send_everyone.html')

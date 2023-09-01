@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% load shop_tags %}
+
+{% block content %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Отправить сообщение ВСЕМ</title>
+    </head>
+    <body>
+    <a href="/">Вернуться к заказам</a>
+    <form action="" method="post" class="mt-4" id="formReview">
+        {% csrf_token %}
+        <h1>!Внимание сообщение будет отправленно ВСЕМ пользователям!</h1>
+        <p>Сообщение: <input type="text" name="message" value=""></p>
+        <p>Тихое уведомление: <input name="disable_notification" type="checkbox" checked></p>
+        <button type="submit">Записать</button>
+    </form>
+
+    </body>
+</html>
+{% endblock %}

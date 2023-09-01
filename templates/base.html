@@ -47,6 +47,7 @@
                     <div class="menu-item"><a class="menu-link" href="{% url 'user_messages_list' %}">Сообщения пользователей</a></div>
                 {% endif %}
                 {% if request.user.is_superuser %}
+                    <div class="menu-item"><a class="menu-link" href="{% url 'send_everyone' %}">Отправить сообщение ВСЕМ</a></div>
                     <div class="menu-item"><a class="menu-link" href="/admin">Админка</a></div>
                 {% endif %}
 
