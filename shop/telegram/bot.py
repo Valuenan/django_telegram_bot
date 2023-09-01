@@ -370,14 +370,18 @@ return_cart_handler = CallbackQueryHandler(cart, pattern="^" + str('return-to-ca
 dispatcher.add_handler(return_cart_handler)
 
 
-def get_offer_settings(update: Update, context: CallbackContext):
+def get_offer_settings(update: Update, context: CallbackContext, settings_stage=None, answer=None):
     """Настройки заказа (доставка, вид оплаты, магазин)"""
     global users_message
     call = update.callback_query
     chat_id = update.effective_chat.id
     user = update.effective_user
-    message_id = call.message.message_id
-    _, settings_stage, answer = call.data.split('_')
+    call_func = False
+    if settings_stage and answer:
+        call_func = True
+    else:
+        message_id = call.message.message_id
+        _, settings_stage, answer = call.data.split('_')
 
     if not get_user_phone(chat_id):
         users_message[user.id] = 'phone'
@@ -392,17 +396,24 @@ def get_offer_settings(update: Update, context: CallbackContext):
                                           text=f'Вам доставить? 🚚 (доставка будет расчитана после оформления заказа)',
                                           reply_markup=keyboard)
         elif settings_stage == '2' and answer == 'yes':
+
             edit_profile(value='1', field='delivery', chat_id=chat_id)
-            users_message[user.id] = ''
+
             street = get_user_address(chat_id)
-            buttons = [[InlineKeyboardButton(text='Сохранить адрес 📝', callback_data='offer-stage_3_none')]]
-            if street:
-                buttons.insert(0, [InlineKeyboardButton(text=street, callback_data=f'offer-stage_3_street')])
-            keyboard = InlineKeyboardMarkup(buttons)
+            if not street:
+                users_message[user.id] = 'offer_address'
+                keyboard = None
+                text = 'Отправьте сообщение в чат с адресом доставки:'
+            else:
+                users_message[user.id] = ''
+                text = f'Отправьте сообщение с адресом доставки, а затем нажмите кнопку в этом сообщении "Изменить адрес  📝" или  выберите последний адрес доставки'
+                buttons = [[InlineKeyboardButton(text='Изменить адрес 📝', callback_data='offer-stage_3_none')]]
+                if street:
+                    buttons.insert(0, [InlineKeyboardButton(text=street, callback_data=f'offer-stage_3_street')])
+                keyboard = InlineKeyboardMarkup(buttons)
             context.bot.edit_message_text(chat_id=chat_id,
                                           message_id=message_id,
-                                          text=f'Отправьте сообщение с адресом доставки, а затем нажмите кнопку в этом сообщении "Сохранить адрес  📝"'
-                                               f' или выберите последний адрес доставки',
+                                          text=text,
                                           reply_markup=keyboard)
         elif settings_stage == '2' and answer == 'no':
             edit_profile(value='0', field='delivery', chat_id=chat_id)
@@ -413,9 +424,8 @@ def get_offer_settings(update: Update, context: CallbackContext):
             keyboard = InlineKeyboardMarkup([buttons])
             context.bot.edit_message_text(chat_id=chat_id,
                                           message_id=message_id,
-                                          text=f'Выберите предпочтительный магазин',
+                                          text=f'Выберите предпочтительный магазин:',
                                           reply_markup=keyboard)
-
         elif settings_stage == '3':
             break_flag = False
             if answer == 'none':
@@ -425,13 +435,13 @@ def get_offer_settings(update: Update, context: CallbackContext):
                     users_message.pop(chat_id)
                 else:
                     street = get_user_address(chat_id)
-                    buttons = [[InlineKeyboardButton(text='Сохранить адрес 📝', callback_data='offer-stage_3_none')]]
+                    buttons = [[InlineKeyboardButton(text='Изменить адрес 📝', callback_data='offer-stage_3_none')]]
                     keyboard = InlineKeyboardMarkup(buttons)
                     if street:
                         buttons.insert(0, [InlineKeyboardButton(text=street, callback_data=f'offer-stage_3_street')])
                     context.bot.edit_message_text(chat_id=chat_id,
                                                   message_id=message_id,
-                                                  text=f'Нужно указать адрес. Для этого отправьте в чат сообщение с адресом а потом нажмите "Сохранить адрес 📝"',
+                                                  text=f'Нужно указать адрес. Для этого отправьте в чат сообщение с адресом а потом нажмите "Изменить адрес 📝"',
                                                   reply_markup=keyboard)
                     break_flag = True
 
@@ -447,11 +457,20 @@ def get_offer_settings(update: Update, context: CallbackContext):
                 keyboard = InlineKeyboardMarkup(
                     [[InlineKeyboardButton(text='Через банковское приложение', callback_data=f'offer-stage_4_2')],
                      [InlineKeyboardButton(text='Ввести реквизиты карты', callback_data=f'offer-stage_4_1')]])
-
-                context.bot.edit_message_text(chat_id=chat_id,
-                                              message_id=message_id,
-                                              text=f'''Выберите вид оплаты:''',
-                                              reply_markup=keyboard)
+                if call_func:
+                    message = context.bot.send_message(chat_id=chat_id,
+                                                       text=f'''Выберите вид оплаты:''',
+                                                       reply_markup=keyboard,
+                                                       disable_notification=True)
+                    context.bot.delete_message(chat_id=update.effective_chat.id,
+                                               message_id=message.message_id - 2)
+                    context.bot.delete_message(chat_id=update.effective_chat.id,
+                                               message_id=message.message_id - 1)
+                else:
+                    context.bot.edit_message_text(chat_id=chat_id,
+                                                  message_id=message_id,
+                                                  text=f'''Выберите вид оплаты:''',
+                                                  reply_markup=keyboard)
 
         elif settings_stage == '4':
             delivery_settings = _user_settings_from_db(chat_id)
@@ -1097,6 +1116,9 @@ def user_message(update: Update, context: CallbackContext):
             profile_check(update=update, context=context, last_name=update.message.text)
         elif users_message[user.id] == 'address':
             profile_check(update=update, context=context, address=update.message.text)
+        elif users_message[user.id] == 'offer_address':
+            users_message[user.id] = update.message.text
+            get_offer_settings(update=update, context=context, settings_stage='3', answer='none')
         elif users_message[user.id] == '':
             users_message[user.id] = update.message.text
         else:
