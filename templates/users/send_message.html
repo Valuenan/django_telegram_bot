@@ -13,7 +13,7 @@
     <form action="" method="post" class="mt-4" id="formReview">
         {% csrf_token %}
         <p>Ид чата: <input type="text" name="chat_id" value=""></p>
-        <p>Сообщение: <input type="text" name="message" value=""></p>
+        <p>Сообщение: <textarea name="message"></textarea></p>
         <button type="submit">Записать</button>
     </form>
 
