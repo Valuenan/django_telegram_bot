@@ -44,11 +44,7 @@
             </a></td>
             <td><a href="{% url 'orders_detail' order.id  %}">{{ order.delivery_info }}</a></td>
             <td>
-                {% if order.delivery_price == 0 %}
-                    {{ order.order_price }}р.
-                {% else %}
-                    {% get_full_price order.order_price order.delivery_price %}р.
-                {% endif %}
+                {% get_full_price order.order_price order.discount order.delivery_price %} р.
             </td>
             <td>
                 {% get_discount order.discount %}%

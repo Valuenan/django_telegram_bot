@@ -274,7 +274,7 @@ class OrderDetail(LoginRequiredMixin, DetailView):
             context['order_statuses'] = OrderStatus.objects.exclude(id='5')
         else:
             context['order_statuses'] = OrderStatus.objects.exclude(id='4')
-        context['order_sum'] = context['order'].order_price + context['order'].delivery_price
+        context['order_sum'] = round(context['order'].order_price * context['order'].discount) + context['order'].delivery_price
         context['shops'] = Shop.objects.all().order_by('-id')
         context['new_message'] = UserMessage.objects.filter(checked=False)
         return context
