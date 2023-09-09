@@ -21,7 +21,7 @@ def get_sum(amount, price):
 @register.simple_tag()
 def get_full_price(price, delivery):
     """Стоимость с доставкой"""
-    return round(round(price * delivery), 2)
+    return round(round(price + delivery), 2)
 
 
 @register.simple_tag()
