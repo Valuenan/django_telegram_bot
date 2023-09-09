@@ -8,14 +8,26 @@ register = template.Library()
 
 @register.simple_tag()
 def get_shops():
-    '''Вывод названия магазинов'''
+    """Вывод названия магазинов"""
     return {'shops': Shop.objects.all()}
 
 
 @register.simple_tag()
 def get_sum(amount, price):
-    '''Вывод сумму стоимости товара'''
+    """Вывод сумму стоимости товара"""
     return round(amount * price, 2)
+
+
+@register.simple_tag()
+def get_full_price(price, delivery):
+    """Стоимость с доставкой"""
+    return round(round(price * delivery), 2)
+
+
+@register.simple_tag()
+def get_discount(decimal_discount):
+    """Расчет скидки"""
+    return int(100 - decimal_discount * 100)
 
 
 @register.simple_tag()

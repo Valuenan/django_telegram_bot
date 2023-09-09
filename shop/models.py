@@ -18,6 +18,7 @@ class File(models.Model):
 
 class Shop(models.Model):
     name = models.CharField(max_length=100, verbose_name='Название магазина')
+    sale = models.DecimalField(verbose_name="Коэффициент скидки на все товары", max_digits=3, decimal_places=2, default=1)
 
     def __str__(self):
         return self.name

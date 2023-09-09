@@ -322,7 +322,7 @@ def get_user_profile(chat_id: int) -> tuple:
 
 def get_delivery_settings(chat_id: int) -> tuple:
     """Получить настройки заказа"""
-    db, cur = connect_db(f"""SELECT profile.delivery, profile.delivery_street
+    db, cur = connect_db(f"""SELECT delivery, delivery_street, discount
     FROM profile 
     WHERE chat_id='{chat_id}'""")
     settings = cur.fetchone()
@@ -342,6 +342,20 @@ def get_delivery_shop(chat_id: int) -> tuple:
     cur.close()
     db.close()
     return shop
+
+
+def get_best_discount(chat_id: int) -> tuple:
+    """Получить лучшую скидку"""
+    db, cur = connect_db(f"""SELECT discount
+        FROM profile 
+        WHERE chat_id='{chat_id}'""")
+    user_discount = cur.fetchone()
+    db, cur = connect_db(f"""SELECT MIN(sale) FROM shops""")
+    shop_discount = cur.fetchone()
+    cur.close()
+    db.close()
+    best_discount = min(user_discount, shop_discount)
+    return best_discount[0]
 
 
 def get_user_phone(chat_id: int) -> None or str:
@@ -371,7 +385,7 @@ def get_user_shop(chat_id: int) -> None or str:
     return street
 
 
-def save_order(chat_id: int, delivery_info: str, cart_price: int, payment_type: int = 2) -> list and int:
+def save_order(chat_id: int, delivery_info: str, cart_price: int, discount=1, payment_type: int = 2) -> list and int:
     """Сохранить заказ"""
     db, cur = connect_db(f"""SELECT profile.id FROM profile
     WHERE profile.chat_id='{chat_id}'""")
@@ -381,8 +395,8 @@ def save_order(chat_id: int, delivery_info: str, cart_price: int, payment_type: 
     WHERE carts.profile_id={profile_id} AND carts.order_id IS NULL""")
     products_id, products_amount = list(zip(*cur.fetchall()))
 
-    db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, deliver, date, status_id, payment_id ,payed, delivery_price) 
-    SELECT id, '{delivery_info}', '{cart_price}', delivery, '{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}','1' ,'{payment_type}' ,'0', 0
+    db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, deliver, discount, date, status_id, payment_id ,payed, delivery_price) 
+    SELECT id, '{delivery_info}', '{cart_price}', delivery,{discount} ,'{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}','1' ,'{payment_type}' ,'0', 0
     FROM profile WHERE profile.chat_id='{chat_id}'""")
     db.commit()
 

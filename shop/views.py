@@ -338,7 +338,8 @@ def _send_message_to_user(request, form, user_chat_id, everyone=False):
         elif result == 'ok' and everyone:
             pass
         else:
-            messages.error(request, f'Сообщение не отправлено пользователю ид {user_chat_id}, {text}. Обратитесь к администратору')
+            messages.error(request,
+                           f'Сообщение не отправлено пользователю ид {user_chat_id}, {text}. Обратитесь к администратору')
 
     except (DbError, TransactionError) as error:
         messages.error(request, f'Возникла ошибка ид пользователя {user_chat_id}, {error}. Обратитесь к администратору')

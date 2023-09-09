@@ -27,7 +27,7 @@ class Profile(models.Model):
     phone = models.CharField(verbose_name='Номер телефона', max_length=20, blank=True, null=True)
     chat_id = models.BigIntegerField(verbose_name='ИД чата пользователя', db_index=True, unique=True)
     cart_message_id = models.IntegerField(verbose_name='ИД сообщения корзины', blank=True, null=True)
-    discount = models.SmallIntegerField(verbose_name='Скидка', default=0)
+    discount = models.DecimalField(verbose_name='Коэффициент скидки', max_digits=3, decimal_places=2, default=1)
     delivery = models.BooleanField(verbose_name='Доставка', default=False)
     main_shop = models.ForeignKey(Shop, on_delete=models.DO_NOTHING, verbose_name='Магазин доставки', null=True,
                                   blank=True)
@@ -94,6 +94,7 @@ class Orders(models.Model):
     deliver = models.BooleanField(verbose_name='Доставить по адресу')
     status = models.ForeignKey(OrderStatus, blank=True, on_delete=models.DO_NOTHING, verbose_name='Статус заказа')
     delivery_price = models.IntegerField(verbose_name='Стомость доставки', default=0, blank=True, null=True)
+    discount = models.DecimalField(verbose_name='Коэффициент скидки', max_digits=3, decimal_places=2, default=1)
     payment = models.ForeignKey(Payment, on_delete=models.DO_NOTHING, verbose_name='Вид оплаты', blank=True, null=True)
     payment_url = models.URLField(verbose_name='Ссылка на оплату Авангард', blank=True, null=True)
     payed = models.BooleanField(verbose_name='Заказ оплачен', default=False)

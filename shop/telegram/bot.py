@@ -9,7 +9,7 @@ from shop.telegram.db_connection import load_last_order, get_category, get_produ
     old_cart_message, save_cart_message_id, old_cart_message_to_none, check_user_is_staff, \
     edit_profile, get_delivery_settings, get_user_address, \
     get_shops, user_add_phone, ADMIN_TG, get_user_phone, get_delivery_shop, save_payment_link, get_parent_category_id, \
-    save_user_message, get_user_profile, edit_user, count_user_messages
+    save_user_message, get_user_profile, edit_user, count_user_messages, get_best_discount
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from telegram.error import TelegramError
 from users.models import ORDER_STATUS
@@ -312,14 +312,19 @@ def cart(update: Update, context: CallbackContext, call_func=False):
     cart_price = 0
 
     cart_message = ''
+
+    best_discount = get_best_discount(chat_id)
+
     if len(cart_info) > 0:
         for num, product in enumerate(cart_info):
             product_name, amount, price = product
             cart_price += round(price * amount, 2)
             cart_message += f'{num + 1}. {product_name} - {int(amount)} шт. по {price} р.\n'
         else:
-            cart_message += f'Итого: {cart_price} р.'
-
+            if best_discount == 1:
+                cart_message += f'Итого: {cart_price} р.'
+            else:
+                cart_message += f'Скидка: {int(100 - best_discount *100)}%\n Итого co скидкой: {round(cart_price * best_discount)}.00 р.'
         buttons = ([InlineKeyboardButton(text='Оформить заказ 📝', callback_data='offer-stage_1_none')],
                    [InlineKeyboardButton(text='Очистить 🗑️', callback_data='delete-cart'),
                     InlineKeyboardButton(text='Редактировать 📋', callback_data='correct-cart')])
@@ -474,7 +479,8 @@ def get_offer_settings(update: Update, context: CallbackContext, settings_stage=
                                                   reply_markup=keyboard)
 
         elif settings_stage == '4':
-            delivery_settings = _user_settings_from_db(chat_id)
+            delivery_settings, user_discount = _user_settings_from_db(chat_id)
+            discount = get_best_discount(chat_id)
 
             cart_price = 0
             cart_info = show_cart(chat_id)
@@ -482,6 +488,7 @@ def get_offer_settings(update: Update, context: CallbackContext, settings_stage=
             for num, product in enumerate(cart_info):
                 product_name, amount, price = product
                 cart_price += round(price * amount, 2)
+            cart_price = round(cart_price * discount)
 
             keyboard = InlineKeyboardMarkup(
                 [[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}_{answer}')],
@@ -498,10 +505,10 @@ offer_settings = CallbackQueryHandler(get_offer_settings, pattern=str('offer-sta
 dispatcher.add_handler(offer_settings)
 
 
-def _user_settings_from_db(chat_id: int) -> str:
+def _user_settings_from_db(chat_id: int) -> (str, int):
     """ Настроки заказа """
 
-    delivery, delivery_street = get_delivery_settings(chat_id)
+    delivery, delivery_street, discount = get_delivery_settings(chat_id)
 
     if delivery:
         text = f'Доставка по адресу {delivery_street}'
@@ -509,7 +516,7 @@ def _user_settings_from_db(chat_id: int) -> str:
         shop_name = get_delivery_shop(chat_id)
         text = f'Товары зарезервированы в магазине {shop_name} '
 
-    return text
+    return text, discount
 
 
 def edit_cart(update: Update, context: CallbackContext):
@@ -589,11 +596,15 @@ def order(update: Update, context: CallbackContext):
     user = call.message.chat.username
     order_num = load_last_order()
     command, cart_price, payment_type = call.data.split('_')
-    order_products, order_price = save_order(chat_id, call.message.text, cart_price, int(payment_type))
+    discount = get_best_discount(chat_id)
+    order_products, order_price = save_order(chat_id, call.message.text, cart_price, discount, int(payment_type))
     text_products = ''
+    discount_message = 'р.'
+    if discount != 1:
+        discount_message = f'.00 р.\n со скидкой {int(100 - discount *100)}%'
     for product_name, product_amount in order_products:
         text_products += f'\n{product_name[0]} - {int(product_amount)} шт.'
-    order_message = f'<b><u>Заказ №: {order_num}</u></b> \n {text_products} \n {call.message.text} \n <b>на сумму: {cart_price}</b>'
+    order_message = f'<b><u>Заказ №: {order_num}</u></b> \n {text_products} \n {call.message.text} \n <b>на сумму: {cart_price}{discount_message}</b>'
     context.bot.answer_callback_query(callback_query_id=call.id,
                                       text=f'Ваш заказ принят')
     context.bot.edit_message_text(text=f'Клиент: {user} \n{order_message}',
@@ -827,7 +838,8 @@ def info_main_menu(update: Update, context: CallbackContext):
     menu = InlineKeyboardMarkup([[InlineKeyboardButton(text='Адреса магазинов', callback_data='info_address')],
                                  [InlineKeyboardButton(text='Функции меню', callback_data='info_menu')],
                                  [InlineKeyboardButton(text='Меню: «Каталог товаров»', callback_data='info_catalog')],
-                                 [InlineKeyboardButton(text='Меню: «Корзина / Оформление заказа»', callback_data='info_cart')],
+                                 [InlineKeyboardButton(text='Меню: «Корзина / Оформление заказа»',
+                                                       callback_data='info_cart')],
                                  [InlineKeyboardButton(text='Меню:  «Статусы заказов»', callback_data='info_orders')],
                                  [InlineKeyboardButton(text='Об оплате', callback_data='info_payment_menu')],
                                  [InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
@@ -1108,7 +1120,8 @@ def user_message(update: Update, context: CallbackContext):
     if user.id in users_message:
         if users_message[user.id] in ['phone_main', 'phone_profile', 'phone']:
             call_back = users_message[user.id]
-            check_result = phone_check(update=update, context=context, phone=update.message.text, trace_back=users_message[user.id])
+            check_result = phone_check(update=update, context=context, phone=update.message.text,
+                                       trace_back=users_message[user.id])
             if check_result and call_back == 'phone':
                 cart(update, context, call_func=True)
         elif users_message[user.id] == 'first_name':
