@@ -2,7 +2,15 @@
 {% get_current_language as LANGUAGE_CODE %}{% get_current_language_bidi as LANGUAGE_BIDI %}
 <html lang="{{ LANGUAGE_CODE|default:" en-us" }}" dir="{{ LANGUAGE_BIDI|yesno:'rtl,ltr,auto' }}">
 <head>
-    <title>{% block title %}FIN SHOP{% endblock %}</title>
+    <title>
+    {% block title %}
+        {% if new_message %}
+            Новое сообщение (Ottuda SPB)
+        {% else %}
+            Ottuda SPB
+        {% endif %}
+    {% endblock %}
+    </title>
     <link rel="stylesheet" type="text/css" href="{% block stylesheet %}{% static "css/base.css" %}{% endblock %}">
     <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}">
     {% if not is_popup and is_nav_sidebar_enabled %}
@@ -37,12 +45,13 @@
         <div id="branding">
             {% block navigation %}
             <nav class="row-block">
-                <div>FIN SHOP</div>
+                <div>Ottuda SPB</div>
                 <div class="menu-item"><a class="menu-link" href="{% url 'orders_list' %}">Список активных заказов</a>
                 </div>
                 <div class="menu-item"><a class="menu-link" href="{% url 'orders_history' %}">Исторя заказов</a></div>
                 {% if new_message %}
                     <div class="menu-item"><u><a class="menu-link_new-message" href="{% url 'user_messages_list' %}" style="color:red">Сообщения пользователей</a></u></div>
+                    <audio hidden autoplay controls src="{% static 'audio/zvonok-kak-v-kolokolchik.mp3' %}">
                 {% else %}
                     <div class="menu-item"><a class="menu-link" href="{% url 'user_messages_list' %}">Сообщения пользователей</a></div>
                 {% endif %}
