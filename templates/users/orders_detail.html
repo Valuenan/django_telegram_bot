@@ -1,7 +1,10 @@
 {% extends 'base.html' %}
-{% load shop_tags %}
+{% load static shop_tags %}
 
 {% block content %}
+{% if new_message %}
+    <div><audio hidden autoplay controls src="{% static 'audio/zvonok-kak-v-kolokolchik.mp3' %}"></div>
+{% endif %}
     <a href="/">Вернуться к заказам</a>
     <form action="" method="post" class="mt-4" id="formReview">
         {% csrf_token %}

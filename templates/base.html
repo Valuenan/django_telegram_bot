@@ -49,12 +49,13 @@
                 <div class="menu-item"><a class="menu-link" href="{% url 'orders_list' %}">Список активных заказов</a>
                 </div>
                 <div class="menu-item"><a class="menu-link" href="{% url 'orders_history' %}">Исторя заказов</a></div>
+
                 {% if new_message %}
                     <div class="menu-item"><u><a class="menu-link_new-message" href="{% url 'user_messages_list' %}" style="color:red">Сообщения пользователей</a></u></div>
-                    <audio hidden autoplay controls src="{% static 'audio/zvonok-kak-v-kolokolchik.mp3' %}">
                 {% else %}
                     <div class="menu-item"><a class="menu-link" href="{% url 'user_messages_list' %}">Сообщения пользователей</a></div>
                 {% endif %}
+
                 {% if request.user.is_superuser %}
                     <div class="menu-item"><a class="menu-link" href="{% url 'send_everyone' %}">Отправить сообщение ВСЕМ</a></div>
                     <div class="menu-item"><a class="menu-link" href="/admin">Админка</a></div>

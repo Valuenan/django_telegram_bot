@@ -387,7 +387,8 @@ class SendMessageToEveryone(LoginRequiredMixin, View):
     login_url = '/login'
 
     def get(self, request):
-        return render(request, 'users/send_everyone.html')
+        new_message = UserMessage.objects.filter(checked=False)
+        return render(request, 'users/send_everyone.html', context={'new_message': new_message})
 
     def post(self, request):
         form = request.POST.copy()

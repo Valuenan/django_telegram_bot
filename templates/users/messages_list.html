@@ -1,7 +1,11 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block extrahead %}<meta http-equiv="refresh" content="60">{% endblock %}
 {% block content %}
+{% if new_message %}
+    <div><audio hidden autoplay controls src="{% static 'audio/zvonok-kak-v-kolokolchik.mp3' %}"></div>
+{% endif %}
     <table border="1px">
     <tr>
         <td>Пользователь</td>
