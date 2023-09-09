@@ -307,7 +307,7 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         order.admin_check = request.user
         old_status = order.status.title
         rests_action = order.update_order_status(new_status)
-        order_sum = order.order_price + delivery_price
+        order_sum = round(order.order_price * order.discount) + delivery_price
         if new_status in ['0', '2', '5']:
             order.update_order_quantity(form, rests_action, shop)
         elif new_status in ['1', '3', '4', '6'] and old_status != new_status:
