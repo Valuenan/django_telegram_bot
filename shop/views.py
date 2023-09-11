@@ -174,6 +174,9 @@ class ImportGoodsView(View):
                                         messages.error(request,
                                                        f'Ошибка загрузки. Некорректные значения {product_name}, остаток = 0')
                                         break
+
+                                    for_sale = lambda: False if product_name[-1] == '*' else True
+
                                     category = Category.objects.filter(id=product_category)
 
                                     # Убираем товары с категорие Архив и без категории (по заданию Андрея)
@@ -188,6 +191,7 @@ class ImportGoodsView(View):
                                         product.category = category[0]
                                         product.img = product_image
                                         product.price = product_price
+                                        product.sale = for_sale()
                                         product.save()
                                         db_rests = Rests.objects.filter(product=product)
                                         for rest in db_rests:
@@ -197,7 +201,8 @@ class ImportGoodsView(View):
                                         product = Product.objects.create(name=product_name,
                                                                          category=category[0],
                                                                          img=product_image,
-                                                                         price=product_price)
+                                                                         price=product_price,
+                                                                         sale=for_sale())
                                         product.save()
                                         db_rests = Rests.objects.create(shop=shop,
                                                                         product=product,
@@ -274,7 +279,8 @@ class OrderDetail(LoginRequiredMixin, DetailView):
             context['order_statuses'] = OrderStatus.objects.exclude(id='5')
         else:
             context['order_statuses'] = OrderStatus.objects.exclude(id='4')
-        context['order_sum'] = round(context['order'].order_price * context['order'].discount) + context['order'].delivery_price
+        context['order_sum'] = round(context['order'].order_price * context['order'].discount) + context[
+            'order'].delivery_price
         context['shops'] = Shop.objects.all().order_by('-id')
         context['new_message'] = UserMessage.objects.filter(checked=False)
         return context

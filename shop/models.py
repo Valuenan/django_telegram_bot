@@ -49,6 +49,7 @@ class Product(models.Model):
     name = models.CharField(max_length=100, verbose_name='Название')
     img = models.CharField(max_length=100, verbose_name='Изображение товара', default='no-image.jpg')
     price = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Цена товара')
+    sale = models.BooleanField(verbose_name='Учавствует в распродаже', default=False)
 
     def __str__(self):
         return self.name
