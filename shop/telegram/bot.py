@@ -719,7 +719,7 @@ def orders_history(update: Update, context: CallbackContext):
                     delivery_price_text = f'\nСтоимость доставки {prev_delivery_price} р.'
                 else:
                     delivery_price_text = ''
-                text += f'''<b><u>Заказ № {prev_id}</u></b>\n <u>Статус заказа: {ORDER_STATUS[int(prev_status)][1]}</u> \n {text_products}{discount_text}{delivery_price_text}\n<b>ИТОГО:{prev_sum - round(discount_sum) + prev_delivery_price} р.</b>'''
+                text += f'''<b><u>Заказ № {prev_id}</u></b>\n <u>Статус заказа: {ORDER_STATUS[int(prev_status)][1]}</u> \n {text_products}{discount_text}{delivery_price_text}\n<b>ИТОГО:{prev_sum + prev_delivery_price} р.</b>'''
                 if prev_status == '1' and url_list and prev_id in url_list:
                     text += f'\n ссылка на оплату (чек): {url_list[prev_id]}'
                 elif prev_status == '3':
@@ -750,7 +750,7 @@ def orders_history(update: Update, context: CallbackContext):
                 delivery_price_text = f'\nСтоимость доставки {delivery_price} р.'
             else:
                 delivery_price_text = ''
-            text += f'''<b><u>Заказ № {order_id}</u></b> \n <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u> \n {text_products}{discount_text}{delivery_price_text}\n<b>ИТОГО: {order_sum - round(discount_sum) + delivery_price} р.</b>'''
+            text += f'''<b><u>Заказ № {order_id}</u></b> \n <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u> \n {text_products}{discount_text}{delivery_price_text}\n<b>ИТОГО: {order_sum + delivery_price} р.</b>'''
             if order_status == '1' and url_list and order_id in url_list:
                 text += f'\n ссылка на оплату (чек): {url_list[order_id]}'
             elif order_status == '3':
