@@ -4,7 +4,6 @@ from shop.telegram.db_connection import get_waiting_payment_orders, order_payed
 
 
 def check_orders_payment(session=None):
-    status = ''
     orders_for_check = get_waiting_payment_orders()
     if orders_for_check:
         for order in orders_for_check:
