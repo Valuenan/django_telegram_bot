@@ -19,7 +19,6 @@
         <td>Взял в обработку</td>
         <td>Доставка</td>
         <td>Адрес</td>
-        <td>Стоимость</td>
         <td>Скидка</td>
     </tr>
     {% for order in orders %}
@@ -43,9 +42,6 @@
                 {% endif %}
             </a></td>
             <td><a href="{% url 'orders_detail' order.id  %}">{{ order.delivery_info }}</a></td>
-            <td>
-                {% get_full_price order.order_price order.discount order.delivery_price %} р.
-            </td>
             <td>
                 {% get_discount order.discount %}%
             </td>

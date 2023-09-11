@@ -49,15 +49,20 @@
                         <td {% if order.profile.main_shop == shop %} bgcolor="green" {% endif %}> {{ shop }}</td>
                     {% endfor %}
                 </tr>
-                {% for product in order.carts_set.all %}
+                {% for product in products %}
                 <tr>
                     <td {% if product.soft_delete %} bgcolor="red" {% endif %}>
                         {{ product.product.name }} </td>
                     <td> <input
                             {% if order.status.title != "0" %} disabled {% endif %}
                                 name="{{ product.id }}" id="contactparent" value="{% formatted_float product.amount %} "></td>
-                    <td> {% formatted_float product.price %}</td>
-                    <td> {% get_sum product.amount product.price %}</td>
+                    {% if product.product.sale %}
+                        <td> {% get_sum 1 product.price order.discount %}</td>
+                        <td> {% get_sum product.amount product.price order.discount %}</td>
+                    {% else %}
+                        <td> {% formatted_float product.price %}</td>
+                        <td> {% get_sum product.amount product.price %}</td>
+                    {% endif %}
                     {% for rest in product.product.rests_set.all %}
                         <td {% if product.amount > rest.amount %} bgcolor="yellow" {% endif %}>
                             {% formatted_float rest.amount %}</td>
@@ -83,7 +88,12 @@
             </table>
             <button type="submit">Записать</button>
         </form>
-        <p>Сумма: {{ order_sum }} р.</p>
+        {% if order.discount < 1 %}
+            <p>Сумма со скидкой {% get_discount order.discount %}%: {{ order_sum }} р.</p>
+        {% else %}
+            <p>Сумма: {{ order_sum }} р.</p>
+        {% endif %}
+
         <p> {% if not order.admin_check %}
             Обработанна: -
         {% else %}

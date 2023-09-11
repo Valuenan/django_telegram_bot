@@ -13,15 +13,9 @@ def get_shops():
 
 
 @register.simple_tag()
-def get_sum(amount, price):
+def get_sum(amount, price, discount=1):
     """Вывод сумму стоимости товара"""
-    return round(amount * price, 2)
-
-
-@register.simple_tag()
-def get_full_price(price, discount, delivery):
-    """Стоимость с доставкой"""
-    return round(round(price * discount + delivery), 2)
+    return f'{round(amount * price * discount)}.00'
 
 
 @register.simple_tag()

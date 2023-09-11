@@ -126,8 +126,9 @@ class ImportGoodsView(View):
 
         if rests:
 
-            for i in range(len(rests)):
-                rests[i].amount = 0
+            for rest in rests:
+                rest.amount = 0
+                rest.save()
 
             Rests.objects.bulk_update(rests, ['amount', ])
 
@@ -275,14 +276,24 @@ class OrderDetail(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super(OrderDetail, self).get_context_data(**kwargs)
         self.model = self.model.objects.prefetch_related('carts_set').all()
+        context['products'] = context['order'].carts_set.all()
+        context['order_sum'] = context['order'].delivery_price
+        if context['order'].discount < Decimal(1):
+            for cart in context['products']:
+                if cart.product.sale:
+                    new_price = round(cart.product.price * context['order'].discount)
+                    cart.product.price = new_price
+                context['order_sum'] += cart.product.price
+        else:
+            context['order_sum'] += context['order'].order_price
+
         if context['object'].deliver:
             context['order_statuses'] = OrderStatus.objects.exclude(id='5')
         else:
             context['order_statuses'] = OrderStatus.objects.exclude(id='4')
-        context['order_sum'] = round(context['order'].order_price * context['order'].discount) + context[
-            'order'].delivery_price
         context['shops'] = Shop.objects.all().order_by('-id')
         context['new_message'] = UserMessage.objects.filter(checked=False)
+
         return context
 
     def post(self, request, pk):
@@ -313,7 +324,16 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         order.admin_check = request.user
         old_status = order.status.title
         rests_action = order.update_order_status(new_status)
-        order_sum = round(order.order_price * order.discount) + delivery_price
+
+        order_sum = delivery_price
+        products = order.carts_set.all()
+        if order.discount < Decimal(1):
+            for cart in products:
+                if cart.product.sale:
+                    order_sum += round(cart.product.price * order.discount)
+                else:
+                    order_sum += cart.product.price
+
         if new_status in ['0', '2', '5']:
             order.update_order_quantity(form, rests_action, shop)
         elif new_status in ['1', '3', '4', '6'] and old_status != new_status:

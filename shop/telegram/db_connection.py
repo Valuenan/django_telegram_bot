@@ -238,7 +238,7 @@ def old_cart_message(chat_id) -> (int or None):
 
 def show_cart(chat_id: int) -> list:
     """Получить список товаров в корзине"""
-    db, cur = connect_db(f"""SELECT products.name, carts.amount, carts.price 
+    db, cur = connect_db(f"""SELECT products.name, products.sale, carts.amount, carts.price
     FROM carts  
     INNER JOIN products 
     ON carts.product_id = products.id 
@@ -414,7 +414,7 @@ def save_order(chat_id: int, delivery_info: str, cart_price: int, discount=1, pa
 
 def get_user_orders(chat_id: int, filter: str = '') -> list:
     """Получить список заказов пользователя"""
-    db, cur = connect_db(f"""SELECT orders.id, products.name, products.price ,carts.amount, orders.order_price, order_status.title, orders.payment_url, orders.tracing_num, orders.discount, delivery_price
+    db, cur = connect_db(f"""SELECT orders.id, products.name, products.price ,carts.amount, orders.order_price, order_status.title, orders.payment_url, orders.tracing_num, products.sale, orders.discount, delivery_price
     FROM orders
     INNER JOIN carts ON orders.id = carts.order_id 
     INNER JOIN products ON carts.product_id = products.id
