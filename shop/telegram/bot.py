@@ -181,7 +181,7 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
         context.bot.delete_message(chat_id=call.message.chat.id,
                                    message_id=call.message.message_id)
         for product in products:
-            product_id, product_name, product_img, price, category_id, rests = product
+            product_id, product_name, product_img, price, category_id, product_for_sale ,rests = product
             buttons = ([InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add_{product_id}'),
                         InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove_{product_id}')],)
             imgs = [product_img]
@@ -201,12 +201,15 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
                 product_photo = open(f'{BASE_DIR}/static/products/{imgs[0]}', 'rb')
             except FileNotFoundError:
                 product_photo = open(f'{BASE_DIR}/static/products/no-image.jpg', 'rb')
+            shop_discount = get_best_discount()
+            if shop_discount < Decimal(1) and product_for_sale:
+                product_info = f'''{product_name}  \n <b>Цена: <s>{price}</s> {round(price * shop_discount)}.00 р.</b> \n <i>В наличии: {int(rests)} шт.</i>'''
+            else:
+                product_info = f'''{product_name}  \n <b>Цена: {price} р.</b> \n <i>В наличии: {int(rests)} шт.</i>'''
             context.bot.send_photo(chat_id=update.effective_chat.id,
                                    photo=product_photo,
                                    disable_notification=True)
-            context.bot.send_message(chat_id=update.effective_chat.id, text=f'{product_name} '
-                                                                            f'\n <b>Цена: {price} р.</b>'
-                                                                            f'\n <i>В наличии: {int(rests)} шт.</i>',
+            context.bot.send_message(chat_id=update.effective_chat.id, text=product_info,
                                      reply_markup=keyboard,
                                      parse_mode='HTML', disable_notification=True)
         if not pagination or page == pages:

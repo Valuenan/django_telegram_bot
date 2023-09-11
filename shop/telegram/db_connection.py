@@ -145,7 +145,7 @@ def get_parent_category_id(category_id: int) -> list:
 def get_products(chosen_category: int, page: int) -> (list, int):
     """Получить список товаров и пагинация"""
     db, cur = connect_db((f"""
-    SELECT products.id, products.name, products.img, products.price, products.category_id, sum(rests.amount) AS rest
+    SELECT products.id, products.name, products.img, products.price, products.category_id, products.sale, sum(rests.amount) AS rest
     FROM products 
     INNER JOIN rests ON products.id = rests.product_id
     WHERE category_id='{chosen_category}' AND rests.amount > 0
@@ -344,17 +344,22 @@ def get_delivery_shop(chat_id: int) -> tuple:
     return shop
 
 
-def get_best_discount(chat_id: int) -> tuple:
+def get_best_discount(chat_id: int = None) -> tuple:
     """Получить лучшую скидку"""
-    db, cur = connect_db(f"""SELECT discount
-        FROM profile 
-        WHERE chat_id='{chat_id}'""")
-    user_discount = cur.fetchone()
     db, cur = connect_db(f"""SELECT MIN(sale) FROM shops""")
     shop_discount = cur.fetchone()
+
+    if chat_id:
+        db, cur = connect_db(f"""SELECT discount
+            FROM profile 
+            WHERE chat_id='{chat_id}'""")
+        user_discount = cur.fetchone()
+        best_discount = min(user_discount, shop_discount)
+    else:
+        best_discount = shop_discount
     cur.close()
     db.close()
-    best_discount = min(user_discount, shop_discount)
+
     return best_discount[0]
 
 
