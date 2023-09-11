@@ -324,7 +324,7 @@ def cart(update: Update, context: CallbackContext, call_func=False):
             if best_discount == 1:
                 cart_message += f'Итого: {cart_price} р.'
             else:
-                cart_message += f'Скидка: {int(100 - best_discount *100)}%\n Итого co скидкой: {round(cart_price * best_discount)}.00 р.'
+                cart_message += f'Скидка: {int(100 - best_discount * 100)}%\n Итого co скидкой: {round(cart_price * best_discount)}.00 р.'
         buttons = ([InlineKeyboardButton(text='Оформить заказ 📝', callback_data='offer-stage_1_none')],
                    [InlineKeyboardButton(text='Очистить 🗑️', callback_data='delete-cart'),
                     InlineKeyboardButton(text='Редактировать 📋', callback_data='correct-cart')])
@@ -480,15 +480,13 @@ def get_offer_settings(update: Update, context: CallbackContext, settings_stage=
 
         elif settings_stage == '4':
             delivery_settings, user_discount = _user_settings_from_db(chat_id)
-            discount = get_best_discount(chat_id)
 
             cart_price = 0
             cart_info = show_cart(chat_id)
 
-            for num, product in enumerate(cart_info):
+            for product in cart_info:
                 product_name, amount, price = product
-                cart_price += round(price * amount, 2)
-            cart_price = round(cart_price * discount)
+                cart_price += round(price * amount)
 
             keyboard = InlineKeyboardMarkup(
                 [[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}_{answer}')],
@@ -597,14 +595,14 @@ def order(update: Update, context: CallbackContext):
     order_num = load_last_order()
     command, cart_price, payment_type = call.data.split('_')
     discount = get_best_discount(chat_id)
-    order_products, order_price = save_order(chat_id, call.message.text, cart_price, discount, int(payment_type))
+    order_products = save_order(chat_id, call.message.text, cart_price, discount, int(payment_type))
     text_products = ''
     discount_message = 'р.'
     if discount != 1:
-        discount_message = f'.00 р.\n со скидкой {int(100 - discount *100)}%'
+        discount_message = f'.00 р.\n со скидкой {int(100 - discount * 100)}%'
     for product_name, product_amount in order_products:
         text_products += f'\n{product_name[0]} - {int(product_amount)} шт.'
-    order_message = f'<b><u>Заказ №: {order_num}</u></b> \n {text_products} \n {call.message.text} \n <b>на сумму: {cart_price}{discount_message}</b>'
+    order_message = f'<b><u>Заказ №: {order_num}</u></b> \n{text_products} \n{call.message.text} \n<b>на сумму: {round(int(cart_price) * discount)}{discount_message}</b>'
     context.bot.answer_callback_query(callback_query_id=call.id,
                                       text=f'Ваш заказ принят')
     context.bot.edit_message_text(text=f'Клиент: {user} \n{order_message}',
@@ -675,25 +673,32 @@ def orders_history(update: Update, context: CallbackContext):
         text = ''
         url_list = {}
         tracing_list = {}
+        discount_text = ''
 
         for order in orders:
-            order_id, product_name, product_price, product_amount, order_sum, order_status, payment_url, tracing_num = order
+            order_id, product_name, product_price, product_amount, order_sum, order_status, payment_url, tracing_num, discount, delivery_price = order
             url_list[order_id] = payment_url
             tracing_list[order_id] = tracing_num
 
             if not prev_id:
                 position = 1
-                prev_id, prev_sum, prev_status = order_id, order_sum, order_status
+                prev_id, prev_sum, prev_status, prev_discount, prev_delivery_price = order_id, order_sum, order_status, discount, delivery_price
                 order_products = [f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price}р.']
             elif prev_id == order_id:
+                position += 1
                 order_products.append(
                     f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price}р.')
-            position += 1
 
             if prev_id != order_id:
                 position = 1
                 text_products = '\n'.join(order_products)
-                text += f'''<b><u>Заказ № {prev_id}</u></b>\n <u>Статус заказа: {ORDER_STATUS[int(prev_status)][1]}</u> \n {text_products} \n <b>на сумму:{prev_sum} р.</b>'''
+                discount_num = 0
+                if prev_discount < 1:
+                    discount_num = round(prev_sum - prev_sum * prev_discount)
+                    discount_text = f'Ваша скидка {int(100 - prev_discount * 100)}% - {discount_num} р.'
+                if prev_delivery_price > 0:
+                    delivery_price_text = f'Стоимость доставки {prev_delivery_price} р.'
+                text += f'''<b><u>Заказ № {prev_id}</u></b>\n <u>Статус заказа: {ORDER_STATUS[int(prev_status)][1]}</u> \n {text_products} \n{discount_text}\n{delivery_price_text}\n<b>ИТОГО:{prev_sum - discount_num + prev_delivery_price} р.</b>'''
                 if prev_status == '1' and url_list and prev_id in url_list:
                     text += f'\n ссылка на оплату (чек): {url_list[prev_id]}'
                 elif prev_status == '3':
@@ -705,12 +710,18 @@ def orders_history(update: Update, context: CallbackContext):
                 text += f'\n {"_" * 20} \n'
 
                 order_products = [f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price}р.']
-                prev_id, prev_sum, prev_status = order_id, order_sum, order_status
+                prev_id, prev_sum, prev_status, prev_discount, prev_delivery_price = order_id, order_sum, order_status, discount, delivery_price
 
 
         else:
             text_products = '\n'.join(order_products)
-            text += f'''<b><u>Заказ № {order_id}</u></b> \n <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u> \n {text_products} \n <b>на сумму: {order_sum} р.</b>'''
+            discount_num = 0
+            if discount < 1:
+                discount_num = round(order_sum - order_sum * discount)
+                discount_text = f'Ваша скидка {int(100 - discount * 100)}% - {discount_num} р.'
+            if delivery_price > 0:
+                delivery_price_text = f'Стоимость доставки {delivery_price} р.'
+            text += f'''<b><u>Заказ № {order_id}</u></b> \n <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u> \n {text_products} \n{discount_text}\n{delivery_price_text}\n<b>ИТОГО: {order_sum - discount_num + delivery_price} р.</b>'''
             if order_status == '1' and url_list and order_id in url_list:
                 text += f'\n ссылка на оплату (чек): {url_list[order_id]}'
             elif order_status == '3':

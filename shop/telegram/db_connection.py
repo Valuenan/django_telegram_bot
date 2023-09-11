@@ -409,12 +409,12 @@ def save_order(chat_id: int, delivery_info: str, cart_price: int, discount=1, pa
     db.close()
     products_names = _id_to_name('products', products_id)
     products = zip(products_names, products_amount)
-    return products, cart_price
+    return products
 
 
 def get_user_orders(chat_id: int, filter: str = '') -> list:
     """Получить список заказов пользователя"""
-    db, cur = connect_db(f"""SELECT orders.id, products.name, products.price ,carts.amount, orders.order_price, order_status.title, orders.payment_url, orders.tracing_num
+    db, cur = connect_db(f"""SELECT orders.id, products.name, products.price ,carts.amount, orders.order_price, order_status.title, orders.payment_url, orders.tracing_num, orders.discount, delivery_price
     FROM orders
     INNER JOIN carts ON orders.id = carts.order_id 
     INNER JOIN products ON carts.product_id = products.id
