@@ -424,4 +424,4 @@ class SendMessageToEveryone(LoginRequiredMixin, View):
             _send_message_to_user(request, form, user_chat_id['chat_id'], everyone=True)
         if not list(messages.get_messages(request)):
             messages.success(request, 'Все сообщения были отправленны')
-        return render(request, 'users/send_everyone.html')
+        return redirect(request.META.get('HTTP_REFERER'))
