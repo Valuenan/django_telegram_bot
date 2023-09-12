@@ -283,9 +283,11 @@ class OrderDetail(LoginRequiredMixin, DetailView):
                 if cart.product.sale:
                     new_price = round(cart.product.price * context['order'].discount)
                     cart.product.price = new_price
-                context['order_sum'] += cart.product.price
+                context['order_sum'] += round(cart.product.price * cart.amount, 2)
         else:
-            context['order_sum'] += context['order'].order_price
+            for cart in context['products']:
+                context['order_sum'] += round(cart.product.price * cart.amount, 2)
+
 
         if context['object'].deliver:
             context['order_statuses'] = OrderStatus.objects.exclude(id='5')
@@ -330,9 +332,9 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         if order.discount < Decimal(1):
             for cart in products:
                 if cart.product.sale:
-                    order_sum += round(cart.product.price * order.discount)
+                    order_sum += round(cart.product.price * order.discount) * int(cart.amount)
                 else:
-                    order_sum += cart.product.price
+                    order_sum += cart.product.price * int(cart.amount)
 
         if new_status in ['0', '2', '5']:
             order.update_order_quantity(form, rests_action, shop)
