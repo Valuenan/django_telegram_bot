@@ -465,7 +465,7 @@ def save_user_message(chat_id: int, message: str):
 
 def get_waiting_payment_orders() -> list:
     """Возврачает список заявок ожидающих оплаты"""
-    db, cur = connect_db(f"""SELECT orders.id, profile.chat_id, orders.order_price, orders.delivery_price, orders.payment_url, orders.extra_payment_url
+    db, cur = connect_db(f"""SELECT orders.id, profile.chat_id, orders.order_price, orders.deliver, orders.delivery_price, orders.payment_url, orders.extra_payment_url
         FROM orders
         INNER JOIN profile ON profile.id = orders.profile_id
         WHERE orders.status_id='2'""")
