@@ -122,11 +122,19 @@ def avangard_check(payment_url: str):
     # requests_log.setLevel(logging.DEBUG)
     # requests_log.propagate = True
 
-    resp = requests.get(payment_url)
+    # открытие сессии
+    session = get_legacy_session()
+
+    # обновление headers сессии
+    session.headers.update({'User-Agent': user_agent})
+
+    resp = session.get(payment_url)
 
     bs = BeautifulSoup(resp.text, 'html.parser')
     payed_check = bs.find_all(class_='redBold')
     if len(payed_check) == 2 and 'Заказ был ранее оплачен' in payed_check[1]:
         payed_sum = bs.find(class_='pay_before_info_sum').text.split(',')[0].replace('\xa0', '')
+        print(payed_sum)
         return True, int(payed_sum)
+    print('ok')
     return False, 0
