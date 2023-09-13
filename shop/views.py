@@ -335,6 +335,9 @@ class OrderDetail(LoginRequiredMixin, DetailView):
                     order_sum += round(cart.product.price * order.discount) * int(cart.amount)
                 else:
                     order_sum += cart.product.price * int(cart.amount)
+        else:
+            for cart in products:
+                order_sum += round(cart.product.price * cart.amount, 2)
 
         if new_status in ['0', '2', '5']:
             order.update_order_quantity(form, rests_action, shop)
