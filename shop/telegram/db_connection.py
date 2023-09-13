@@ -475,8 +475,8 @@ def get_waiting_payment_orders() -> list:
     return request
 
 
-def save_payment_link(order_id: int, link: str):
-    db, cur = connect_db(f"""UPDATE orders SET payment_url='{link}' WHERE id='{order_id}'""")
+def save_payment_link(order_id: int, link: str, field):
+    db, cur = connect_db(f"""UPDATE orders SET {field}='{link}' WHERE id='{order_id}'""")
     db.commit()
     cur.close()
     db.close()

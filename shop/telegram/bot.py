@@ -1097,23 +1097,32 @@ dispatcher.add_handler(info_payment_card_handler)
 
 # АДМИНИСТРАТИВНЫЕ
 
-def ready_order_message(chat_id: int, order_id: int, status: str, order_sum: int = None, delivery_price: int = 0,
-                        pay_type: int = 1, tracing_num: str = 'нет'):
+def ready_order_message(chat_id: int, order_id: int, status: str, deliver: bool, order_sum: int = None, delivery_price: int = 0,
+                        pay_type: int = 1, tracing_num: str = 'нет', payment_url=None):
     """Сообщение о готовности заказа"""
     message = ''
     if status == '1':
-        invoice_num, link = avangard_invoice(title=f'(Заказ в магазине OttudaSPB № {order_id}, сумма {order_sum} р.)',
-                                             price=order_sum,
-                                             customer=f'{chat_id}',
-                                             shop_order_num=order_id,
-                                             pay_type=pay_type)
-        save_payment_link(order_id, link)
-        if delivery_price == 0:
-            message = f'''ожидает оплаты
-ваша зссылка на оплату: {link}'''
+        # invoice_num, link = avangard_invoice(title=f'(Заказ в магазине OttudaSPB № {order_id}, сумма {order_sum} р.)',
+        #                                      price=order_sum,
+        #                                      customer=f'{chat_id}',
+        #                                      shop_order_num=order_id,
+        #                                      pay_type=pay_type)
+        link = 'https://www.test.com'
+        if payment_url:
+            field = 'extra_payment_url'
         else:
-            message = f''',в том числе доставка на сумму {delivery_price} р., <u> ожидает оплаты </u>
-ваша ссылка на оплату: {link}'''
+            field = 'payment_url'
+        save_payment_link(order_id, link, field)
+
+        if not deliver:
+            message = f'''<u> ожидает оплаты </u>\nваша ссылка на оплату: {link}'''
+        elif payment_url:
+            message = f''',в том числе доставка на сумму {delivery_price} р., \n<u> ожидает оплаты </u> доставки \nваша ссылка на оплату: {link}'''
+        elif delivery_price == 0 and deliver:
+                message = f'''\nдля резервирования товаров <u> требуется оплатить </u> по ссылке: {link} \nсчет на оплату транспортных мы вышлем позже, нам потребуется время для расчета стоимости\n спасибо за понимание'''
+        else:
+            message = f''',в том числе доставка на сумму {delivery_price} р., <u> ожидает оплаты </u> \nваша ссылка на оплату: {link}'''
+
     elif status == '2':
         updater.bot.send_message(chat_id=chat_id,
                                  text=f'Оплата по заказу № {order_id} поступила. Ваш заказ собирают...',

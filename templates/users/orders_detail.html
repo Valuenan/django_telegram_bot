@@ -73,7 +73,8 @@
                     <tr>
                         <td>
                         Стоимость доставки
-                        <input {% if order.status.title != "0" %} disabled {% endif %} type="number" name="delivery_price" value="{{ order.delivery_price }}">
+                        <input {% if order.status.title != "0" and order.delivery_price != 0 %} disabled {% endif %}
+                            type="number" name="delivery_price" value="{{ order.delivery_price }}">
                         </td>
                     </tr>
                     {% if order.status.title != "0" %}
