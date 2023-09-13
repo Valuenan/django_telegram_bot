@@ -113,7 +113,7 @@ def avangard_invoice(title: str, price: int, customer: str, shop_order_num: int,
     return order_num, payment_link
 
 
-def avangard_check(customer: str, order_num: int, order_sum: int, session=None):
+def avangard_check(payment_url: str):
     http.client.HTTPConnection.debuglevel = 0
 
     logging.basicConfig(filename='banking.log')
@@ -122,38 +122,11 @@ def avangard_check(customer: str, order_num: int, order_sum: int, session=None):
     # requests_log.setLevel(logging.DEBUG)
     # requests_log.propagate = True
 
-    base_url = 'https://shop.avangard.ru/v5_iacq/faces/links/'
-    login_url = base_url + 'login.xhtml'
-    orders_url = base_url + 'orders.xhtml'
-
-    if not session:
-        # открытие сессии
-        session = get_legacy_session()
-
-    # обновление headers сессии
-    session.headers.update({'User-Agent': user_agent})
-
-    # автооризация
-    session.post(login_url, settings.BANKING_CREDENTIALS)
-
-    resp = session.get(orders_url)
+    resp = requests.get(payment_url)
 
     bs = BeautifulSoup(resp.text, 'html.parser')
-    order_status = ''
-    order_raw = bs.find(class_='row sol_t')
-    fio = order_raw.find(class_='fio', attrs={'title': customer})
-    order_text = f'(Заказ в магазине OttudaSPB № {order_num}, сумма {order_sum} р.)'
-    hint_popup = bs.find(class_='hint_popup', attrs={"data-title": order_text})
-    if fio and hint_popup:
-        order_status = order_raw.find(class_='col-6').find('div').text
-    else:
-        orders_raw = bs.find_all(class_='row sol_t')
-
-        for order in orders_raw:
-            fio = order.find(class_='fio', attrs={'title': customer})
-            hint_popup = bs.find(class_='hint_popup', attrs={"data-title": order_text})
-            if fio and hint_popup:
-                order_status = order.find(class_='col-6').find('div').text
-                break
-
-    return str(order_status), session
+    payed_check = bs.find_all(class_='redBold')
+    if len(payed_check) == 2 and 'Заказ был ранее оплачен' in payed_check[1]:
+        payed_sum = bs.find(class_='pay_before_info_sum').text.split(',')[0].replace('\xa0', '')
+        return True, int(payed_sum)
+    return False, 0

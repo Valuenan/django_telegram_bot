@@ -97,7 +97,9 @@ class Orders(models.Model):
     discount = models.DecimalField(verbose_name='Коэффициент скидки', max_digits=3, decimal_places=2, default=1)
     payment = models.ForeignKey(Payment, on_delete=models.DO_NOTHING, verbose_name='Вид оплаты', blank=True, null=True)
     payment_url = models.URLField(verbose_name='Ссылка на оплату Авангард', blank=True, null=True)
-    payed = models.BooleanField(verbose_name='Заказ оплачен', default=False)
+    extra_payment_url = models.URLField(verbose_name='Дополнительная ссылка на оплату Авангард', blank=True, null=True)
+    payed = models.BooleanField(verbose_name='Оплачены товары', default=False)
+    payed_delivery = models.BooleanField(verbose_name='Оплачена доставка', default=False)
     tracing_num = models.CharField(max_length=30, verbose_name='Трек номер', null=True, blank=True)
 
     def __str__(self):
