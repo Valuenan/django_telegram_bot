@@ -51,7 +51,7 @@
                 {% if order.payed %} да {% else %} нет {% endif %}
             </td>
             <td>
-                {% if order.delivery_price != 0 %} да {% else %} нет {% endif %}
+                {% if order.payed_delivery %} да {% else %} нет {% endif %}
             </td>
         </tr>
     {% endfor %}
