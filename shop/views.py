@@ -288,7 +288,6 @@ class OrderDetail(LoginRequiredMixin, DetailView):
             for cart in context['products']:
                 context['order_sum'] += round(cart.product.price * cart.amount, 2)
 
-
         if context['object'].deliver:
             context['order_statuses'] = OrderStatus.objects.exclude(id='5')
         else:
@@ -341,11 +340,23 @@ class OrderDetail(LoginRequiredMixin, DetailView):
 
         if new_status in ['0', '2', '5']:
             order.update_order_quantity(form, rests_action, shop)
+            message = 'Данные схранены, статус изменен'
         elif new_status in ['1', '3', '4', '6'] and old_status != new_status:
-            ready_order_message(chat_id=order.profile.chat_id, order_id=order.id, order_sum=int(order_sum),
-                                status=new_status, deliver=order.deliver, delivery_price=delivery_price, pay_type=order.payment.title,
-                                tracing_num=order.tracing_num, payment_url=order.payment_url)
+            status, result = ready_order_message(chat_id=order.profile.chat_id, order_id=order.id, order_sum=int(order_sum),
+                                          status=new_status, deliver=order.deliver, delivery_price=delivery_price,
+                                          pay_type=order.payment.title,
+                                          tracing_num=order.tracing_num, payment_url=order.payment_url)
+            if status == 'ok':
+                message = f'Данные схранены, статус изменен, отправлено сообщение: {result}'
+            else:
+                message = f'Ошибка: {result}'
+                messages.add_message(request, messages.ERROR, message)
+                order.update_order_status(old_status)
+                return redirect(f'/order/{pk}')
 
+        else:
+            message = 'Данные схранены'
+        messages.add_message(request, messages.INFO, message)
         return redirect(f'/order/{pk}')
 
 
