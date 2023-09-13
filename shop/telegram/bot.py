@@ -1102,12 +1102,11 @@ def ready_order_message(chat_id: int, order_id: int, status: str, deliver: bool,
     """Сообщение о готовности заказа"""
     message = ''
     if status == '1':
-        # invoice_num, link = avangard_invoice(title=f'(Заказ в магазине OttudaSPB № {order_id}, сумма {order_sum} р.)',
-        #                                      price=order_sum,
-        #                                      customer=f'{chat_id}',
-        #                                      shop_order_num=order_id,
-        #                                      pay_type=pay_type)
-        link = 'https://www.test.com'
+        invoice_num, link = avangard_invoice(title=f'(Заказ в магазине OttudaSPB № {order_id}, сумма {order_sum} р.)',
+                                             price=order_sum,
+                                             customer=f'{chat_id}',
+                                             shop_order_num=order_id,
+                                             pay_type=pay_type)
         if payment_url:
             field = 'extra_payment_url'
         else:
