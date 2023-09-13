@@ -327,7 +327,7 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         rests_action = order.update_order_status(new_status)
 
         order_sum = delivery_price
-        products = order.carts_set.all()
+        products = order.carts_set.filter(soft_delete=False)
         if order.discount < Decimal(1):
             for cart in products:
                 if cart.product.sale:

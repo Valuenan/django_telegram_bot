@@ -671,7 +671,7 @@ def orders_history(update: Update, context: CallbackContext):
     """Вызов истории покупок (в статусе кроме исполненно или отменено)"""
     chat_id = update.effective_chat.id
 
-    orders = get_user_orders(chat_id, 'AND orders.status_id NOT IN (6,7)')
+    orders = get_user_orders(chat_id, filter='AND orders.status_id NOT IN (6,7) AND carts.soft_delete="0"')
     orders.sort()
 
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
@@ -1102,11 +1102,12 @@ def ready_order_message(chat_id: int, order_id: int, status: str, deliver: bool,
     """Сообщение о готовности заказа"""
     message = ''
     if status == '1':
-        invoice_num, link = avangard_invoice(title=f'(Заказ в магазине OttudaSPB № {order_id}, сумма {order_sum} р.)',
-                                             price=order_sum,
-                                             customer=f'{chat_id}',
-                                             shop_order_num=order_id,
-                                             pay_type=pay_type)
+        # invoice_num, link = avangard_invoice(title=f'(Заказ в магазине OttudaSPB № {order_id}, сумма {order_sum} р.)',
+        #                                      price=order_sum,
+        #                                      customer=f'{chat_id}',
+        #                                      shop_order_num=order_id,
+        #                                      pay_type=pay_type)
+        link = 'https://www.test.com'
         if payment_url:
             field = 'extra_payment_url'
         else:
