@@ -43,11 +43,11 @@
                 <tr>
                     <td>Название</td>
                     <td>Количество</td>
-                    <td>Стоимость за шт.</td>
-                    <td>Сумма</td>
                     {% for shop in shops %}
                         <td {% if order.profile.main_shop == shop %} bgcolor="green" {% endif %}> {{ shop }}</td>
                     {% endfor %}
+                    <td>Стоимость за шт.</td>
+                    <td><b>Сумма</b></td>
                 </tr>
                 {% for product in products %}
                 <tr>
@@ -56,17 +56,17 @@
                     <td> <input
                             {% if order.status.title != "0" %} disabled {% endif %}
                                 name="{{ product.id }}" id="contactparent" value="{% formatted_float product.amount %} "></td>
-                    {% if product.product.sale %}
-                        <td> {% get_sum 1 product.price order.discount %}</td>
-                        <td> {% get_sum product.amount product.price order.discount %}</td>
-                    {% else %}
-                        <td> {% formatted_float product.price %}</td>
-                        <td> {% get_sum product.amount product.price %}</td>
-                    {% endif %}
                     {% for rest in product.product.rests_set.all %}
                         <td {% if product.amount > rest.amount %} bgcolor="yellow" {% endif %}>
-                            {% formatted_float rest.amount %}</td>
+                            {% formatted_float rest.amount %} шт.</td>
                     {% endfor %}
+                    {% if product.product.sale %}
+                        <td> {% get_sum 1 product.price order.discount %} р.</td>
+                    <td> <b>{% get_sum product.amount product.price order.discount %} р.</b></td>
+                    {% else %}
+                        <td> {% formatted_float product.price %} р.</td>
+                        <td> <b>{% get_sum product.amount product.price %} р.</b></td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
                 {% if order.deliver %}

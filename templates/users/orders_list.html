@@ -20,6 +20,8 @@
         <td>Доставка</td>
         <td>Адрес</td>
         <td>Скидка</td>
+        <td>Оплачены товары</td>
+        <td>Оплачена доставка</td>
     </tr>
     {% for order in orders %}
         <tr>
@@ -44,6 +46,12 @@
             <td><a href="{% url 'orders_detail' order.id  %}">{{ order.delivery_info }}</a></td>
             <td>
                 {% get_discount order.discount %}%
+            </td>
+            <td>
+                {% if order.payed %} да {% else %} нет {% endif %}
+            </td>
+            <td>
+                {% if order.delivery_price != 0 %} да {% else %} нет {% endif %}
             </td>
         </tr>
     {% endfor %}
