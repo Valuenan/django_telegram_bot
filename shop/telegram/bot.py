@@ -5,12 +5,12 @@ from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputMe
 from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, \
     MessageFilter, filters
 from shop.telegram.banking import avangard_invoice
-from shop.telegram.db_connection import load_last_order, get_category, get_products, \
+from shop.telegram.db_connection import get_category, get_products, \
     save_order, get_user_orders, edit_to_cart, show_cart, db_delete_cart, get_product_id, start_user, \
     old_cart_message, save_cart_message_id, old_cart_message_to_none, check_user_is_staff, \
     edit_profile, get_delivery_settings, get_user_address, \
     get_shops, user_add_phone, ADMIN_TG, get_user_phone, get_delivery_shop, save_payment_link, get_parent_category_id, \
-    save_user_message, get_user_profile, edit_user, count_user_messages, get_best_discount
+    save_user_message, get_user_profile, edit_user, count_user_messages, get_best_discount, add_manager_message_id
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from telegram.error import TelegramError
 from users.models import ORDER_STATUS
@@ -604,17 +604,16 @@ def order(update: Update, context: CallbackContext):
     call = update.callback_query
     chat_id = call.message.chat_id
     user = call.message.chat.username
-    order_num = load_last_order()
     command, cart_price, payment_type = call.data.split('_')
     discount = get_best_discount(chat_id)
-    order_products = save_order(chat_id, call.message.text, cart_price, discount, int(payment_type))
+    order_products, order_id = save_order(chat_id, call.message.text, cart_price, discount, int(payment_type))
     text_products = ''
     discount_message = 'р.'
     if discount < Decimal(1):
         discount_message = f'\n со скидкой {int(100 - discount * 100)}%'
     for product_name, product_amount in order_products:
         text_products += f'\n{product_name[0]} - {int(product_amount)} шт.'
-    order_message = f'<b><u>Заказ №: {order_num}</u></b> \n{text_products} \n{call.message.text} \n<b>на сумму: {round(int(cart_price), 2)}{discount_message}</b>'
+    order_message = f'<b><u>Заказ №: {order_id}</u></b> \n{text_products} \n{call.message.text} \n<b>на сумму: {round(int(cart_price), 2)}{discount_message}</b>'
     context.bot.answer_callback_query(callback_query_id=call.id,
                                       text=f'Ваш заказ принят')
     context.bot.edit_message_text(text=f'Клиент: {user} \n{order_message}',
@@ -626,6 +625,7 @@ def order(update: Update, context: CallbackContext):
     context.bot.edit_message_text(text=f'Ваш {order_message} \n\n ожидайте счет на оплату...',
                                   chat_id=call.message.chat.id,
                                   message_id=call.message.message_id, parse_mode='HTML')
+    add_manager_message_id(order_id=order_id, message_id=message.message_id)
 
 
 order_cart_handler = CallbackQueryHandler(order, pattern=str('order_'))
@@ -1102,11 +1102,15 @@ def ready_order_message(chat_id: int, order_id: int, status: str, deliver: bool,
     """Сообщение о готовности заказа"""
     message = ''
     if status == '1':
-        invoice_num, link = avangard_invoice(title=f'(Заказ в магазине OttudaSPB № {order_id}, сумма {order_sum} р.)',
-                                             price=order_sum,
-                                             customer=f'{chat_id}',
-                                             shop_order_num=order_id,
-                                             pay_type=pay_type)
+        if deliver and delivery_price == 0 and payment_url:
+            return 'error', 'Сумма к оплате 0'
+        # invoice_num, link = avangard_invoice(title=f'(Заказ в магазине OttudaSPB № {order_id}, сумма {order_sum} р.)',
+        #                                      price=order_sum,
+        #                                      customer=f'{chat_id}',
+        #                                      shop_order_num=order_id,
+        #                                      pay_type=pay_type)
+
+        link = 'https://www.test.com'
         if payment_url:
             field = 'extra_payment_url'
         else:

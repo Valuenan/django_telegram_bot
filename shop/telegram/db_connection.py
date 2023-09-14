@@ -272,17 +272,6 @@ def db_delete_cart(chat_id: int):
     db.close()
 
 
-def load_last_order() -> int:
-    """Получить номер последнего заказа"""
-    db, cur = connect_db(f"""SELECT MAX(id) FROM orders""")
-    prev_order = cur.fetchone()[0]
-    cur.close()
-    db.close()
-    if prev_order is None:
-        prev_order = 0
-    return prev_order + 1
-
-
 def edit_profile(value: bool or str, field: str, chat_id: int):
     """Сохранить настроки доставки"""
     try:
@@ -392,29 +381,39 @@ def get_user_shop(chat_id: int) -> None or str:
 
 def save_order(chat_id: int, delivery_info: str, cart_price: int, discount=1, payment_type: int = 2) -> list and int:
     """Сохранить заказ"""
-    db, cur = connect_db(f"""SELECT profile.id FROM profile
-    WHERE profile.chat_id='{chat_id}'""")
-    profile_id = cur.fetchone()[0]
-
     db, cur = connect_db(f"""SELECT carts.product_id, carts.amount FROM carts
-    WHERE carts.profile_id={profile_id} AND carts.order_id IS NULL""")
+    INNER JOIN profile ON profile.id = carts.profile_id
+    WHERE profile.chat_id='{chat_id}' AND carts.order_id IS NULL""")
     products_id, products_amount = list(zip(*cur.fetchall()))
 
-    db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, deliver, discount, date, status_id, payment_id ,payed, payed_delivery, delivery_price, manager_message_id) 
+    cur.execute(f"""INSERT INTO orders (profile_id, delivery_info, order_price, deliver, discount, date, status_id, payment_id ,payed, payed_delivery, delivery_price, manager_message_id) 
     SELECT id, '{delivery_info}', '{cart_price}', profile.delivery, '{discount}','{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}','1' ,'{payment_type}' ,'0', '0', 0, 0
     FROM profile WHERE profile.chat_id='{chat_id}'""")
     db.commit()
 
-    cur.execute(f"""UPDATE carts
-    SET order_id = (SELECT MAX(orders.id) FROM orders 
-    WHERE orders.profile_id='{profile_id}')
-    WHERE carts.profile_id='{profile_id}' AND carts.order_id IS NULL AND carts.soft_delete='0'""")
+    cur.execute(f"""SELECT MAX(orders.id), profile.id FROM orders 
+    INNER JOIN profile ON profile.id = orders.profile_id
+    WHERE profile.chat_id='{chat_id}'""")
+    order_id, profile_id = cur.fetchall()[0]
+
+    cur.execute(f"""UPDATE carts SET order_id = '{order_id}'
+    WHERE profile_id = '{profile_id}' AND order_id IS NULL AND soft_delete='0'""")
     db.commit()
     cur.close()
     db.close()
     products_names = _id_to_name('products', products_id)
     products = zip(products_names, products_amount)
-    return products
+    return products, order_id
+
+
+def add_manager_message_id(order_id: int, message_id: int):
+    """Добавить номер сообщения в канале менеджеров в заказ"""
+    db, cur = connect_db(f"""UPDATE orders 
+        SET orders.manager_message_id = '{message_id}'
+        WHERE orders.id = '{order_id}'""")
+    db.commit()
+    cur.close()
+    db.close()
 
 
 def get_user_orders(chat_id: int, filter: str = '') -> list:
