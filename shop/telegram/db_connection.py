@@ -400,15 +400,15 @@ def save_order(chat_id: int, delivery_info: str, cart_price: int, discount=1, pa
     WHERE carts.profile_id={profile_id} AND carts.order_id IS NULL""")
     products_id, products_amount = list(zip(*cur.fetchall()))
 
-    db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, deliver, discount, date, status_id, payment_id ,payed, delivery_price) 
-    SELECT id, '{delivery_info}', '{cart_price}', delivery,{discount} ,'{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}','1' ,'{payment_type}' ,'0', 0
+    db, cur = connect_db(f"""INSERT INTO orders (profile_id, delivery_info, order_price, deliver, discount, date, status_id, payment_id ,payed, payed_delivery, delivery_price, manager_message_id) 
+    SELECT id, '{delivery_info}', '{cart_price}', profile.delivery, '{discount}','{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}','1' ,'{payment_type}' ,'0', '0', 0, 0
     FROM profile WHERE profile.chat_id='{chat_id}'""")
     db.commit()
 
     cur.execute(f"""UPDATE carts
     SET order_id = (SELECT MAX(orders.id) FROM orders 
-    WHERE orders.profile_id='{profile_id}' AND soft_delete='0')
-    WHERE carts.profile_id='{profile_id}' AND carts.order_id IS NULL""")
+    WHERE orders.profile_id='{profile_id}')
+    WHERE carts.profile_id='{profile_id}' AND carts.order_id IS NULL AND carts.soft_delete='0'""")
     db.commit()
     cur.close()
     db.close()

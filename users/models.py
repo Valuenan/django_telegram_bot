@@ -101,6 +101,8 @@ class Orders(models.Model):
     payed = models.BooleanField(verbose_name='Оплачены товары', default=False)
     payed_delivery = models.BooleanField(verbose_name='Оплачена доставка', default=False)
     tracing_num = models.CharField(max_length=30, verbose_name='Трек номер', null=True, blank=True)
+    manager_message_id = models.IntegerField(verbose_name='Номер сообщения в канале менеджеров', default=0, blank=True,
+                                              null=True)
 
     def __str__(self):
         return f'{self.id}'

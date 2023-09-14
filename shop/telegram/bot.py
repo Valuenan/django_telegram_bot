@@ -620,7 +620,7 @@ def order(update: Update, context: CallbackContext):
     context.bot.edit_message_text(text=f'Клиент: {user} \n{order_message}',
                                   chat_id=call.message.chat.id,
                                   message_id=call.message.message_id, parse_mode='HTML')
-    context.bot.forward_message(chat_id=ORDERS_CHAT_ID,
+    message = context.bot.forward_message(chat_id=ORDERS_CHAT_ID,
                                 from_chat_id=call.message.chat_id,
                                 message_id=call.message.message_id)
     context.bot.edit_message_text(text=f'Ваш {order_message} \n\n ожидайте счет на оплату...',
