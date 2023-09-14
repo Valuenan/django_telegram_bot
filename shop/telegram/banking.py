@@ -113,7 +113,7 @@ def avangard_invoice(title: str, price: int, customer: str, shop_order_num: int,
     return order_num, payment_link
 
 
-def avangard_check(payment_url: str):
+def avangard_check(orders_id: dict):
     http.client.HTTPConnection.debuglevel = 0
 
     logging.basicConfig(filename='banking.log')
@@ -122,17 +122,28 @@ def avangard_check(payment_url: str):
     # requests_log.setLevel(logging.DEBUG)
     # requests_log.propagate = True
 
+    base_url = 'https://shop.avangard.ru/v5_iacq/faces/links/'
+    login_url = base_url + 'login.xhtml'
+    orders_url = base_url + 'orders.xhtml'
+
     # открытие сессии
-    session = get_legacy_session()
+    with get_legacy_session() as session:
 
-    # обновление headers сессии
-    session.headers.update({'User-Agent': user_agent})
+        # обновление headers сессии
+        session.headers.update({'User-Agent': user_agent})
+        # автооризация
 
-    resp = session.get(payment_url)
+        session.post(login_url, settings.BANKING_CREDENTIALS)
 
-    bs = BeautifulSoup(resp.text, 'html.parser')
-    payed_check = bs.find_all(class_='redBold')
-    if len(payed_check) == 2 and 'Заказ был ранее оплачен' in payed_check[1]:
-        payed_sum = bs.find(class_='pay_before_info_sum').text.split(',')[0].replace('\xa0', '')
-        return True, int(payed_sum)
-    return False, 0
+        resp = session.get(orders_url)
+        bs = BeautifulSoup(resp.text, 'html.parser')
+
+        orders = bs.find_all(class_='row sol_t')
+
+        for order in orders:
+            check_id = order.find(class_='comment_button check')
+            if check_id is not None and check_id.string.strip() in orders_id:
+                if order.find(class_='status_PAYED') is not None:
+                    payed_sum = order.find(class_='col-3').string.strip().split(',')[0]
+                    orders_id[check_id.string.strip()][0] = payed_sum
+        return orders_id
