@@ -107,7 +107,7 @@
     <form class="form" action="{% url 'send_message' %}" method="post">
        {% csrf_token %}
         <input hidden type="text" name="chat_id" value="{{ order.profile.chat_id }}">
-        <p>Сообщение: <input type="text" name="message" value=""></p>
+        <p>Сообщение: <textarea name="message"></textarea></p>
         <p>Тихое уведомление: <input name="disable_notification" type="checkbox" checked></p>
         <button type="submit">Отправить</button>
     </form>

@@ -16,7 +16,7 @@
        {% csrf_token %}
 
         <input hidden type="text" name="chat_id" value="{{ pk }}">
-        <p>Сообщение: <input type="text" name="message" value=""></p>
+        <p>Сообщение: <textarea name="message"></textarea></p>
         <p>Тихое уведомление: <input name="disable_notification" type="checkbox" checked></p>
         <button type="submit">Отправить</button>
     </form>
