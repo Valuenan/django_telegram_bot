@@ -4,7 +4,7 @@ from django.core.management.base import BaseCommand
 
 from shop.telegram.banking_check import check_orders_payment
 
-TIMER = 900
+TIMER = 5400
 
 
 class Command(BaseCommand):
