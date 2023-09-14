@@ -688,8 +688,8 @@ def orders_history(update: Update, context: CallbackContext):
         discount_sum = 0
 
         for order in orders:
-            order_id, product_name, product_price, product_amount, order_sum, order_status, payment_url, tracing_num, for_sale, discount, delivery_price = order
-            url_list[order_id] = payment_url
+            order_id, product_name, product_price, product_amount, order_sum, order_status, payment_url, extra_payment_url, tracing_num, for_sale, discount, delivery_price = order
+            url_list[order_id] = (payment_url, extra_payment_url)
             tracing_list[order_id] = tracing_num
 
             if not prev_id:
@@ -721,7 +721,11 @@ def orders_history(update: Update, context: CallbackContext):
                     delivery_price_text = ''
                 text += f'''<b><u>Заказ № {prev_id}</u></b>\n <u>Статус заказа: {ORDER_STATUS[int(prev_status)][1]}</u> \n {text_products}{discount_text}{delivery_price_text}\n<b>ИТОГО:{prev_sum + prev_delivery_price} р.</b>'''
                 if prev_status == '1' and url_list and prev_id in url_list:
-                    text += f'\n ссылка на оплату (чек): {url_list[prev_id]}'
+                    if url_list[prev_id][1]:
+                        text += f'\n ссылка на оплату товаров (чек): {url_list[prev_id][0]}'
+                        text += f'\n ссылка на оплату доставки (чек): {url_list[prev_id][1]}'
+                    else:
+                        text += f'\n ссылка на оплату (чек): {url_list[prev_id][0]}'
                 elif prev_status == '3':
                     if tracing_list[prev_id] not in [None, 'None', '']:
                         tracing = tracing_list[prev_id]
@@ -752,7 +756,11 @@ def orders_history(update: Update, context: CallbackContext):
                 delivery_price_text = ''
             text += f'''<b><u>Заказ № {order_id}</u></b> \n <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u> \n {text_products}{discount_text}{delivery_price_text}\n<b>ИТОГО: {order_sum + delivery_price} р.</b>'''
             if order_status == '1' and url_list and order_id in url_list:
-                text += f'\n ссылка на оплату (чек): {url_list[order_id]}'
+                if url_list[prev_id][1]:
+                    text += f'\n ссылка на оплату товаров (чек): {url_list[order_id][0]}'
+                    text += f'\n ссылка на оплату доставки (чек): {url_list[order_id][1]}'
+                else:
+                    text += f'\n ссылка на оплату (чек): {url_list[order_id][0]}'
             elif order_status == '3':
                 if tracing_list[order_id] not in [None, 'None', '']:
                     tracing = tracing_list[order_id]
@@ -1142,11 +1150,11 @@ def ready_order_message(chat_id: int, order_id: int, status: str, deliver: bool,
         message = 'был отменен'
     try:
         updater.bot.send_message(chat_id=chat_id,
-                                 text=f'Ваш заказ № {order_id} на сумму {order_sum} р. {message}',
+                                 text=f'Ваш заказ № {order_id} на сумму {order_sum} р. {message}\nотслеживать свои заявки можно перейдя "Меню" -> "Статусы заказов"',
                                  parse_mode='HTML')
     except Exception as error:
         return 'error', error
-    return 'ok', f'Ваш заказ № {order_id} на сумму {order_sum} р. {message}'
+    return 'ok', f'Ваш заказ № {order_id} на сумму {order_sum} р. {message}\nотслеживать свои заявки можно перейдя "Меню" -> "Статусы заказов"'
 
 
 def send_message_to_user(chat_id: int, message: str, disable_notification: bool = True) -> tuple:

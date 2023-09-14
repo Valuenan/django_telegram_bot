@@ -418,7 +418,7 @@ def add_manager_message_id(order_id: int, message_id: int):
 
 def get_user_orders(chat_id: int, filter: str = '') -> list:
     """Получить список заказов пользователя"""
-    db, cur = connect_db(f"""SELECT orders.id, products.name, products.price ,carts.amount, orders.order_price, order_status.title, orders.payment_url, orders.tracing_num, products.sale, orders.discount, delivery_price
+    db, cur = connect_db(f"""SELECT orders.id, products.name, products.price ,carts.amount, orders.order_price, order_status.title, orders.payment_url, orders.extra_payment_url, orders.tracing_num, products.sale, orders.discount, delivery_price
     FROM orders
     INNER JOIN carts ON orders.id = carts.order_id 
     INNER JOIN products ON carts.product_id = products.id
