@@ -181,7 +181,7 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
         context.bot.delete_message(chat_id=call.message.chat.id,
                                    message_id=call.message.message_id)
         for product in products:
-            product_id, product_name, product_img, price, category_id, product_for_sale ,rests = product
+            product_id, product_name, product_img, price, category_id, product_for_sale, rests = product
             buttons = ([InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add_{product_id}'),
                         InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove_{product_id}')],)
             imgs = [product_img]
@@ -280,7 +280,7 @@ def edit(update: Update, context: CallbackContext):
     user = call.from_user.id
     command, product_id = call.data.split('_')
 
-    product_amount, product = edit_to_cart(command, user, product_id)
+    product_amount, product, product_rests = edit_to_cart(command, user, product_id)
     context.bot.answer_callback_query(callback_query_id=call.id,
                                       text=f'В корзине {product[0][:20]}... {int(product_amount)} шт.')
 
@@ -535,9 +535,23 @@ def edit_cart(update: Update, context: CallbackContext):
     chat_id = call.message.chat_id
     message_id = call.message.message_id
     command, product_id = call.data.split('_')
-    amount, product = edit_to_cart(command, chat_id, product_id)
+    amount, product, product_rests = edit_to_cart(command, chat_id, product_id)
     message = f'{product[0]} - {int(amount)} шт.'
-    if amount > 0:
+    if amount == 0:
+        keyboard_edit = InlineKeyboardMarkup(
+            [[InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add-cart_{product_id}')]])
+        context.bot.edit_message_text(chat_id=chat_id,
+                                      message_id=message_id,
+                                      text=message,
+                                      reply_markup=keyboard_edit)
+    elif amount == product_rests:
+        keyboard_edit = InlineKeyboardMarkup(
+            [[InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove-cart_{product_id}')]])
+        context.bot.edit_message_text(chat_id=chat_id,
+                                      message_id=message_id,
+                                      text=message,
+                                      reply_markup=keyboard_edit)
+    else:
         buttons = ([InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add-cart_{product_id}'),
                     InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove-cart_{product_id}')],)
         keyboard_edit = InlineKeyboardMarkup([button for button in buttons])
@@ -548,13 +562,6 @@ def edit_cart(update: Update, context: CallbackContext):
                                           reply_markup=keyboard_edit)
         except error.BadRequest:
             pass
-    else:
-        keyboard_edit = InlineKeyboardMarkup(
-            [[InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add-cart_{product_id}')]])
-        context.bot.edit_message_text(chat_id=chat_id,
-                                      message_id=message_id,
-                                      text=message,
-                                      reply_markup=keyboard_edit)
 
 
 edit_cart_handler = CallbackQueryHandler(edit_cart, pattern="^" + str('add-cart_'))
@@ -574,12 +581,20 @@ def start_edit(update: Update, context: CallbackContext):
                                message_id=message_id)
     if len(cart_info) > 0:
         for product in cart_info:
-            product_name, amount, price = product
+            product_name, sale, amount, price = product
             product_id = get_product_id(product_name)[0]
-            buttons = ([InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add-cart_{product_id}'),
-                        InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove-cart_{product_id}')],)
-            keyboard_edit = InlineKeyboardMarkup([button for button in buttons])
-            message = f'{product_name} - {int(amount)} шт. по {price} р.\n'
+            amount, product, product_rests = edit_to_cart('get', chat_id, product_id)
+
+            if amount == product_rests:
+                keyboard_edit = InlineKeyboardMarkup(
+                    [[InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove-cart_{product_id}')]])
+
+            else:
+                buttons = ([InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add-cart_{product_id}'),
+                            InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove-cart_{product_id}')],)
+                keyboard_edit = InlineKeyboardMarkup([button for button in buttons])
+
+            message = f'{product_name} - {int(amount)} шт. по {round(price * sale)} р.\n'
             message = context.bot.send_message(chat_id=chat_id,
                                                text=message,
                                                reply_markup=keyboard_edit,
@@ -620,8 +635,8 @@ def order(update: Update, context: CallbackContext):
                                   chat_id=call.message.chat.id,
                                   message_id=call.message.message_id, parse_mode='HTML')
     message = context.bot.forward_message(chat_id=ORDERS_CHAT_ID,
-                                from_chat_id=call.message.chat_id,
-                                message_id=call.message.message_id)
+                                          from_chat_id=call.message.chat_id,
+                                          message_id=call.message.message_id)
     context.bot.edit_message_text(text=f'Ваш {order_message} \n\n ожидайте счет на оплату...',
                                   chat_id=call.message.chat.id,
                                   message_id=call.message.message_id, parse_mode='HTML')
@@ -698,7 +713,8 @@ def orders_history(update: Update, context: CallbackContext):
                 if discount < Decimal(1) and for_sale:
                     discount_sum += product_price - product_price * discount
                     product_price = f'{round(product_price * discount)}.00'
-                order_products = [f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price} р.']
+                order_products = [
+                    f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price} р.']
 
             elif prev_id == order_id:
                 position += 1
@@ -740,7 +756,8 @@ def orders_history(update: Update, context: CallbackContext):
                 else:
                     discount_sum = 0
 
-                order_products = [f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price} р.']
+                order_products = [
+                    f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price} р.']
                 prev_id, prev_sum, prev_status, prev_for_sale, prev_delivery_price, prev_discount = order_id, order_sum, order_status, for_sale, delivery_price, discount
 
 
@@ -1105,7 +1122,8 @@ dispatcher.add_handler(info_payment_card_handler)
 
 # АДМИНИСТРАТИВНЫЕ
 
-def ready_order_message(chat_id: int, order_id: int, status: str, deliver: bool, order_sum: int = None, delivery_price: int = 0,
+def ready_order_message(chat_id: int, order_id: int, status: str, deliver: bool, order_sum: int = None,
+                        delivery_price: int = 0,
                         pay_type: int = 1, tracing_num: str = 'нет', payment_url=None):
     """Сообщение о готовности заказа"""
     message = ''
@@ -1122,12 +1140,12 @@ def ready_order_message(chat_id: int, order_id: int, status: str, deliver: bool,
                 pay_type=pay_type)
         else:
             field = 'payment_url'
-            invoice_num, link = avangard_invoice(title=f'(Заказ в магазине OttudaSPB № {order_id}, сумма {order_sum} р.)',
-                                                 price=order_sum,
-                                                 customer=f'{chat_id}',
-                                                 shop_order_num=order_id,
-                                                 pay_type=pay_type)
-
+            invoice_num, link = avangard_invoice(
+                title=f'(Заказ в магазине OttudaSPB № {order_id}, сумма {order_sum} р.)',
+                price=order_sum,
+                customer=f'{chat_id}',
+                shop_order_num=order_id,
+                pay_type=pay_type)
 
         save_payment_link(order_id, link, field)
 
@@ -1136,7 +1154,7 @@ def ready_order_message(chat_id: int, order_id: int, status: str, deliver: bool,
         elif payment_url:
             message = f''',в том числе доставка на сумму {delivery_price} р., \n<u> ожидает оплаты </u> доставки \nваша ссылка на оплату: {link}'''
         elif delivery_price == 0 and deliver:
-                message = f'''\nдля резервирования товаров <u> требуется оплатить </u> по ссылке: {link} \nсчет на оплату транспортных мы вышлем позже, нам потребуется время для расчета стоимости\n спасибо за понимание'''
+            message = f'''\nдля резервирования товаров <u> требуется оплатить </u> по ссылке: {link} \nсчет на оплату транспортных мы вышлем позже, нам потребуется время для расчета стоимости\n спасибо за понимание'''
         else:
             message = f''',в том числе доставка на сумму {delivery_price} р., <u> ожидает оплаты </u> \nваша ссылка на оплату: {link}'''
 

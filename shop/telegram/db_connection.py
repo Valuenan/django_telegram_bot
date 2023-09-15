@@ -194,7 +194,9 @@ def edit_to_cart(command: str, chat_id: int, product_id: int) -> (int, list):
         amount = 0
     else:
         amount = product_info[0]
-        if command == 'add' or command == 'add-cart':
+        if command == 'get':
+            pass
+        elif command == 'add' or command == 'add-cart':
             if amount < product_rests:
                 amount += + 1
         elif command == 'remove' or command == 'remove-cart':
@@ -212,7 +214,7 @@ def edit_to_cart(command: str, chat_id: int, product_id: int) -> (int, list):
     product = cur.fetchone()
     cur.close()
     db.close()
-    return amount, product
+    return amount, product, product_rests
 
 
 def old_cart_message_to_none(chat_id: int):
@@ -242,7 +244,7 @@ def show_cart(chat_id: int) -> list:
     FROM carts  
     INNER JOIN products 
     ON carts.product_id = products.id 
-    WHERE carts.order_id IS NULL AND carts.profile_id = (SELECT id FROM profile where chat_id='{chat_id}')""")
+    WHERE carts.order_id IS NULL AND carts.profile_id = (SELECT id FROM profile where chat_id='{chat_id}') AND carts.soft_delete = '0'""")
     cart_info = cur.fetchall()
     if cart_info is None:
         cart_list = []
