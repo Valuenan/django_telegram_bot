@@ -434,6 +434,15 @@ def get_user_orders(chat_id: int, filter: str = '') -> list:
     return orders
 
 
+def get_order_address(order_id: int) -> None or str:
+    """Получить адрес заказа"""
+    db, cur = connect_db(f"SELECT delivery_info FROM orders WHERE id='{order_id}'")
+    address = cur.fetchone()[0]
+    cur.close()
+    db.close()
+    return address
+
+
 def count_user_messages(chat_id: int):
     """ Сохранить сообщение от пользователя """
     db, cur = connect_db(f"""SELECT count(user_message.id) 

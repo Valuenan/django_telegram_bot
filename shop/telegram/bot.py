@@ -10,7 +10,8 @@ from shop.telegram.db_connection import get_category, get_products, \
     old_cart_message, save_cart_message_id, old_cart_message_to_none, check_user_is_staff, \
     edit_profile, get_delivery_settings, get_user_address, \
     get_shops, user_add_phone, ADMIN_TG, get_user_phone, get_delivery_shop, save_payment_link, get_parent_category_id, \
-    save_user_message, get_user_profile, edit_user, count_user_messages, get_best_discount, add_manager_message_id
+    save_user_message, get_user_profile, edit_user, count_user_messages, get_best_discount, add_manager_message_id, \
+    get_order_address
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from telegram.error import TelegramError
 from users.models import ORDER_STATUS
@@ -928,17 +929,22 @@ dispatcher.add_handler(info_query_handler)
 
 def info_address(update: Update, context: CallbackContext):
     """Информация об адресе"""
-
-    context.bot.edit_message_text(chat_id=update.effective_chat.id, text=text.text_address, parse_mode='HTML',
-                                  message_id=update.callback_query.message.message_id)
+    if update.callback_query:
+        context.bot.edit_message_text(chat_id=update.effective_chat.id, text=text.text_address, parse_mode='HTML',
+                                      message_id=update.callback_query.message.message_id)
+    else:
+        context.bot.send_message(chat_id=update.effective_chat.id, text=text.text_address, parse_mode='HTML',
+                                 disable_notification=True)
     img_1 = open(f'{BASE_DIR}/static/img/bot_info/map.png', 'rb')
     context.bot.send_photo(chat_id=update.effective_chat.id,
                            photo=img_1,
                            disable_notification=True)
 
 
-info_address_handler = CallbackQueryHandler(info_address, pattern=str('info_address'))
-dispatcher.add_handler(info_address_handler)
+info_address_handlers = [CommandHandler('map', info_address),
+                         CallbackQueryHandler(info_address, pattern=str('info_address'))]
+for handler in info_address_handlers:
+    dispatcher.add_handler(handler)
 
 
 def info_menu(update: Update, context: CallbackContext):
@@ -1168,7 +1174,8 @@ def ready_order_message(chat_id: int, order_id: int, status: str, deliver: bool,
     elif status == '3':
         message = f'поступил в доставку, трек номер: {tracing_num}'
     elif status == '4':
-        message = 'ожидает вас в магазине'
+        order_shop = get_order_address(order_id=order_id)
+        message = f'ожидает вас в магазине по адресу: {" ".join(order_shop.split(" ")[-2:])}\nбольше информации по ссылке /map'
     elif status == '6':
         message = 'был отменен'
     try:
