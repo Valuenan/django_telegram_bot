@@ -595,7 +595,7 @@ def start_edit(update: Update, context: CallbackContext):
                             InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove-cart_{product_id}')],)
                 keyboard_edit = InlineKeyboardMarkup([button for button in buttons])
 
-            message = f'{product_name} - {int(amount)} шт. по {round(price * sale)} р.\n'
+            message = f'{product_name} - {int(amount)} шт.\n'
             message = context.bot.send_message(chat_id=chat_id,
                                                text=message,
                                                reply_markup=keyboard_edit,
