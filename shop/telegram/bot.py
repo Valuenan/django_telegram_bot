@@ -1175,7 +1175,7 @@ def ready_order_message(chat_id: int, order_id: int, status: str, deliver: bool,
         message = f'поступил в доставку, трек номер: {tracing_num}'
     elif status == '4':
         order_shop = get_order_address(order_id=order_id)
-        message = f'ожидает вас в магазине по адресу: {" ".join(order_shop.split(" ")[-2:])}\nбольше информации по ссылке /map'
+        message = f'ожидает вас в магазине по адресу: {" ".join(order_shop.split(" ")[-2:])}\nбольше информации о магазине по ссылке /map'
     elif status == '6':
         message = 'был отменен'
     try:
