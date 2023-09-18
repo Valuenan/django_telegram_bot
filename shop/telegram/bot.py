@@ -1130,7 +1130,7 @@ dispatcher.add_handler(info_payment_card_handler)
 
 def ready_order_message(chat_id: int, order_id: int, status: str, deliver: bool, order_sum: int = None,
                         delivery_price: int = 0,
-                        pay_type: int = 1, tracing_num: str = 'нет', payment_url=None):
+                        pay_type: int = 1, tracing_num: str = 'нет', payment_url: str = None, bot_action: bool = False):
     """Сообщение о готовности заказа"""
     message = ''
     if status == '1':
@@ -1176,6 +1176,8 @@ def ready_order_message(chat_id: int, order_id: int, status: str, deliver: bool,
     elif status == '4':
         order_shop = get_order_address(order_id=order_id)
         message = f'ожидает вас в магазине по адресу: {" ".join(order_shop.split(" ")[-2:])}\nбольше информации о магазине по ссылке /map'
+        if bot_action:
+            updater.bot.send_message(chat_id=ORDERS_CHAT_ID, text=f'Поступила оплата по заказу № {order_id}')
     elif status == '6':
         message = 'был отменен'
     try:

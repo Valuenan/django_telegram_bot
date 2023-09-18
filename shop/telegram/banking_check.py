@@ -1,4 +1,4 @@
-from asyncio import sleep
+from time import sleep
 
 from shop.telegram.banking import avangard_check
 from shop.telegram.bot import ready_order_message
@@ -26,15 +26,14 @@ def check_orders_payment():
                 if payed and extra_payment_url is None:
                     if payed == products_price:
                         if deliver:
-                            order_payed(set_str='payed="1"', order_id=order_id)
-                            ready_order_message(chat_id=user, order_id=order_id, status='2', deliver=deliver, order_sum=order_sum)
+                            order_payed(set_str='payed="1", status_id="3"', order_id=order_id)
+                            ready_order_message(chat_id=user, order_id=order_id, status='2', deliver=deliver, order_sum=order_sum, bot_action=True)
                         else:
-                            order_payed(set_str='payed="1"', order_id=order_id)
-                            ready_order_message(chat_id=user, order_id=order_id, status='4', deliver=deliver, order_sum=order_sum)
+                            order_payed(set_str='payed="1", status_id="5"', order_id=order_id)
+                            ready_order_message(chat_id=user, order_id=order_id, status='4', deliver=deliver, order_sum=order_sum, bot_action=True)
                     elif delivery_price != 0 and payed == products_price + delivery_price:
-                        order_payed(set_str='payed="1", payed_delivery="1"', order_id=order_id)
-                        ready_order_message(chat_id=user, order_id=order_id, status='2', deliver=deliver, order_sum=order_sum)
+                        order_payed(set_str='payed="1", payed_delivery="1", status_id="3"', order_id=order_id)
+                        ready_order_message(chat_id=user, order_id=order_id, status='2', deliver=deliver, order_sum=order_sum, bot_action=True)
                 else:
-                    order_payed(set_str='payed_delivery="1"', order_id=order_id)
-                    ready_order_message(chat_id=user, order_id=order_id, status='2', deliver=deliver, order_sum=order_sum)
-
+                    order_payed(set_str='payed_delivery="1", status_id="3"', order_id=order_id)
+                    ready_order_message(chat_id=user, order_id=order_id, status='2', deliver=deliver, order_sum=order_sum, bot_action=True)

@@ -495,7 +495,7 @@ def save_payment_link(order_id: int, link: str, field):
 def order_payed(set_str: str, order_id: int):
     """Помечает ордер оплаченым"""
     db, cur = connect_db(
-        f"""UPDATE orders SET {set_str}, status_id='3' 
+        f"""UPDATE orders SET {set_str}
         WHERE id='{order_id}'""")
     db.commit()
     cur.close()
