@@ -615,6 +615,17 @@ cart_list_handler = CallbackQueryHandler(start_edit, pattern=str('correct-cart')
 dispatcher.add_handler(cart_list_handler)
 
 
+def _create_user_order_message(order_id, order_products, discount, cart_price, address):
+    text_products = ''
+    discount_message = 'р.'
+    if discount < Decimal(1):
+        discount_message = f'\n со скидкой {int(100 - discount * 100)}%'
+    for product_name, product_amount in order_products:
+        text_products += f'\n{product_name[0]} - {int(product_amount)} шт.'
+    order_message = f'<b><u>Заказ №: {order_id}</u></b> \n{text_products} \n{address} \n<b>на сумму: {round(int(cart_price), 2)}{discount_message}</b>'
+    return order_message
+
+
 def order(update: Update, context: CallbackContext):
     """Оформить заявку (переслать в канал менеджеров)"""
     call = update.callback_query
@@ -1127,6 +1138,34 @@ dispatcher.add_handler(info_payment_card_handler)
 
 
 # АДМИНИСТРАТИВНЫЕ
+
+def manager_remove_order(user_order: object) -> str or bool:
+    try:
+        updater.bot.delete_message(chat_id=ORDERS_CHAT_ID, message_id=int(user_order.manager_message_id))
+    except Exception as err:
+        raise err
+
+
+def manager_edit_order(user_order: object) -> str:
+    """Изменить сообщение в канале менеджеров"""
+    text_products = ''
+    discount_message = 'р.'
+    carts = user_order.carts_set.filter(soft_delete=False).select_related('product')
+    if user_order.discount < Decimal(1):
+        discount_message = f'\n со скидкой {int(100 - user_order.discount * 100)}%'
+    for cart in carts:
+        text_products += f'\n{cart.product.name} - {int(cart.amount)} шт.'
+    order_message = f'<b><u>Заказ №: {user_order.id}</u></b> \n{text_products} \n{user_order.delivery_info} \n<b>на сумму: {round(int(user_order.order_price) + user_order.delivery_price, 2)}{discount_message}</b>'
+    try:
+        manager_remove_order(user_order)
+        message = updater.bot.send_message(chat_id=ORDERS_CHAT_ID, text=order_message,
+                                           parse_mode='HTML', disable_notification=True)
+        user_order.manager_message_id = message.message_id
+        user_order.save()
+        return 'Заявка изменена в канале менеджеров'
+    except Exception as err:
+        return f'Неудалось изменить заявку в канале менеджеров по причине: {err}'
+
 
 def ready_order_message(chat_id: int, order_id: int, status: str, deliver: bool, order_sum: int = None,
                         delivery_price: int = 0,

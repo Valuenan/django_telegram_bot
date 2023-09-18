@@ -16,7 +16,7 @@ from django.views.generic import ListView, DetailView
 from .forms import ImportGoodsForm, ImportCategoryForm
 from users.models import Orders, Carts, Profile, OrderStatus, UserMessage
 from .models import File, Category, Product, Rests, Shop
-from .telegram.bot import ready_order_message, send_message_to_user
+from .telegram.bot import ready_order_message, send_message_to_user, manager_edit_order, manager_remove_order
 
 logger = logging.getLogger(__name__)
 
@@ -327,25 +327,47 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         rests_action = order.update_order_status(new_status)
 
         order_sum = delivery_price
-        products = order.carts_set.filter(soft_delete=False)
+        carts = order.carts_set.filter(soft_delete=False)
         if order.discount < Decimal(1):
-            for cart in products:
+            for cart in carts:
                 if cart.product.sale:
                     order_sum += round(cart.product.price * order.discount) * int(cart.amount)
                 else:
                     order_sum += cart.product.price * int(cart.amount)
         else:
-            for cart in products:
+            for cart in carts:
                 order_sum += round(cart.product.price * cart.amount, 2)
 
-        if new_status in ['0', '2', '5']:
+        if new_status == '0':
+            order.update_order_quantity(form, rests_action, shop)
+            result = manager_edit_order(order)
+            message = f'Данные схранены, статус изменен. {result}'
+        elif new_status == '2':
             order.update_order_quantity(form, rests_action, shop)
             message = 'Данные схранены, статус изменен'
+        elif new_status == '5':
+            try:
+                manager_remove_order(order)
+                message = 'Данные схранены, статус изменен'
+            except Exception as err:
+                message = f'Неудалось удалить сообщение из канала поп причине: {err}'
+                messages.add_message(request, messages.ERROR, message)
         elif new_status in ['1', '3', '4', '6'] and old_status != new_status:
-            status, result = ready_order_message(chat_id=order.profile.chat_id, order_id=order.id, order_sum=int(order_sum),
-                                          status=new_status, deliver=order.deliver, delivery_price=delivery_price,
-                                          pay_type=order.payment.title,
-                                          tracing_num=order.tracing_num, payment_url=order.payment_url)
+            if new_status == '6':
+                try:
+                    manager_remove_order(order)
+                    message = 'Заявка удалена из канала менеджеров'
+                    messages.add_message(request, messages.INFO, message)
+                except Exception as err:
+                    err_message = f'Неудалось удалить сообщение из канала поп причине: {err}'
+                    messages.add_message(request, messages.ERROR, err_message)
+            status, result = ready_order_message(chat_id=order.profile.chat_id, order_id=order.id,
+                                                 order_sum=int(order_sum),
+                                                 status=new_status, deliver=order.deliver,
+                                                 delivery_price=delivery_price,
+                                                 pay_type=order.payment.title,
+                                                 tracing_num=order.tracing_num, payment_url=order.payment_url)
+
             if status == 'ok':
                 message = f'Данные схранены, статус изменен, отправлено сообщение: {result}'
             else:
