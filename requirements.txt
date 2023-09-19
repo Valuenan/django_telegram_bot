@@ -1,3 +1,4 @@
+annotated-types==0.5.0
 APScheduler==3.6.3
 asgiref==3.5.2
 backports.zoneinfo==0.2.1
@@ -10,6 +11,7 @@ django-debug-toolbar==3.5.0
 django-environ==0.9.0
 environs==9.5.0
 idna==3.4
+lxml==4.9.3
 marshmallow==3.19.0
 mysql==0.0.3
 mysql-connector-python==8.1.0
@@ -17,8 +19,11 @@ mysqlclient==2.2.0
 packaging==21.3
 Pillow==9.3.0
 protobuf==4.21.12
+pydantic==2.3.0
+pydantic_core==2.6.3
 pyparsing==3.0.9
 python-dotenv==0.21.0
+python-stdnum==1.19
 python-telegram-bot==13.14
 pytz==2022.5
 pytz-deprecation-shim==0.1.0.post0
@@ -27,6 +32,7 @@ six==1.16.0
 soupsieve==2.4.1
 sqlparse==0.4.3
 tornado==6.1
+typing_extensions==4.8.0
 tzdata==2022.6
 tzlocal==4.2
 urllib3==1.26.6

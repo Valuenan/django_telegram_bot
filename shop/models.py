@@ -18,7 +18,8 @@ class File(models.Model):
 
 class Shop(models.Model):
     name = models.CharField(max_length=100, verbose_name='Название магазина')
-    sale = models.DecimalField(verbose_name="Коэффициент скидки на все товары", max_digits=3, decimal_places=2, default=1)
+    sale = models.DecimalField(verbose_name="Коэффициент скидки на все товары", max_digits=3, decimal_places=2,
+                               default=1)
 
     def __str__(self):
         return self.name
@@ -31,8 +32,9 @@ class Shop(models.Model):
 
 class Category(models.Model):
     command = models.CharField(max_length=100, verbose_name='Название категории')
+    ref_key = models.CharField(max_length=36, verbose_name='Ссылка в базе 1с', null=True, blank=True)
     id = models.IntegerField(unique=True, primary_key=True, db_index=True, verbose_name="ИД группы")
-    parent_category = models.ForeignKey('self', on_delete=models.PROTECT, verbose_name='Родительсая категоря',
+    parent_category = models.ForeignKey('self', on_delete=models.CASCADE, verbose_name='Родительсая категоря',
                                         null=True, blank=True)
 
     def __str__(self):
@@ -46,9 +48,11 @@ class Category(models.Model):
 
 class Product(models.Model):
     category = models.ForeignKey(Category, on_delete=models.PROTECT, verbose_name='Категория')
+    ref_key = models.CharField(max_length=36, verbose_name='Ссылка в базе 1с', null=True, blank=True)
     name = models.CharField(max_length=100, verbose_name='Название')
     img = models.CharField(max_length=100, verbose_name='Изображение товара', default='no-image.jpg')
     price = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Цена товара')
+    search = models.IntegerField(verbose_name='Номер для поиска', null=True, blank=True)
     sale = models.BooleanField(verbose_name='Учавствует в распродаже', default=False)
 
     def __str__(self):

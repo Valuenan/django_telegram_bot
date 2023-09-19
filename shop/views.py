@@ -13,12 +13,56 @@ from django.views import View
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.views.generic import ListView, DetailView
+
+from odata.loader import create_request, CatalogFolder
 from .forms import ImportGoodsForm, ImportCategoryForm
 from users.models import Orders, Carts, Profile, OrderStatus, UserMessage
 from .models import File, Category, Product, Rests, Shop
 from .telegram.bot import ready_order_message, send_message_to_user, manager_edit_order, manager_remove_order
+from .telegram.settings import CREDENTIALS_1C
 
 logger = logging.getLogger(__name__)
+
+
+class ImportCategory1CView(View):
+    @staticmethod
+    def get(request):
+        return render(request, 'admin/admin_import_category_1c.html')
+
+    def post(self, request):
+        created = 0
+        updated = 0
+        data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=CatalogFolder,
+                              server_url=CREDENTIALS_1C['server'], base=CREDENTIALS_1C['base'])
+        for category in data:
+            if category.deletion_mark or 'd8915c68-29fd-11ee-a0fe-005056b6fe75' in [category.ref_key,
+                                                                                    category.parent_key]:
+                continue
+            exist_category = Category.objects.filter(id=category.search)
+            if not exist_category:
+                created += 1
+                new_category = Category.objects.create(command=category.description.strip(), ref_key=category.ref_key,
+                                                       id=category.search)
+                if category.parent_key != '00000000-0000-0000-0000-000000000000':
+                    parent_category = Category.objects.filter(ref_key=category.parent_key)
+                    if parent_category:
+                        new_category.parent_category = parent_category[0]
+                        new_category.save()
+                messages.add_message(request, messages.INFO, f'Создана категория {new_category.command}')
+            else:
+                exist_category = exist_category[0]
+                if category.parent_key != '00000000-0000-0000-0000-000000000000':
+                    parent_category = Category.objects.filter(ref_key=category.parent_key)
+                    if parent_category:
+                        exist_category.parent_category = parent_category[0]
+                    else:
+                        continue
+                exist_category.command = category.description.strip()
+                exist_category.ref_key = category.ref_key
+                exist_category.save()
+                updated += 1
+        messages.add_message(request, messages.INFO, f'Создано {created} записей, обновленно {updated} записей')
+        return render(request, 'admin/admin_import_category_1c.html')
 
 
 class ImportCategoryView(View):
