@@ -7,15 +7,16 @@ from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
 from django.db import transaction, Error as DbError
+from django.db.models import Count
 from django.db.transaction import Error as TransactionError
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect
 from django.views import View
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.views.generic import ListView, DetailView
 
 from odata.loader import create_request, CatalogFolder, CatalogProduct
-from .forms import ImportGoodsForm, ImportCategoryForm
+from .forms import ImportGoodsForm
 from users.models import Orders, Carts, Profile, OrderStatus, UserMessage
 from .models import File, Category, Product, Rests, Shop
 from .telegram.bot import ready_order_message, send_message_to_user, manager_edit_order, manager_remove_order
@@ -106,7 +107,8 @@ class ImportProducts1CView(View):
                     messages.add_message(request, messages.ERROR,
                                          f'Товар {product.name} был пропущен, отсутствует категория')
                     continue
-                if exist_product.category == new_category[0] and exist_product.ref_key == product.ref_key and exist_product.name == product.name.strip() and exist_product.search == product.search:
+                if exist_product.category == new_category[
+                    0] and exist_product.ref_key == product.ref_key and exist_product.name == product.name.strip() and exist_product.search == product.search:
                     continue
                 else:
                     exist_product.category = new_category[0]
@@ -116,6 +118,123 @@ class ImportProducts1CView(View):
                     exist_product.save()
                     updated += 1
         messages.add_message(request, messages.INFO, f'Создано {created} товаров, обновленно {updated} товаров')
+        return render(request, 'admin/admin_import_from_1c.html')
+
+
+def _relocate_duplicated_data(main_duplicate: object, main_duplicate_data: dict, duplicates: list) -> object:
+    if ['red_key'] not in main_duplicate_data.values():
+        for duplicate in duplicates:
+            if duplicate.ref_key:
+                main_duplicate.ref_key = duplicate.ref_key
+    if ['img'] not in main_duplicate_data.values():
+        for duplicate in duplicates:
+            if duplicate.img:
+                main_duplicate.img = duplicate.img
+    if ['price'] not in main_duplicate_data.values():
+        for duplicate in duplicates:
+            if duplicate.price:
+                main_duplicate.price = duplicate.price
+    if ['search'] not in main_duplicate_data.values():
+        for duplicate in duplicates:
+            if duplicate.search:
+                main_duplicate.search = duplicate.search
+    if ['sale'] not in main_duplicate_data.values():
+        for duplicate in duplicates:
+            if duplicate.sale:
+                main_duplicate.sale = duplicate.sale
+    return main_duplicate
+
+
+class RemoveDuplicates(View):
+
+    @staticmethod
+    def get(request):
+        return render(request, 'admin/admin_import_from_1c.html')
+
+    def post(self, request):
+        conflicts = 0
+        done = 0
+        duplicates_data = Product.objects.values('name').annotate(name_count=Count('name')).filter(name_count__gt=1)
+        for duplicate_data in duplicates_data:
+            duplicates = Product.objects.filter(name=duplicate_data['name'])
+            decision = {}
+            main_duplicate = []
+            main = 0
+            for duplicate in duplicates:
+                decision[duplicate] = {}
+                if Rests.objects.filter(product=duplicate):
+                    decision[duplicate]['rests'] = True
+                if Carts.objects.filter(product=duplicate):
+                    decision[duplicate]['cart'] = True
+                if ['rests', 'cart'] in decision[duplicate].values():
+                    decision[duplicate]['main'] = True
+                    main_duplicate.append(duplicate)
+                    main += 1
+                if duplicate.ref_key:
+                    decision[duplicate]['red_key'] = True
+                if duplicate.img:
+                    decision[duplicate]['img'] = True
+                if duplicate.price != 0:
+                    decision[duplicate]['price'] = True
+                if duplicate.search:
+                    decision[duplicate]['search'] = True
+                if duplicate.sale is True:
+                    decision[duplicate]['sale'] = True
+
+            if main == 1:
+                main_duplicate = main_duplicate[0]
+                main_duplicate_data = decision.pop(main_duplicate, None)
+                main_duplicate = _relocate_duplicated_data(main_duplicate, main_duplicate_data, duplicates)
+                for duplicate, _ in decision.items():
+                    duplicate.delete()
+                main_duplicate.save()
+                messages.add_message(request, messages.INFO,
+                                     f'Товар {duplicate_data["name"]} дубли были убраны')
+                done += 1
+
+            if main > 1:
+                conflicts += 1
+                messages.add_message(request, messages.ERROR,
+                                     f'Товар {duplicate_data["name"]} не смог решить конфликт, несколько дубликатов имеют связи корзинах или остатках')
+            else:
+                main_duplicate = duplicates[0]
+                main_duplicate_data = decision.pop(main_duplicate, None)
+                main_duplicate = _relocate_duplicated_data(main_duplicate, main_duplicate_data, duplicates)
+                for duplicate, _ in decision.items():
+                    duplicate.delete()
+                main_duplicate.save()
+                messages.add_message(request, messages.INFO,
+                                     f'Товар {duplicate_data["name"]} дубли были убраны')
+                done += 1
+        messages.add_message(request, messages.INFO,
+                             f'Удалось убрать дублей {done}, возникло {conflicts} конфликтов')
+        return render(request, 'admin/admin_import_from_1c.html')
+
+
+class RemoveNoRefKey(View):
+
+    @staticmethod
+    def get(request):
+        return render(request, 'admin/admin_import_from_1c.html')
+
+    def post(self, request):
+        removed = 0
+        conflicts = 0
+        try:
+            products = Product.objects.filter(ref_key=None)
+            items = len(products)
+            products.delete()
+            messages.add_message(request, messages.INFO, f'Удалено {items} товаров без ссылки на 1с')
+        except Exception:
+            for product in products:
+                try:
+                    product.delete()
+                    removed += 1
+                except Exception as err:
+                    messages.add_message(request, messages.ERROR, f'Товар {product.name}. Причина: {err}')
+                    conflicts += 1
+        messages.add_message(request, messages.INFO,
+                             f'Удалено {removed} товаров без ссылки на 1с, не удалось {conflicts}')
         return render(request, 'admin/admin_import_from_1c.html')
 
 
