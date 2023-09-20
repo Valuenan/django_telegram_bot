@@ -35,8 +35,8 @@ class ImportCategory1CView(View):
         data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=CatalogFolder,
                               server_url=CREDENTIALS_1C['server'], base=CREDENTIALS_1C['base'])
         for category in data:
-            if category.deletion_mark or 'd8915c68-29fd-11ee-a0fe-005056b6fe75' in [category.ref_key,
-                                                                                    category.parent_key]:
+            # Не принимаю группу 'XXX' и вложенные - это папка с мусором
+            if 'd8915c68-29fd-11ee-a0fe-005056b6fe75' in [category.ref_key, category.parent_key]:
                 continue
             exist_category = Category.objects.filter(id=category.search)
             if not exist_category:
@@ -51,17 +51,24 @@ class ImportCategory1CView(View):
                 messages.add_message(request, messages.INFO, f'Создана категория {new_category.command}')
             else:
                 exist_category = exist_category[0]
+                new_parent_category = None
+
                 if category.parent_key != '00000000-0000-0000-0000-000000000000':
+
                     parent_category = Category.objects.filter(ref_key=category.parent_key)
                     if parent_category:
-                        exist_category.parent_category = parent_category[0]
+                        new_parent_category = parent_category[0]
                     else:
                         continue
-                exist_category.command = category.description.strip()
-                exist_category.ref_key = category.ref_key
-                exist_category.save()
-                updated += 1
-        messages.add_message(request, messages.INFO, f'Создано {created} записей, обновленно {updated} записей')
+                if exist_category.parent_category == new_parent_category and exist_category.command == category.description.strip() and exist_category.ref_key == category.ref_key:
+                    continue
+                else:
+                    exist_category.parent_category = new_parent_category
+                    exist_category.command = category.description.strip()
+                    exist_category.ref_key = category.ref_key
+                    exist_category.save()
+                    updated += 1
+        messages.add_message(request, messages.INFO, f'Создано {created} категорий, обновленно {updated} категорий')
         return render(request, 'admin/admin_import_category_1c.html')
 
 
