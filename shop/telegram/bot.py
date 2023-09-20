@@ -185,6 +185,8 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
             product_id, product_name, product_img, price, category_id, product_for_sale, rests = product
             buttons = ([InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add_{product_id}'),
                         InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove_{product_id}')],)
+            if not product_img:
+                product_img = 'no-image.jpg'
             imgs = [product_img]
             try:
                 img_reversed = product_img.replace('.', '@rev.')
