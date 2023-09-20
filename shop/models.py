@@ -63,8 +63,7 @@ class Product(models.Model):
     category = models.ForeignKey(Category, on_delete=models.PROTECT, verbose_name='Категория')
     ref_key = models.CharField(max_length=36, verbose_name='Ссылка в базе 1с', unique=True, null=True, blank=True)
     name = models.CharField(max_length=100, verbose_name='Название')
-    image = models.ForeignKey(Image, on_delete=models.CASCADE, verbose_name='Изображение товара',
-                              default=1, null=True, blank=True)
+    image = models.ForeignKey(Image, on_delete=models.CASCADE, verbose_name='Изображение товара', null=True, blank=True)
     price = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Цена товара')
     search = models.IntegerField(verbose_name='Номер для поиска', null=True, blank=True)
     sale = models.BooleanField(verbose_name='Учавствует в распродаже', default=False)
