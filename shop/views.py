@@ -14,7 +14,7 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.views.generic import ListView, DetailView
 
-from odata.loader import create_request, CatalogFolder
+from odata.loader import create_request, CatalogFolder, CatalogProduct
 from .forms import ImportGoodsForm, ImportCategoryForm
 from users.models import Orders, Carts, Profile, OrderStatus, UserMessage
 from .models import File, Category, Product, Rests, Shop
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 class ImportCategory1CView(View):
     @staticmethod
     def get(request):
-        return render(request, 'admin/admin_import_category_1c.html')
+        return render(request, 'admin/admin_import_from_1c.html')
 
     def post(self, request):
         created = 0
@@ -40,7 +40,6 @@ class ImportCategory1CView(View):
                 continue
             exist_category = Category.objects.filter(id=category.search)
             if not exist_category:
-                created += 1
                 new_category = Category.objects.create(command=category.description.strip(), ref_key=category.ref_key,
                                                        id=category.search)
                 if category.parent_key != '00000000-0000-0000-0000-000000000000':
@@ -49,6 +48,7 @@ class ImportCategory1CView(View):
                         new_category.parent_category = parent_category[0]
                         new_category.save()
                 messages.add_message(request, messages.INFO, f'Создана категория {new_category.command}')
+                created += 1
             else:
                 exist_category = exist_category[0]
                 new_parent_category = None
@@ -69,95 +69,54 @@ class ImportCategory1CView(View):
                     exist_category.save()
                     updated += 1
         messages.add_message(request, messages.INFO, f'Создано {created} категорий, обновленно {updated} категорий')
-        return render(request, 'admin/admin_import_category_1c.html')
+        return render(request, 'admin/admin_import_from_1c.html')
 
 
-class ImportCategoryView(View):
+class ImportProducts1CView(View):
 
     @staticmethod
     def get(request):
-        file_form = ImportCategoryForm()
-        return render(request, 'admin/admin_import_category.html', context={'file_form': file_form})
+        return render(request, 'admin/admin_import_from_1c.html')
 
     def post(self, request):
-        log = ''
-        user = User.objects.get(id=request.user.id)
-        upload_file_form = ImportCategoryForm(request.POST, request.FILES)
+        created = 0
+        updated = 0
+        data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=CatalogProduct,
+                              server_url=CREDENTIALS_1C['server'], base=CREDENTIALS_1C['base'])
+        for product in data:
+            # Пропускаем товары в корне
+            if '00000000-0000-0000-0000-000000000000' == product.parent_key:
+                continue
+            exist_product = Product.objects.filter(ref_key=product.ref_key)
+            if not exist_product:
 
-        try:
-            if upload_file_form.is_valid():
-                files = request.FILES.getlist('file_field')
-                for file in files:
-
-                    file_for_import = File.objects.create(user=user, file=file)
-
-                    with open(os.path.abspath(f'{settings.MEDIA_ROOT}/{file_for_import.file}'),
-                              encoding='cp1251') as csvfile:
-                        reader = csv.reader(csvfile)
-
-                        for row in reader:
-                            try:
-                                category_id, category_name, category_parent_id = row[0].split(';')
-                                if category_id == 'Id':
-                                    continue
-
-                                category_id = int(category_id.replace('"', "")[-5:])
-                                category_name = category_name.replace('"', "")
-                                category_parent_id = int(category_parent_id.replace('"', "")[-5:])
-
-                                category = Category.objects.filter(id=category_id,
-                                                                   parent_category=category_parent_id)
-                                if category:
-                                    category.update(command=category_name)
-                                else:
-
-                                    if category_parent_id == 0:
-                                        Category.objects.get_or_create(id=category_id, command=category_name)
-
-                                    else:
-
-                                        parent_category = Category.objects.filter(id=category_parent_id)
-                                        category = Category.objects.filter(id=category_id)
-                                        if not parent_category:
-                                            temp_category = Category.objects.create(id=category_parent_id,
-                                                                                    command="TEMP")
-                                            temp_category.save()
-                                            category = Category.objects.create(id=category_id,
-                                                                               command=category_name,
-                                                                               parent_category=temp_category)
-                                            category.save()
-                                        elif category:
-                                            category = category[0]
-                                            category.command = category_name
-                                            category.parent_category = parent_category[0]
-                                            category.save()
-                                        elif not category:
-                                            category = Category.objects.create(id=category_id,
-                                                                               command=category_name,
-                                                                               parent_category=parent_category[0])
-                                            category.save()
-
-                            except (ValueError, ZeroDivisionError) as ex:
-                                logger.error(f'import {file} error Bad values - {ex}')
-                                log += f'import {file} error Bad values - {ex}\n'
-                                messages.error(request, 'Ошибка загрузки. Некорректные значения')
-
-                        logger.info(f'import {file} - successfully')
-                        log += f'import {file} - successfully\n'
-
-        except TypeError as ex:
-            logger.error(f'import error load file - {ex}')
-            log += f'import error load file - {ex}'
-            messages.error(request, 'Ошибка загрузки')
-
-        messages.success(request, 'Category updated successfully')
-        return redirect('/admin/import_category/')
-
-
-# def _unicode_csv_reader(utf8_data, dialect=csv.excel, **kwargs):
-#     csv_reader = csv.reader(utf8_data, dialect=dialect, **kwargs)
-#     for row in csv_reader:
-#         yield [unicode(cell, 'utf-8') for cell in row]
+                category = Category.objects.filter(ref_key=product.parent_key)
+                if category:
+                    # TODO притянуть цену и в обновлении товара изменять цену
+                    new_product = Product.objects.create(category=category[0], ref_key=product.ref_key,
+                                                         name=product.name.strip(), price=0, search=product.search)
+                    messages.add_message(request, messages.INFO, f'Создан товар {new_product.name}')
+                else:
+                    continue
+                created += 1
+            else:
+                exist_product = exist_product[0]
+                new_category = Category.objects.filter(ref_key=product.parent_key)
+                if not new_category:
+                    messages.add_message(request, messages.ERROR,
+                                         f'Товар {product.name} был пропущен, отсутствует категория')
+                    continue
+                if exist_product.category == new_category[0] and exist_product.ref_key == product.ref_key and exist_product.name == product.name.strip() and exist_product.search == product.search:
+                    continue
+                else:
+                    exist_product.category = new_category[0]
+                    exist_product.ref_key = product.ref_key
+                    exist_product.name = product.name.strip()
+                    exist_product.search = product.search
+                    exist_product.save()
+                    updated += 1
+        messages.add_message(request, messages.INFO, f'Создано {created} товаров, обновленно {updated} товаров')
+        return render(request, 'admin/admin_import_from_1c.html')
 
 
 class ImportGoodsView(View):

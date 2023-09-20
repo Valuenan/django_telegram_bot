@@ -102,5 +102,6 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
 
 
 if __name__ == '__main__':
-    create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=CatalogProduct,
-                   server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/', top=50)
+    result = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=CatalogProduct,
+                            server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/', top=50)
+    print(result)

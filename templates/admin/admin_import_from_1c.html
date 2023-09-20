@@ -1,0 +1,17 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block content %}
+<p style="font-size: 14px;">Загрузить из 1с:</p>
+<div style="margin: 15px 0 15px 0">
+    <form action="{% url 'load_category_from_1c' %}" method="post">
+        {% csrf_token %}
+        <button type="submit">Загрузить <b> КАТЕГОРИИ </b> из 1c</button>
+    </form>
+</div>
+<div style="margin: 15px 0 15px 0;">
+    <form action="{% url 'load_products_from_1c' %}" method="post">
+        {% csrf_token %}
+        <button type="submit">Загрузить <b> ТОВАРЫ </b> из 1c</button>
+    </form>
+</div>
+{% endblock %}
