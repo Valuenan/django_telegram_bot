@@ -2,7 +2,6 @@ import os
 import logging
 from decimal import Decimal
 import xlrd
-import csv
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
@@ -15,10 +14,10 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.views.generic import ListView, DetailView
 
-from odata.loader import create_request, CatalogFolder, CatalogProduct
+from odata.loader import create_request, CatalogFolder, CatalogProduct, ProductImage
 from .forms import ImportGoodsForm
 from users.models import Orders, Carts, Profile, OrderStatus, UserMessage
-from .models import File, Category, Product, Rests, Shop
+from .models import File, Category, Product, Rests, Shop, Image
 from .telegram.bot import ready_order_message, send_message_to_user, manager_edit_order, manager_remove_order
 from .telegram.settings import CREDENTIALS_1C
 
@@ -118,6 +117,56 @@ class ImportProducts1CView(View):
                     exist_product.save()
                     updated += 1
         messages.add_message(request, messages.INFO, f'Создано {created} товаров, обновленно {updated} товаров')
+        return render(request, 'admin/admin_import_from_1c.html')
+
+
+class ImportImages1CView(View):
+
+    @staticmethod
+    def get(request):
+        return render(request, 'admin/admin_import_from_1c.html')
+
+    def post(self, request):
+        created = 0
+        updated = 0
+        skip = 0
+        form = request.POST.copy()
+        if 'load_all' in form.keys():
+            products = Product.objects.all().only('ref_key', 'name', 'image')
+        else:
+            products = Product.objects.filter(image=None).only('ref_key', 'name', 'image')
+        for product in products:
+            if not product.ref_key:
+                messages.add_message(request, messages.INFO, f'У товара {product.name} отсутсвует ссылка на 1с, поэтому будет пропущен')
+                skip += 1
+                continue
+            image = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'],
+                                   model=ProductImage,
+                                   server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/',
+                                   guid=product.ref_key)
+            # Пропускаем при отсутвии фото
+            if not image:
+                skip += 1
+                continue
+            else:
+                image = image[0]
+            exist_image = Image.objects.filter(ref_key=image.ref_key)
+            if not exist_image:
+                image_link = Image.objects.create(name=f'{image.description.strip()}.{image.file_format.strip()}',
+                                                  ref_key=image.ref_key)
+                product.image = image_link
+                product.save()
+                created += 1
+            elif 'update' in form.keys():
+                exist_image = exist_image[0]
+                exist_image.ref_key = image.ref_key
+                exist_image.name = f'{image.description.strip()}.{image.file_format.strip()}'
+                image_link = exist_image.save()
+                product.image = image_link
+                product.save()
+                updated += 1
+        messages.add_message(request, messages.INFO,
+                             f'Создано {created} изображение товаров, обновленно {updated} изображений товаров, отсутсвуют фото у {skip} товаров')
         return render(request, 'admin/admin_import_from_1c.html')
 
 

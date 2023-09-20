@@ -46,11 +46,26 @@ class Category(models.Model):
         verbose_name_plural = 'Категории'
 
 
+class Image(models.Model):
+    ref_key = models.CharField(max_length=36, verbose_name='Ссылка в базе 1с', unique=True, null=True, blank=True)
+    name = models.CharField(max_length=50, verbose_name='Название файла с расширением')
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        db_table = 'image'
+        verbose_name = 'Изображение'
+        verbose_name_plural = 'Изображения'
+
+
 class Product(models.Model):
     category = models.ForeignKey(Category, on_delete=models.PROTECT, verbose_name='Категория')
     ref_key = models.CharField(max_length=36, verbose_name='Ссылка в базе 1с', unique=True, null=True, blank=True)
     name = models.CharField(max_length=100, verbose_name='Название')
     img = models.CharField(max_length=100, verbose_name='Изображение товара', default='no-image.jpg')
+    image = models.ForeignKey(Image, on_delete=models.CASCADE, verbose_name='Изображение товара',
+                              default=1, null=True, blank=True)
     price = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Цена товара')
     search = models.IntegerField(verbose_name='Номер для поиска', null=True, blank=True)
     sale = models.BooleanField(verbose_name='Учавствует в распродаже', default=False)

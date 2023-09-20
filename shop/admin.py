@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Category, Product, File, Rests, Shop
+from .models import Category, Product, File, Rests, Shop, Image
 
 
 @admin.register(File)
@@ -21,9 +21,16 @@ class CategoryAdmin(admin.ModelAdmin):
     search_fields = ['id']
 
 
+@admin.register(Image)
+class ImageAdmin(admin.ModelAdmin):
+    list_display = ['name', 'ref_key']
+    search_fields = ['name']
+    ordering = ['name']
+
+
 @admin.register(Product)
 class ProductsAdmin(admin.ModelAdmin):
-    list_display = ['name', 'category', 'price', 'img']
+    list_display = ['name', 'category', 'price', 'image']
     search_fields = ['name']
     ordering = ['category']
 

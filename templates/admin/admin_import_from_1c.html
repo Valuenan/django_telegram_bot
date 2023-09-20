@@ -22,6 +22,17 @@
                     <button type="submit">Загрузить <b> ТОВАРЫ </b> из 1c</button>
                 </form>
             </div>
+        <td>
+            <div style="margin: 15px 0 15px 0;">
+                <form action="{% url 'load_images_from_1c' %}" method="post">
+                    {% csrf_token %}
+                    <button type="submit">Загрузить <b> ИЗОБРАЖЕНИЯ </b> товаров из 1c</button>
+                    <div style="margin: 15px 0 15px 0;">Проверить все фото (если нет, то только кого нет фото)
+                        <input checked type="checkbox" name="load_all"></div>
+                    <div style="margin: 15px 0 15px 0;">Если у товара есть фото обновлять
+                        <input checked type="checkbox" name="update"></div>
+                </form>
+            </div>
         </td>
     </tr>
     <tr>

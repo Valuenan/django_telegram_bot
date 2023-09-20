@@ -32,8 +32,25 @@ class CatalogProduct(BaseModel):
     img_key: str = Field(alias='ФайлКартинки_Key')
 
 
-def create_request(login: str, password: str, model: object, server_url: str, base: str, top: int = 0, *args,
-                   **kwargs) -> dict:
+class ProductImage(BaseModel):
+    deletion_mark: bool = Field(alias='DeletionMark')
+    ref_key: str = Field(alias='Ref_Key')
+    description: str = Field(alias='Description')
+    file_format: str = Field(alias='Расширение')
+
+
+def _deserializer(model: object, value: dict) -> list:
+    try:
+        json_data = json.dumps(value)
+        data = [model.model_validate_json(json_data)]
+    except ValidationError as err:
+        print("Exeption", err.json())
+    else:
+        return data
+
+
+def create_request(login: str, password: str, model: object, server_url: str, base: str, top: int = 0,
+                   **kwargs) -> dict or None:
     http.client.HTTPConnection.debuglevel = 0
 
     logging.basicConfig(filename='oadtalog')
@@ -42,7 +59,7 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
     # requests_log.setLevel(logging.DEBUG)
     # requests_log.propagate = True
 
-    result = []
+    result_ = []
     odata = 'odata/standard.odata/'
     params = {}
     format_ = ''
@@ -50,7 +67,8 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
     select = ''
     filter_ = ''
     order_by = ''
-
+    if 'guid' in kwargs and kwargs['guid'] and model not in [ProductImage]:
+        raise OdataError('С данной моделью нельзя передавать guid')
     if not model:
         params['$metadata'] = ''
     else:
@@ -68,6 +86,17 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
             raw_filter = 'IsFolder and not DeletionMark'
             filter_ = quote(raw_filter)
             order_by = 'Parent_Key'
+        elif model == ProductImage:
+            if 'guid' in kwargs and kwargs['guid'] and type(kwargs['guid']) == str:
+                guid = kwargs['guid']
+            else:
+                raise NameError('C этой моделью необходимо передать guid сущности CatalogProduct тип данных str')
+            format_ = 'json'
+            content = f"Catalog_Номенклатура(guid'{guid}')/ФайлКартинки"
+            select = 'DeletionMark,Ref_Key,Description,Расширение'
+            raw_filter = 'not DeletionMark'
+            filter_ = quote(raw_filter)
+            order_by = ''
         params['$format'] = format_
         params['$filter'] = filter_
         params['$select'] = select
@@ -80,28 +109,31 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
     with get_legacy_session() as session:
         url = base_url + content + '?'
         for param, value in params.items():
-            url += f'{param}={value}&'
+            if value:
+                url += f'{param}={value}&'
         else:
             url = url[:-1]
-
         resp = session.get(url, auth=HTTPBasicAuth(login, password))
-
-        if not model:
-            return print(resp.text)
+        if resp.status_code == 404:
+            return None
         else:
-            resp_json = resp.json()
-            if 'odata.error' in resp_json.keys():
-                raise OdataError(resp_json['odata.error']['message']['value'])
-            for value in resp_json['value']:
-                try:
-                    json_data = json.dumps(value)
-                    result += [model.model_validate_json(json_data)]
-                except ValidationError as err:
-                    print("Exeption", err.json())
-            return result
+            if not model:
+                return print(resp.text)
+            else:
+                resp_json = resp.json()
+                if 'odata.error' in resp_json.keys():
+                    raise OdataError(resp_json['odata.error']['message']['value'])
+                if 'guid' in kwargs and kwargs['guid']:
+                    result_ = _deserializer(model, resp_json)
+                else:
+                    for value in resp_json['value']:
+                        result_ += _deserializer(model, value)
+
+                return result_
 
 
 if __name__ == '__main__':
-    result = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=CatalogProduct,
-                            server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/', top=50)
+    result = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=ProductImage,
+                            server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/',
+                            guid='c8dd74aa-0b53-11ec-a0c6-005056b6fe75')
     print(result)
