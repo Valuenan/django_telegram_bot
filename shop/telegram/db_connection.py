@@ -145,9 +145,10 @@ def get_parent_category_id(category_id: int) -> list:
 def get_products(chosen_category: int, page: int) -> (list, int):
     """Получить список товаров и пагинация"""
     db, cur = connect_db((f"""
-    SELECT products.id, products.name, products.img, products.price, products.category_id, products.sale, sum(rests.amount) AS rest
+    SELECT products.id, products.name, image.name, products.price, products.category_id, products.sale, sum(rests.amount) AS rest
     FROM products 
     INNER JOIN rests ON products.id = rests.product_id
+    INNER JOIN image ON image.id = products.image_id
     WHERE category_id='{chosen_category}' AND rests.amount > 0
     GROUP BY products.id
     ORDER BY products.id"""))
