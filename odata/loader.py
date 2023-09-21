@@ -124,10 +124,14 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
                 if 'odata.error' in resp_json.keys():
                     raise OdataError(resp_json['odata.error']['message']['value'])
                 if 'guid' in kwargs and kwargs['guid']:
-                    result_ = _deserializer(model, resp_json)
+                    data = _deserializer(model, resp_json)
+                    if data:
+                        result_ = data
                 else:
                     for value in resp_json['value']:
-                        result_ += _deserializer(model, value)
+                        data = _deserializer(model, value)
+                        if data:
+                            result_ += data
 
                 return result_
 
