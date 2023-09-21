@@ -38,3 +38,5 @@ class ProductsAdmin(admin.ModelAdmin):
 @admin.register(Rests)
 class RestsAdmin(admin.ModelAdmin):
     list_display = ['shop', 'product', 'amount']
+    search_fields = ['product__name']
+    ordering = ['product__name']
