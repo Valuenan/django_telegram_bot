@@ -18,7 +18,7 @@ class UserMessageAdmin(admin.ModelAdmin):
 @admin.register(Carts)
 class CartsAdmin(admin.ModelAdmin):
     list_display = ['profile', 'product', 'order', 'soft_delete']
-    search_fields = ['profile']
+    search_fields = ['product__name']
 
 
 @admin.register(OrderStatus)
