@@ -227,7 +227,8 @@ class RemoveDuplicates(View):
                     decision[duplicate]['rests'] = True
                 if Carts.objects.filter(product=duplicate):
                     decision[duplicate]['cart'] = True
-                if 'cart' in decision[duplicate].keys():
+                decision_keys = decision[duplicate].keys()
+                if 'cart' in decision or 'rests' in decision:
                     decision[duplicate]['main'] = True
                     main_duplicate.append(duplicate)
                     main += 1
@@ -252,7 +253,7 @@ class RemoveDuplicates(View):
                 messages.add_message(request, messages.INFO,
                                      f'Товар {duplicate_data["name"]} дубли были убраны')
                 done += 1
-            elif main > 2:
+            elif main > 1:
                 conflicts += 1
                 messages.add_message(request, messages.ERROR,
                                      f'Товар {duplicate_data["name"]} не смог решить конфликт, несколько дубликатов имеют связи корзинах или остатках')
