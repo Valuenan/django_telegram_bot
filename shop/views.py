@@ -89,11 +89,14 @@ class ImportProducts1CView(View):
                 continue
             exist_product = Product.objects.filter(ref_key=product.ref_key)
             if not exist_product:
-
+                if product.name.strip()[-1] == '*':
+                    sale = True
+                else:
+                    sale = False
                 category = Category.objects.filter(ref_key=product.parent_key)
                 if category:
                     # TODO притянуть цену и в обновлении товара изменять цену
-                    new_product = Product.objects.create(category=category[0], ref_key=product.ref_key,
+                    new_product = Product.objects.create(category=category[0], ref_key=product.ref_key, sale=sale,
                                                          name=product.name.strip(), price=0, search=product.search)
                     messages.add_message(request, messages.INFO, f'Создан товар {new_product.name}')
                 else:
@@ -107,13 +110,14 @@ class ImportProducts1CView(View):
                                          f'Товар {product.name} был пропущен, отсутствует категория')
                     continue
                 if exist_product.category == new_category[
-                    0] and exist_product.ref_key == product.ref_key and exist_product.name == product.name.strip() and exist_product.search == product.search:
+                    0] and exist_product.ref_key == product.ref_key and exist_product.name == product.name.strip() and exist_product.search == product.search and exist_product.sale == sale:
                     continue
                 else:
                     exist_product.category = new_category[0]
                     exist_product.ref_key = product.ref_key
                     exist_product.name = product.name.strip()
                     exist_product.search = product.search
+                    exist_product.sale = sale
                     exist_product.save()
                     updated += 1
         messages.add_message(request, messages.INFO, f'Создано {created} товаров, обновленно {updated} товаров')
