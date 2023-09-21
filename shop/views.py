@@ -176,23 +176,24 @@ class ImportImages1CView(View):
 
 
 def _relocate_duplicated_data(main_duplicate: object, main_duplicate_data: dict, duplicates: list) -> object:
-    if ['red_key'] not in main_duplicate_data.values():
+    duplicate_keys = main_duplicate_data.keys()
+    if 'red_key' not in duplicate_keys:
         for duplicate in duplicates:
             if duplicate.ref_key:
                 main_duplicate.ref_key = duplicate.ref_key
-    if ['image'] not in main_duplicate_data.values():
+    if 'image' not in duplicate_keys:
         for duplicate in duplicates:
             if duplicate.image:
                 main_duplicate.image = duplicate.image
-    if ['price'] not in main_duplicate_data.values():
+    if 'price' not in duplicate_keys:
         for duplicate in duplicates:
             if duplicate.price:
                 main_duplicate.price = duplicate.price
-    if ['search'] not in main_duplicate_data.values():
+    if 'search' not in duplicate_keys:
         for duplicate in duplicates:
             if duplicate.search:
                 main_duplicate.search = duplicate.search
-    if ['sale'] not in main_duplicate_data.values():
+    if 'sale' not in duplicate_keys:
         for duplicate in duplicates:
             if duplicate.sale:
                 main_duplicate.sale = duplicate.sale
