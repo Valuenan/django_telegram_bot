@@ -251,8 +251,7 @@ class RemoveDuplicates(View):
                 messages.add_message(request, messages.INFO,
                                      f'Товар {duplicate_data["name"]} дубли были убраны')
                 done += 1
-
-            if main > 1:
+            elif main > 2:
                 conflicts += 1
                 messages.add_message(request, messages.ERROR,
                                      f'Товар {duplicate_data["name"]} не смог решить конфликт, несколько дубликатов имеют связи корзинах или остатках')
