@@ -176,24 +176,29 @@ class ImportImages1CView(View):
 
 
 def _relocate_duplicated_data(main_duplicate: object, main_duplicate_data: dict, duplicates: list) -> object:
-    duplicate_keys = main_duplicate_data.keys()
-    if 'red_key' not in duplicate_keys:
+    main_duplicate_keys = main_duplicate_data.keys()
+    if 'rests' not in main_duplicate_keys:
+        for duplicate in duplicates:
+            rest = Rests.objects.filter(product=duplicate)
+            if rest:
+                rest.product = main_duplicate
+    if 'red_key' not in main_duplicate_keys:
         for duplicate in duplicates:
             if duplicate.ref_key:
                 main_duplicate.ref_key = duplicate.ref_key
-    if 'image' not in duplicate_keys:
+    if 'image' not in main_duplicate_keys:
         for duplicate in duplicates:
             if duplicate.image:
                 main_duplicate.image = duplicate.image
-    if 'price' not in duplicate_keys:
+    if 'price' not in main_duplicate_keys:
         for duplicate in duplicates:
             if duplicate.price:
                 main_duplicate.price = duplicate.price
-    if 'search' not in duplicate_keys:
+    if 'search' not in main_duplicate_keys:
         for duplicate in duplicates:
             if duplicate.search:
                 main_duplicate.search = duplicate.search
-    if 'sale' not in duplicate_keys:
+    if 'sale' not in main_duplicate_keys:
         for duplicate in duplicates:
             if duplicate.sale:
                 main_duplicate.sale = duplicate.sale
@@ -221,8 +226,7 @@ class RemoveDuplicates(View):
                     decision[duplicate]['rests'] = True
                 if Carts.objects.filter(product=duplicate):
                     decision[duplicate]['cart'] = True
-                decision_keys = decision[duplicate].keys()
-                if 'rests' in decision_keys or 'cart' in decision_keys:
+                if 'cart' in decision[duplicate].keys():
                     decision[duplicate]['main'] = True
                     main_duplicate.append(duplicate)
                     main += 1
