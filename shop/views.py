@@ -176,10 +176,10 @@ def _relocate_duplicated_data(main_duplicate: object, main_duplicate_data: dict,
         for duplicate in duplicates:
             if duplicate.ref_key:
                 main_duplicate.ref_key = duplicate.ref_key
-    if ['img'] not in main_duplicate_data.values():
+    if ['image'] not in main_duplicate_data.values():
         for duplicate in duplicates:
-            if duplicate.img:
-                main_duplicate.img = duplicate.img
+            if duplicate.image:
+                main_duplicate.image = duplicate.image
     if ['price'] not in main_duplicate_data.values():
         for duplicate in duplicates:
             if duplicate.price:
@@ -222,8 +222,8 @@ class RemoveDuplicates(View):
                     main += 1
                 if duplicate.ref_key:
                     decision[duplicate]['red_key'] = True
-                if duplicate.img:
-                    decision[duplicate]['img'] = True
+                if duplicate.image:
+                    decision[duplicate]['image'] = True
                 if duplicate.price != 0:
                     decision[duplicate]['price'] = True
                 if duplicate.search:
