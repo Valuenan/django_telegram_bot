@@ -182,6 +182,7 @@ def _relocate_duplicated_data(main_duplicate: object, main_duplicate_data: dict,
             rest = Rests.objects.filter(product=duplicate)
             if rest:
                 rest.product = main_duplicate
+                rest.save()
     if 'red_key' not in main_duplicate_keys:
         for duplicate in duplicates:
             if duplicate.ref_key:
