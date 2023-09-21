@@ -137,7 +137,8 @@ class ImportImages1CView(View):
             products = Product.objects.filter(image=None).only('ref_key', 'name', 'image')
         for product in products:
             if not product.ref_key:
-                messages.add_message(request, messages.INFO, f'У товара {product.name} отсутсвует ссылка на 1с, поэтому будет пропущен')
+                messages.add_message(request, messages.INFO,
+                                     f'У товара {product.name} отсутсвует ссылка на 1с, поэтому будет пропущен')
                 skip += 1
                 continue
             image = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'],
@@ -325,22 +326,10 @@ class ImportGoodsView(View):
                                 for row in range(3, exel_data.nrows - 1):
 
                                     product_price = 0
-                                    product_name = exel_data.cell_value(row, 1)
-                                    product_image = exel_data.cell_value(row, 2)
-                                    product_category = exel_data.cell_value(row, 3)
+                                    product_name = exel_data.cell_value(row, 0)
+                                    product_code = int(exel_data.cell_value(row, 1).split('-')[-1])
                                     prachechniy_rests = exel_data.cell_value(row, 4)
                                     prachechniy_sum = exel_data.cell_value(row, 5)
-
-                                    if product_category == '':
-                                        product_category = 0
-                                    else:
-                                        product_category = int(product_category)
-
-                                    if product_image == ', ':
-                                        product_image = 'no-image.jpg'
-                                    else:
-                                        product_image = product_image.replace(', ', '.')
-
                                     if prachechniy_rests != '':
                                         prachechniy_rests = Decimal(prachechniy_rests)
                                         prachechniy_sum = Decimal(prachechniy_sum)
@@ -348,45 +337,32 @@ class ImportGoodsView(View):
                                     else:
                                         prachechniy_rests = 0
                                     if product_price == 0:
-                                        logger.error(f'import {file} error Bad values - {product_name}, rests = 0')
-                                        log += f'import {file} error Bad values - {product_name}, rests = 0\n'
+                                        logger.error(f'import {file} error Bad values - {product_code}, rests = 0')
+                                        log += f'import {file} error Bad values - {product_code}, rests = 0\n'
                                         messages.error(request,
-                                                       f'Ошибка загрузки. Некорректные значения {product_name}, остаток = 0')
+                                                       f'Ошибка загрузки. Некорректные значения {product_code}, остаток = 0')
                                         break
 
                                     for_sale = lambda: False if product_name[-1] == '*' else True
 
-                                    category = Category.objects.filter(id=product_category)
-
-                                    # Убираем товары с категорие Архив и без категории (по заданию Андрея)
-                                    if not category:
-                                        wrong_group_products.append(product_name)
-                                        continue
-
-                                    product = Product.objects.filter(name=product_name)
+                                    product = Product.objects.filter(search=product_code)
 
                                     if product:
                                         product = product[0]
-                                        product.category = category[0]
-                                        product.img = product_image
                                         product.price = product_price
                                         product.sale = for_sale()
                                         product.save()
-                                        db_rests = Rests.objects.filter(product=product)
-                                        for rest in db_rests:
-                                            rest.amount = prachechniy_rests
-                                            rest.save()
+                                        db_rests = Rests.objects.filter(product=product, shop=shop)
+                                        if db_rests:
+                                            for rest in db_rests:
+                                                rest.amount = prachechniy_rests
+                                                rest.save()
+                                        else:
+                                            Rests.objects.create(shop=shop,
+                                                                 product=product,
+                                                                 amount=prachechniy_rests)
                                     else:
-                                        product = Product.objects.create(name=product_name,
-                                                                         category=category[0],
-                                                                         img=product_image,
-                                                                         price=product_price,
-                                                                         sale=for_sale())
-                                        product.save()
-                                        db_rests = Rests.objects.create(shop=shop,
-                                                                        product=product,
-                                                                        amount=prachechniy_rests)
-                                        db_rests.save()
+                                        wrong_group_products.append(product_name)
 
                             except (ValueError, ZeroDivisionError) as ex:
                                 logger.error(f'import {file} error Bad values - {ex}')
