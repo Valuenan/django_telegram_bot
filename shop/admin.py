@@ -30,8 +30,8 @@ class ImageAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductsAdmin(admin.ModelAdmin):
-    list_display = ['name', 'category', 'price', 'image']
-    search_fields = ['name']
+    list_display = ['name', 'category', 'price', 'image', 'ref_key']
+    search_fields = ['name', 'ref_key']
     ordering = ['category']
 
 

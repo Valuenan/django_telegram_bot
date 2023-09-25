@@ -1,5 +1,6 @@
 import os
 import logging
+from datetime import datetime
 from decimal import Decimal
 import xlrd
 from django.conf import settings
@@ -14,7 +15,7 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.views.generic import ListView, DetailView
 
-from odata.loader import create_request, CatalogFolder, CatalogProduct, ProductImage
+from odata.loader import create_request, CatalogFolder, CatalogProduct, ProductImage, ProductPrice
 from .forms import ImportGoodsForm
 from users.models import Orders, Carts, Profile, OrderStatus, UserMessage
 from .models import File, Category, Product, Rests, Shop, Image
@@ -121,6 +122,29 @@ class ImportProducts1CView(View):
                     exist_product.save()
                     updated += 1
         messages.add_message(request, messages.INFO, f'Создано {created} товаров, обновленно {updated} товаров')
+        return render(request, 'admin/admin_import_from_1c.html')
+
+
+class ImportPrice1CView(View):
+
+    @staticmethod
+    def get(request):
+        return render(request, 'admin/admin_import_from_1c.html')
+
+    def post(self, request):
+        now = datetime.now()
+        data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=ProductPrice,
+                              server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/',
+                              guid='9eae0ae2-50d8-11e6-b065-91bcc12f28ea', year=now.year, month=now.month, day=now.day)
+        for price in data:
+            exist_product = Product.objects.filter(ref_key=price.product_key)
+            if not exist_product:
+               messages.add_message(request, messages.ERROR, f'Товар с ключем {price.product_key} остутсвует, загрузите сначала номенклатуру')
+            else:
+                exist_product = exist_product[0]
+                exist_product.price = price.price
+                exist_product.save()
+        messages.add_message(request, messages.INFO, f'Цены были обновлены')
         return render(request, 'admin/admin_import_from_1c.html')
 
 

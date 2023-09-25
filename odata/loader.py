@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 import http.client
@@ -30,6 +31,13 @@ class CatalogProduct(BaseModel):
     name: str = Field(alias='НаименованиеПолное')
     search: int = Field(alias='КодДляПоиска')
     img_key: str = Field(alias='ФайлКартинки_Key')
+
+
+class ProductPrice(BaseModel):
+    active: bool = Field(alias='Active')
+    product_key: str = Field(alias='Номенклатура_Key')
+    price_type: str = Field(alias='ВидЦены_Key')
+    price: int = Field(alias='Цена')
 
 
 class ProductImage(BaseModel):
@@ -67,7 +75,7 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
     select = ''
     filter_ = ''
     order_by = ''
-    if 'guid' in kwargs and kwargs['guid'] and model not in [ProductImage]:
+    if 'guid' in kwargs and kwargs['guid'] and model not in [ProductImage, ProductPrice]:
         raise OdataError('С данной моделью нельзя передавать guid')
     if not model:
         params['$metadata'] = ''
@@ -86,23 +94,34 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
             raw_filter = 'IsFolder and not DeletionMark'
             filter_ = quote(raw_filter)
             order_by = 'Parent_Key'
+        elif model == ProductPrice:
+            if 'guid' in kwargs and kwargs['guid'] and type(kwargs['guid']) == str:
+                format_ = 'json'
+                content = 'InformationRegister_ЦеныНоменклатуры_RecordType/'
+                select = 'Period,Active,Номенклатура_Key,ВидЦены_Key,Цена'
+                raw_filter = f"Active and ВидЦены_Key eq guid'{kwargs['guid']}' and year(Period) eq {kwargs['year']} and month(Period) eq {kwargs['month']} and day(Period) eq {kwargs['day']}"
+                filter_ = quote(raw_filter)
+                order_by = ''
+            else:
+                raise NameError('C этой моделью необходимо передать guid вида цены номенклатуры тип данных str')
+
         elif model == ProductImage:
             if 'guid' in kwargs and kwargs['guid'] and type(kwargs['guid']) == str:
-                guid = kwargs['guid']
-            else:
-                raise NameError('C этой моделью необходимо передать guid сущности CatalogProduct тип данных str')
-            format_ = 'json'
-            content = f"Catalog_Номенклатура(guid'{guid}')/ФайлКартинки"
-            select = 'DeletionMark,Ref_Key,Description,Расширение'
-            raw_filter = 'not DeletionMark'
-            filter_ = quote(raw_filter)
-            order_by = ''
-        params['$format'] = format_
-        params['$filter'] = filter_
-        params['$select'] = select
-        params['$orderby'] = order_by
-        if top != 0:
-            params['$top'] = top
+                format_ = 'json'
+                content = f"Catalog_Номенклатура(guid'{kwargs['guid']}')/ФайлКартинки"
+                select = 'DeletionMark,Ref_Key,Description,Расширение'
+                raw_filter = 'not DeletionMark'
+                filter_ = quote(raw_filter)
+                order_by = ''
+        else:
+            raise NameError('C этой моделью необходимо передать guid сущности CatalogProduct тип данных str')
+
+    params['$format'] = format_
+    params['$filter'] = filter_
+    params['$select'] = select
+    params['$orderby'] = order_by
+    if top != 0:
+        params['$top'] = top
 
     base_url = 'https://' + server_url + base + odata
 
@@ -123,7 +142,7 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
                 resp_json = resp.json()
                 if 'odata.error' in resp_json.keys():
                     raise OdataError(resp_json['odata.error']['message']['value'])
-                if 'guid' in kwargs and kwargs['guid']:
+                if model == ProductImage:
                     data = _deserializer(model, resp_json)
                     if data:
                         result_ = data
@@ -137,7 +156,7 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
 
 
 if __name__ == '__main__':
-    result = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=ProductImage,
-                            server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/',
-                            guid='c8dd74aa-0b53-11ec-a0c6-005056b6fe75')
+    result = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=ProductPrice,
+                            server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/', top=10,
+                            guid='9eae0ae2-50d8-11e6-b065-91bcc12f28ea', year=2023, month=9, day=25)
     print(result)
