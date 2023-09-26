@@ -15,10 +15,10 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.views.generic import ListView, DetailView
 
-from odata.loader import create_request, CatalogFolder, CatalogProduct, ProductImage, ProductPrice
+from odata.loader import create_request, CatalogFolder, CatalogProduct, ProductImage, ProductPrice, ProductAmount
 from .forms import ImportGoodsForm
 from users.models import Orders, Carts, Profile, OrderStatus, UserMessage
-from .models import File, Category, Product, Rests, Shop, Image
+from .models import File, Category, Product, Rests, Shop, Image, RestsOdataLoad
 from .telegram.bot import ready_order_message, send_message_to_user, manager_edit_order, manager_remove_order
 from .telegram.settings import CREDENTIALS_1C
 
@@ -125,7 +125,7 @@ class ImportProducts1CView(View):
         return render(request, 'admin/admin_import_from_1c.html')
 
 
-class ImportPrice1CView(View):
+class ImportPrices1CView(View):
 
     @staticmethod
     def get(request):
@@ -139,12 +139,102 @@ class ImportPrice1CView(View):
         for price in data:
             exist_product = Product.objects.filter(ref_key=price.product_key)
             if not exist_product:
-               messages.add_message(request, messages.ERROR, f'Товар с ключем {price.product_key} остутсвует, загрузите сначала номенклатуру')
+                messages.add_message(request, messages.ERROR,
+                                     f'Товар с ключем {price.product_key} остутсвует, загрузите сначала номенклатуру')
             else:
                 exist_product = exist_product[0]
                 exist_product.price = price.price
                 exist_product.save()
         messages.add_message(request, messages.INFO, f'Цены были обновлены')
+        return render(request, 'admin/admin_import_from_1c.html')
+
+
+class ImportRests1CView(View):
+
+    @staticmethod
+    def get(request):
+        return render(request, 'admin/admin_import_from_1c.html')
+
+    def post(self, request):
+        create = 0
+        update = 0
+        conflict = 0
+        last_data = RestsOdataLoad.objects.last()
+        if not last_data:
+            load_date = datetime.now()
+        else:
+            load_date = last_data.date_time
+        for day in range(load_date.day, datetime.now().day + 1):
+            data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=ProductAmount,
+                                  server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/', year=load_date.year,
+                                  month=load_date.month, day=day)
+            for rest in data:
+                exist_rest = RestsOdataLoad.objects.filter(recorder=rest.recorder, product_key=rest.product_key)
+
+                if not exist_rest:
+                    if rest.active:
+                        db_rest = Rests.objects.filter(product__ref_key=rest.product_key)
+                        if db_rest:
+                            db_rest = db_rest[0]
+                            if rest.record_type == 'Expense':
+                                rest.change_quantity *= -1
+                            db_rest.amount += rest.change_quantity
+                            if db_rest.amount >= 0:
+                                db_rest.save()
+                            else:
+                                product = Product.objects.filter(ref_key=rest.product_key)[0]
+                                messages.add_message(request, messages.ERROR,
+                                                     f'Ошибка: Не достаточно товара {product.name} для списания, конечный остаток {db_rest.amount}')
+                                conflict += 1
+                                continue
+                        else:
+                            product = Product.objects.filter(ref_key=rest.product_key)
+                            if not product:
+                                # Пропуск номенклатуры "Пакет"
+                                if rest.product_key == '76577798-75bc-11eb-a0c1-005056b6fe75':
+                                    continue
+                                messages.add_message(request, messages.ERROR,
+                                                     f'Ошибка: Отсутсвует товар {rest.product_key}. Сначала загрузите товары. ДАННЫЕ НЕ БЫЛИ ЗАГРУЖЕНЫ')
+                                break
+                            if rest.record_type == 'Receipt':
+                                shop = Shop.objects.all()[0]
+                                Rests.objects.create(shop=shop, product=product[0], amount=rest.change_quantity)
+                            else:
+                                messages.add_message(request, messages.ERROR,
+                                                     f'Ошибка: Попытка списания товара {product[0].name} без остатков')
+                                conflict += 1
+                                continue
+                    RestsOdataLoad.objects.create(active=rest.active, date_time=rest.date_time, recorder=rest.recorder,
+                                                  product_key=rest.product_key)
+                    create += 1
+                else:
+                    exist_rest = exist_rest[0]
+                    if exist_rest.active == rest.active:
+                        continue
+                    else:
+                        product = Product.objects.filter(ref_key=rest.product_key)
+                        if not product:
+                            # Пропуск номенклатуры "Пакет"
+                            if rest.product_key == '76577798-75bc-11eb-a0c1-005056b6fe75':
+                                continue
+                            messages.add_message(request, messages.ERROR,
+                                                 f'Ошибка: Отсутсвует товар {rest.product_key}. Сначала загрузите товары. ДАННЫЕ НЕ БЫЛИ ЗАГРУЖЕНЫ')
+                            break
+                        if rest.record_type == 'Receipt':
+                            rest.change_quantity *= -1
+                        db_rest = Rests.objects.filter(product__ref_key=rest.product_key)[0]
+                        db_rest.amount += rest.change_quantity
+                        if db_rest.amount >= 0:
+                            db_rest.save()
+                        else:
+                            messages.add_message(request, messages.ERROR,
+                                                 f'Ошибка: Не достаточно товара {product[0].name} для отмены получения')
+                            conflict += 1
+                            continue
+                        exist_rest.active = rest.active
+                        exist_rest.save()
+                        update += 1
+        messages.add_message(request, messages.INFO, f'Были обновлены остатки {update} товаров, создано {create} остатков, конфликтов {conflict}')
         return render(request, 'admin/admin_import_from_1c.html')
 
 
@@ -360,32 +450,14 @@ class ImportGoodsView(View):
                             try:
                                 for row in range(3, exel_data.nrows - 1):
 
-                                    product_price = 0
                                     product_name = exel_data.cell_value(row, 0)
                                     product_code = int(exel_data.cell_value(row, 1).split('-')[-1])
                                     prachechniy_rests = exel_data.cell_value(row, 4)
-                                    prachechniy_sum = exel_data.cell_value(row, 5)
-                                    if prachechniy_rests != '':
-                                        prachechniy_rests = Decimal(prachechniy_rests)
-                                        prachechniy_sum = Decimal(prachechniy_sum)
-                                        product_price = prachechniy_sum / prachechniy_rests
-                                    else:
-                                        prachechniy_rests = 0
-                                    if product_price == 0:
-                                        logger.error(f'import {file} error Bad values - {product_code}, rests = 0')
-                                        log += f'import {file} error Bad values - {product_code}, rests = 0\n'
-                                        messages.error(request,
-                                                       f'Ошибка загрузки. Некорректные значения {product_code}, остаток = 0')
-                                        break
-
-                                    for_sale = lambda: False if product_name[-1] == '*' else True
 
                                     product = Product.objects.filter(search=product_code)
 
                                     if product:
                                         product = product[0]
-                                        product.price = product_price
-                                        product.sale = for_sale()
                                         product.save()
                                         db_rests = Rests.objects.filter(product=product, shop=shop)
                                         if db_rests:

@@ -94,10 +94,22 @@ class Rests(models.Model):
     def __str__(self):
         return self.product.name
 
-    def change_rests(self, shop, product, amount):
-        pass
-
     class Meta:
         db_table = 'rests'
         verbose_name = 'Остаток'
         verbose_name_plural = 'Остатки'
+
+
+class RestsOdataLoad(models.Model):
+    active = models.BooleanField(verbose_name="Активно")
+    date_time = models.DateTimeField(verbose_name="Дата и время документа")
+    recorder = models.CharField(verbose_name="Ссылка на документ в 1с", max_length=36)
+    product_key = models.CharField(verbose_name="Ссылка на товар в 1с", max_length=36)
+
+    def __str__(self):
+        return self.recorder
+
+    class Meta:
+        db_table = 'rests_odata_load'
+        verbose_name = 'Данные загрузки остатков (не изменять)'
+        verbose_name_plural = 'Данные загрузки остатков (не изменять)'

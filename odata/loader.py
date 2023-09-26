@@ -2,6 +2,7 @@ import functools
 import json
 import logging
 import http.client
+from datetime import datetime
 from urllib.parse import quote
 
 from pydantic import BaseModel, Field, ValidationError
@@ -38,6 +39,16 @@ class ProductPrice(BaseModel):
     product_key: str = Field(alias='Номенклатура_Key')
     price_type: str = Field(alias='ВидЦены_Key')
     price: int = Field(alias='Цена')
+
+
+class ProductAmount(BaseModel):
+    active: bool = Field(alias='Active')
+    date_time: datetime = Field(alias='Period')
+    recorder: str = Field(alias='Recorder')
+    record_type: str = Field(alias='RecordType')
+    product_key: str = Field(alias='Номенклатура_Key')
+    store_key: str = Field(alias='Склад_Key')
+    change_quantity: int = Field(alias='ВНаличии')
 
 
 class ProductImage(BaseModel):
@@ -104,7 +115,14 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
                 order_by = ''
             else:
                 raise NameError('C этой моделью необходимо передать guid вида цены номенклатуры тип данных str')
-
+        elif model == ProductAmount:
+            """record_type - 'Receipt' or 'Expense'"""
+            format_ = 'json'
+            content = 'AccumulationRegister_ТоварыНаСкладах_RecordType/'
+            select = 'Period,Recorder,Active,RecordType,Номенклатура_Key,Склад_Key,ВНаличии'
+            raw_filter = f"Active and year(Period) eq {kwargs['year']} and month(Period) eq {kwargs['month']} and day(Period) eq {kwargs['day']}'"
+            filter_ = quote(raw_filter)
+            order_by = ''
         elif model == ProductImage:
             if 'guid' in kwargs and kwargs['guid'] and type(kwargs['guid']) == str:
                 format_ = 'json'
@@ -156,7 +174,6 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
 
 
 if __name__ == '__main__':
-    result = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=ProductPrice,
-                            server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/', top=10,
-                            guid='9eae0ae2-50d8-11e6-b065-91bcc12f28ea', year=2023, month=9, day=25)
+    result = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=ProductAmount,
+                            server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/', top=10, year=2023, month=9, day=25)
     print(result)

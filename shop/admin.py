@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Category, Product, File, Rests, Shop, Image
+from .models import Category, Product, File, Rests, Shop, Image, RestsOdataLoad
 
 
 @admin.register(File)
@@ -40,3 +40,8 @@ class RestsAdmin(admin.ModelAdmin):
     list_display = ['shop', 'product', 'amount']
     search_fields = ['product__name']
     ordering = ['product__name']
+
+
+@admin.register(RestsOdataLoad)
+class RestsOdataLoadAdmin(admin.ModelAdmin):
+    pass
