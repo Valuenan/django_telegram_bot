@@ -110,7 +110,7 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
                 format_ = 'json'
                 content = 'InformationRegister_ЦеныНоменклатуры_RecordType/'
                 select = 'Period,Active,Номенклатура_Key,ВидЦены_Key,Цена'
-                raw_filter = f"Active and ВидЦены_Key eq guid'{kwargs['guid']}' and year(Period) eq {kwargs['year']} and month(Period) eq {kwargs['month']} and day(Period) eq {kwargs['day']}"
+                raw_filter = f"Active and ВидЦены_Key eq guid'{kwargs['guid']}' and year(Period) eq {kwargs['year']} and month(Period) eq {kwargs['month']}"
                 filter_ = quote(raw_filter)
                 order_by = ''
             else:
