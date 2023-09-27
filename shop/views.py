@@ -191,7 +191,7 @@ class ImportRests1CView(View):
                             product = Product.objects.filter(ref_key=rest.product_key)
                             if not product:
                                 # Пропуск номенклатуры "Пакет"
-                                if rest.product_key == '76577798-75bc-11eb-a0c1-005056b6fe75':
+                                if rest.product_key in ['76577798-75bc-11eb-a0c1-005056b6fe75',  'a3b8770e-5c30-11ec-a0ca-005056b6fe75']:
                                     continue
                                 messages.add_message(request, messages.ERROR,
                                                      f'Ошибка: Отсутсвует товар {rest.product_key}. Сначала загрузите товары. ДАННЫЕ НЕ БЫЛИ ЗАГРУЖЕНЫ')
