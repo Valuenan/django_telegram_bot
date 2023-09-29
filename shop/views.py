@@ -96,7 +96,6 @@ class ImportProducts1CView(View):
                     sale = False
                 category = Category.objects.filter(ref_key=product.parent_key)
                 if category:
-                    # TODO притянуть цену и в обновлении товара изменять цену
                     new_product = Product.objects.create(category=category[0], ref_key=product.ref_key, sale=sale,
                                                          name=product.name.strip(), price=0, search=product.search)
                     messages.add_message(request, messages.INFO, f'Создан товар {new_product.name}')
@@ -192,8 +191,8 @@ class ImportRests1CView(View):
                         else:
                             product = Product.objects.filter(ref_key=rest.product_key)
                             if not product:
-                                # Пропуск номенклатуры "Пакет"
-                                if rest.product_key in ['76577798-75bc-11eb-a0c1-005056b6fe75',  'a3b8770e-5c30-11ec-a0ca-005056b6fe75']:
+                                # Пропуск номенклатуры "Пакет, Тестовый товар"
+                                if rest.product_key in ['76577798-75bc-11eb-a0c1-005056b6fe75',  'a3b8770e-5c30-11ec-a0ca-005056b6fe75', '0c9ffff5-1847-11ea-a082-005056b6fe75']:
                                     continue
                                 messages.add_message(request, messages.ERROR,
                                                      f'Ошибка: Отсутсвует товар {rest.product_key}. Сначала загрузите товары. ДАННЫЕ НЕ БЫЛИ ЗАГРУЖЕНЫ')
