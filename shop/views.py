@@ -41,19 +41,24 @@ class ImportCategory1CView(View):
                 continue
             exist_category = Category.objects.filter(id=category.search)
             if not exist_category:
-                new_category = Category.objects.create(command=category.description.strip(), ref_key=category.ref_key,
-                                                       id=category.search)
                 if category.parent_key != '00000000-0000-0000-0000-000000000000':
                     parent_category = Category.objects.filter(ref_key=category.parent_key)
                     if parent_category:
-                        new_category.parent_category = parent_category[0]
-                        new_category.save()
-                messages.add_message(request, messages.INFO, f'Создана категория {new_category.command}')
-                created += 1
+                        new_category = Category.objects.create(command=category.description.strip(),
+                                                               ref_key=category.ref_key,
+                                                               id=category.search, parent_category=parent_category[0])
+                        messages.add_message(request, messages.INFO, f'Создана категория {new_category.command}')
+                        created += 1
+
+                else:
+                    new_category = Category.objects.create(command=category.description.strip(),
+                                                           ref_key=category.ref_key,
+                                                           id=category.search)
+                    messages.add_message(request, messages.INFO, f'Создана категория {new_category.command}')
+                    created += 1
             else:
                 exist_category = exist_category[0]
                 new_parent_category = None
-
                 if category.parent_key != '00000000-0000-0000-0000-000000000000':
 
                     parent_category = Category.objects.filter(ref_key=category.parent_key)
@@ -85,9 +90,6 @@ class ImportProducts1CView(View):
         data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=CatalogProduct,
                               server_url=CREDENTIALS_1C['server'], base=CREDENTIALS_1C['base'])
         for product in data:
-            # Пропускаем товары в корне
-            if '00000000-0000-0000-0000-000000000000' == product.parent_key:
-                continue
             exist_product = Product.objects.filter(ref_key=product.ref_key)
             if not exist_product:
                 if product.name.strip()[-1] == '*':
@@ -165,11 +167,13 @@ class ImportRests1CView(View):
             load_date = datetime.now()
         else:
             load_date = last_data.date_time
-        for day in range(load_date.day, datetime.now().day + 1):
+        for month in range(load_date.month, load_date.month + 1):
+            if month == 13:
+                month = 1
             data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'],
                                   model=ProductAmount,
                                   server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/', year=load_date.year,
-                                  month=load_date.month, day=day)
+                                  month=month)
             for rest in data:
                 exist_rest = RestsOdataLoad.objects.filter(recorder=rest.recorder, product_key=rest.product_key)
 
