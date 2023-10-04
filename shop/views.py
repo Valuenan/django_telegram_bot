@@ -1,6 +1,6 @@
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 import xlrd
 from django.conf import settings
@@ -141,8 +141,7 @@ class ImportPrices1CView(View):
         for price in data:
             exist_product = Product.objects.filter(ref_key=price.product_key)
             if not exist_product:
-                messages.add_message(request, messages.ERROR,
-                                     f'Товар с ключем {price.product_key} остутсвует, загрузите сначала номенклатуру')
+                continue
             else:
                 update += 1
                 exist_product = exist_product[0]
@@ -167,13 +166,13 @@ class ImportRests1CView(View):
             load_date = datetime.now()
         else:
             load_date = last_data.date_time
-        for month in range(load_date.month, load_date.month + 1):
-            if month == 13:
-                month = 1
+        up_to_date = datetime.now() + timedelta(days=1)
+
+        while True:
             data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'],
                                   model=ProductAmount,
                                   server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/', year=load_date.year,
-                                  month=month)
+                                  month=load_date.month, day=load_date.day)
             for rest in data:
                 exist_rest = RestsOdataLoad.objects.filter(recorder=rest.recorder, product_key=rest.product_key)
 
@@ -202,8 +201,8 @@ class ImportRests1CView(View):
                                                         '0c9ffff5-1847-11ea-a082-005056b6fe75']:
                                     continue
                                 messages.add_message(request, messages.ERROR,
-                                                     f'Ошибка: Отсутсвует товар {rest.product_key}. Сначала загрузите товары. ДАННЫЕ НЕ БЫЛИ ЗАГРУЖЕНЫ')
-                                break
+                                                     f'Ошибка: Отсутсвует товар {rest.product_key}. Сначала загрузите товары. Товар был пропущен')
+                                continue
                             if rest.record_type == 'Receipt':
                                 shop = Shop.objects.all()[0]
                                 Rests.objects.create(shop=shop, product=product[0], amount=rest.change_quantity)
@@ -226,8 +225,8 @@ class ImportRests1CView(View):
                             if rest.product_key == '76577798-75bc-11eb-a0c1-005056b6fe75':
                                 continue
                             messages.add_message(request, messages.ERROR,
-                                                 f'Ошибка: Отсутсвует товар {rest.product_key}. Сначала загрузите товары. ДАННЫЕ НЕ БЫЛИ ЗАГРУЖЕНЫ')
-                            break
+                                                 f'Ошибка: Отсутсвует товар {rest.product_key}. Сначала загрузите товары. Товар был пропущен')
+                            continue
                         if rest.record_type == 'Receipt':
                             rest.change_quantity *= -1
                         db_rest = Rests.objects.filter(product__ref_key=rest.product_key)[0]
@@ -242,6 +241,9 @@ class ImportRests1CView(View):
                         exist_rest.active = rest.active
                         exist_rest.save()
                         update += 1
+            if load_date.month == up_to_date.month and load_date.day == up_to_date.day:
+                break
+            load_date += timedelta(days=1)
         messages.add_message(request, messages.INFO,
                              f'Были обновлены остатки {update} товаров, создано {create} остатков, конфликтов {conflict}')
         return render(request, 'admin/admin_import_from_1c.html')
