@@ -60,7 +60,7 @@ class Image(models.Model):
 
 
 class Product(models.Model):
-    category = models.ForeignKey(Category, on_delete=models.PROTECT, verbose_name='Категория')
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, verbose_name='Категория')
     ref_key = models.CharField(max_length=36, verbose_name='Ссылка в базе 1с', unique=True, null=True, blank=True)
     name = models.CharField(max_length=100, verbose_name='Название')
     image = models.ForeignKey(Image, on_delete=models.CASCADE, verbose_name='Изображение товара', null=True, blank=True)
