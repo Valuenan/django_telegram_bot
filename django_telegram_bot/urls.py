@@ -18,7 +18,7 @@ from django.conf.urls import url, static
 from django.urls import path, include
 from django_telegram_bot import settings
 from shop.views import ImportGoodsView, Login, Logout, ImportCategory1CView, ImportProducts1CView, RemoveDuplicates, \
-    RemoveNoRefKey, ImportImages1CView, ImportPrices1CView, ImportRests1CView
+    RemoveNoRefKey, ImportImages1CView, ImportPrices1CView, ImportRests1CView, ProductsCheckList
 from django.views.static import serve as mediaserve
 
 
@@ -35,6 +35,7 @@ urlpatterns = [
     path('admin/load_images_from_1c', ImportImages1CView.as_view(), name='load_images_from_1c'),
     path('admin/remove_duplicates', RemoveDuplicates.as_view(), name='remove_duplicates'),
     path('admin/remove_no_ref_key', RemoveNoRefKey.as_view(), name='remove_no_ref_key'),
+    path('admin/products_checklist', ProductsCheckList.as_view(), name='products_checklist'),
 
     path('admin/', admin.site.urls, name='admin'),
     path('', include('shop.urls')),

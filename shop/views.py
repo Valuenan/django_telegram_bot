@@ -166,7 +166,8 @@ class ImportRests1CView(View):
         else:
             load_date = last_data.date_time
         for day in range(load_date.day, datetime.now().day + 1):
-            data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=ProductAmount,
+            data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'],
+                                  model=ProductAmount,
                                   server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/', year=load_date.year,
                                   month=load_date.month, day=day)
             for rest in data:
@@ -192,7 +193,9 @@ class ImportRests1CView(View):
                             product = Product.objects.filter(ref_key=rest.product_key)
                             if not product:
                                 # Пропуск номенклатуры "Пакет, Тестовый товар"
-                                if rest.product_key in ['76577798-75bc-11eb-a0c1-005056b6fe75',  'a3b8770e-5c30-11ec-a0ca-005056b6fe75', '0c9ffff5-1847-11ea-a082-005056b6fe75']:
+                                if rest.product_key in ['76577798-75bc-11eb-a0c1-005056b6fe75',
+                                                        'a3b8770e-5c30-11ec-a0ca-005056b6fe75',
+                                                        '0c9ffff5-1847-11ea-a082-005056b6fe75']:
                                     continue
                                 messages.add_message(request, messages.ERROR,
                                                      f'Ошибка: Отсутсвует товар {rest.product_key}. Сначала загрузите товары. ДАННЫЕ НЕ БЫЛИ ЗАГРУЖЕНЫ')
@@ -235,7 +238,8 @@ class ImportRests1CView(View):
                         exist_rest.active = rest.active
                         exist_rest.save()
                         update += 1
-        messages.add_message(request, messages.INFO, f'Были обновлены остатки {update} товаров, создано {create} остатков, конфликтов {conflict}')
+        messages.add_message(request, messages.INFO,
+                             f'Были обновлены остатки {update} товаров, создано {create} остатков, конфликтов {conflict}')
         return render(request, 'admin/admin_import_from_1c.html')
 
 
@@ -499,6 +503,86 @@ class Login(LoginView):
 class Logout(LogoutView):
     """Класс, позволяющий разлогинить пользователя"""
     template_name = 'login.html'
+
+
+class Product_data:
+    def __init__(self, name):
+        self.info_color = 'green'
+        self.name = name
+
+
+class ProductsCheckList(View):
+    login_url = '/login'
+
+    def get(self, request):
+        file_form = ImportGoodsForm()
+        return render(request, 'admin/products_checklist.html', context={'file_form': file_form})
+
+    def post(self, request):
+        post_data = request.POST.copy()
+        if 'remove_good' in post_data:
+            remove_good = True
+        else:
+            remove_good = False
+        upload_file_form = ImportGoodsForm(request.POST, request.FILES)
+        user = User.objects.get(id=request.user.id)
+        products = []
+        try:
+            if upload_file_form.is_valid():
+                files = request.FILES.getlist('file_field')
+                for file in files:
+                    file_for_import = File.objects.create(user=user, file=file)
+                    try:
+                        with xlrd.open_workbook(
+                                os.path.abspath(f'{settings.MEDIA_ROOT}/{file_for_import.file}')) as workbook:
+
+                            exel_data = workbook.sheet_by_index(0)
+                            db_products = Product.objects.all().only('price')
+                            try:
+                                for row in range(3, exel_data.nrows - 1):
+                                    product = Product_data(exel_data.cell_value(row, 0))
+                                    product.code = int(exel_data.cell_value(row, 1).split('-')[-1])
+                                    product.rest_1c = int(exel_data.cell_value(row, 4))
+                                    product.price_1c = int(exel_data.cell_value(row, 5) // product.rest_1c)
+
+                                    product_bot_info = db_products.filter(search=product.code)
+                                    if product_bot_info:
+                                        product.price_bot = int(product_bot_info[0].price)
+                                        if product.price_1c != product.price_bot:
+                                            product.info_color = 'red'
+                                        product_bot_rests = product_bot_info[0].rests_set.all()
+                                        if product_bot_rests:
+                                            product.rest_bot = int(product_bot_rests[0].amount)
+                                            if product.rest_1c != product.rest_bot:
+                                                product.info_color = 'red'
+                                        else:
+                                            if product.info_color != 'red':
+                                                product.info_color = 'orange'
+                                            product.rest_bot = 'нет'
+                                    else:
+                                        product.info_color = 'orange'
+                                        product.price_bot = 'нет'
+                                        product.rest_bot = 'нет'
+
+                                    if remove_good and product.info_color == 'green':
+                                        continue
+
+                                    products.append(product)
+
+
+                            except (ValueError, ZeroDivisionError) as ex:
+                                logger.error(f'import {file} error Bad values - {ex}')
+                                messages.error(request, 'Ошибка загрузки. Некорректные значения')
+
+                    except xlrd.XLRDError as ex:
+                        logger.error(f'import {file} error Bad file - {ex}')
+                        messages.error(request, 'Ошибка загрузки. Некорректный файл')
+
+        except TypeError as ex:
+            logger.error(f'import error load file - {ex}')
+            messages.error(request, 'Ошибка загрузки')
+        file_form = ImportGoodsForm()
+        return render(request, 'admin/products_checklist.html', context={'file_form': file_form, 'products': products})
 
 
 class OrdersList(LoginRequiredMixin, ListView):

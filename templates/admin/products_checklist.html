@@ -1,0 +1,34 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block content %}
+   <div>
+       <p style="font-size: 14px;">Загрузите файл с остатками из 1с</p>
+           <form method="post" enctype="multipart/form-data">
+               {% csrf_token %}
+               <p>{{ file_form.file_field }}</p>
+               <p>Убрать позиции без ошибок <input type="checkbox" name="remove_good"></p>
+               <button type="submit">Сверить</button>
+           </form>
+   </div>
+    {% if request.method == 'POST' %}
+        <table border="1px">
+            <tr>
+                <td>Название товара</td>
+                <td>Количество в 1с</td>
+                <td>Цена в 1с</td>
+                <td>Количество в боте</td>
+                <td>Цена в боте</td>
+            </tr>
+            {% for product in products %}
+            <tr style="color:{{ product.info_color }}">
+                <td>{{ product.name }}</td>
+                <td>{{ product.rest_1c }}</td>
+                <td>{{ product.price_1c }}</td>
+                <td>{{ product.rest_bot }}</td>
+                <td>{{ product.price_bot }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% endif %}
+    {{ block.super }}
+{% endblock %}
