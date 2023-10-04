@@ -462,11 +462,10 @@ class ImportGoodsView(View):
                             try:
                                 for row in range(3, exel_data.nrows - 1):
 
-                                    product_name = exel_data.cell_value(row, 0)
-                                    product_code = int(exel_data.cell_value(row, 1).split('-')[-1])
+                                    product_name = exel_data.cell_value(row, 1).strip()
                                     prachechniy_rests = exel_data.cell_value(row, 4)
 
-                                    product = Product.objects.filter(search=product_code)
+                                    product = Product.objects.filter(name=product_name)
 
                                     if product:
                                         product = product[0]
@@ -547,12 +546,11 @@ class ProductsCheckList(View):
                             db_products = Product.objects.all().only('price')
                             try:
                                 for row in range(3, exel_data.nrows - 1):
-                                    product = Product_data(exel_data.cell_value(row, 0))
-                                    product.code = int(exel_data.cell_value(row, 1).split('-')[-1])
+                                    product = Product_data(exel_data.cell_value(row, 1).strip())
                                     product.rest_1c = int(exel_data.cell_value(row, 4))
                                     product.price_1c = int(exel_data.cell_value(row, 5) // product.rest_1c)
 
-                                    product_bot_info = db_products.filter(search=product.code)
+                                    product_bot_info = db_products.filter(name=product.name)
                                     if product_bot_info:
                                         product.price_bot = int(product_bot_info[0].price)
                                         if product.price_1c != product.price_bot:
