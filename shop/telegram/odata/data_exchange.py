@@ -60,6 +60,8 @@ def import_category() -> list:
                 exist_category.save()
                 updated += 1
     result_messages.append((messages.INFO, f'Создано {created} категорий, обновленно {updated} категорий'))
+    if created != 0 or updated != 0:
+        import_category()
     return result_messages
 
 
@@ -415,3 +417,38 @@ def remove_no_ref_key() -> list:
                 conflicts += 1
     result_messages.append((messages.INFO, f'Удалено {removed} товаров без ссылки на 1с, не удалось {conflicts}'))
     return result_messages
+
+
+def auto_exchange():
+    """Выполнить авто обмен с1"""
+    all_results_messages = []
+
+    # Загрузка категорий
+    all_results_messages.append(import_category())
+
+    # Загрузка изменений цен за последний месяц (и товаров если отсутсвуют в базе)
+    result_messages = import_prices()
+    for messages_type, _ in result_messages:
+        if messages_type == messages.ERROR:
+            all_results_messages.append(import_products())
+            all_results_messages.append(import_prices())
+        else:
+            all_results_messages.append(result_messages)
+
+    # Загрузка изменений остатков на текущий день (и товаров если отсутсвуют в базе)
+    result_messages = import_rests()
+    for messages_type, _ in result_messages:
+        if messages_type == messages.ERROR:
+            all_results_messages.append(import_products())
+            all_results_messages.append(import_rests())
+        else:
+            all_results_messages.append(result_messages)
+
+    # Оставляем только сообщения с ошибками
+    index = 0
+    while index != len(all_results_messages):
+        if all_results_messages[index][0] == messages.INFO:
+            all_results_messages.pop(index)
+        else:
+            index += 1
+    return all_results_messages

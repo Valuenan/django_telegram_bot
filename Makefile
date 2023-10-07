@@ -8,7 +8,7 @@ runbot_nohup:
 	nohup make runbot &
 
 runcheck:
-	python manage.py pay_check
+	python manage.py services
 
 runcheck_nohup:
 	nohup make runcheck &
