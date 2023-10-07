@@ -2,7 +2,7 @@ from time import sleep
 
 from django.core.management.base import BaseCommand
 
-from shop.telegram.banking_check import check_orders_payment
+from shop.telegram.banking.banking_check import check_orders_payment
 
 TIMER = 300
 

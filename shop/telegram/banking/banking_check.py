@@ -1,6 +1,6 @@
 from time import sleep
 
-from shop.telegram.banking import avangard_check
+from shop.telegram.banking.banking import avangard_check
 from shop.telegram.bot import ready_order_message
 from shop.telegram.db_connection import get_waiting_payment_orders, order_payed
 
