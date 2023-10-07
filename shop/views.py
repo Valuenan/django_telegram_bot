@@ -59,7 +59,11 @@ class ImportPrices1CView(View):
         return render(request, 'admin/admin_import_from_1c.html')
 
     def post(self, request):
-        result_messages = import_prices()
+        form = request.POST.copy()
+        load_all = False
+        if 'load_all' in form.keys():
+            load_all = True
+        result_messages = import_prices(load_all=load_all)
         _add_messages(request, result_messages)
         return render(request, 'admin/admin_import_from_1c.html')
 

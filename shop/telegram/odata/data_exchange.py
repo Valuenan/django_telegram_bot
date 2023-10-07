@@ -109,12 +109,13 @@ def import_products() -> list:
     return result_messages
 
 
-def import_prices(year: datetime = None, month: datetime = None) -> list:
+def import_prices(year: datetime = None, month: datetime = None, load_all: bool = False) -> list:
     """
     Загрузить цены из 1с
     ! Oбязательно должны быть переданы оба параметра иначе загружаться данные на текущий месяц !
     :param year: год установки цен
     :param month: месяц установки цен
+    :param load_all: загрузить все цены (если True параметры передаваемые в year и month игнорируются)
     :return: сообщения о результатах обмена
     """
     result_messages = []
@@ -125,7 +126,7 @@ def import_prices(year: datetime = None, month: datetime = None) -> list:
         month = now.month
     data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=ProductPrice,
                           server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/',
-                          guid='9eae0ae2-50d8-11e6-b065-91bcc12f28ea', year=year, month=month)
+                          guid='9eae0ae2-50d8-11e6-b065-91bcc12f28ea', load_all=load_all, year=year, month=month)
     for price in data:
         exist_product = Product.objects.filter(ref_key=price.product_key)
         if not exist_product:

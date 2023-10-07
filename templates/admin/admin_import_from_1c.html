@@ -26,6 +26,9 @@
                 <form action="{% url 'load_prices_from_1c' %}" method="post">
                     {% csrf_token %}
                     <button type="submit">Загрузить <b> ЦЕНЫ </b> из 1c</button>
+                    <div style="margin: 15px 0 15px 0;"><input type="checkbox" name="load_all">
+                        Загрузить за все время (если отключено, изменения за последний месяц)
+                    </div>
                 </form>
             </div>
             <div style="margin: 15px 0 15px 0;">
