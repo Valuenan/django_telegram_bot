@@ -122,7 +122,7 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
             format_ = 'json'
             content = 'AccumulationRegister_ТоварыНаСкладах_RecordType/'
             select = 'Period,Recorder,Active,RecordType,Номенклатура_Key,Склад_Key,ВНаличии'
-            raw_filter = f"Active and year(Period) eq {kwargs['year']} and month(Period) eq {kwargs['month']} and day(Period) eq {kwargs['day']}"
+            raw_filter = f"Active and year(Period) eq {kwargs['year']} and month(Period) ge {kwargs['month']}"
             filter_ = quote(raw_filter)
             order_by = ''
         elif model == ProductImage:
@@ -177,5 +177,5 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
 
 if __name__ == '__main__':
     result = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=ProductAmount,
-                            server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/', year=2023, month=9, day=29)
+                            server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/', year=2023, month=9)
     print(result)
