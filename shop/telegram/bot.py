@@ -236,7 +236,7 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
 
 
     else:
-        context.bot.send_message(chat_id=update.effective_chat.id, text=f'В данной категории ненашлось товаров 😨',
+        context.bot.send_message(chat_id=update.effective_chat.id, text=f'В данной категории не нашлось товаров 😨',
                                  disable_notification=True)
 
 
