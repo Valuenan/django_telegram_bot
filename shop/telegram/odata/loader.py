@@ -122,7 +122,7 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
             format_ = 'json'
             content = 'AccumulationRegister_ТоварыНаСкладах_RecordType/'
             select = 'Period,Recorder,Active,RecordType,Номенклатура_Key,Склад_Key,ВНаличии'
-            raw_filter = f"Active and year(Period) eq {kwargs['year']} and month(Period) ge {kwargs['month']}"
+            raw_filter = f"Active and year(Period) eq {kwargs['year']} and month(Period) ge {kwargs['month']} and day(Period) ge {kwargs['day']}"
             filter_ = quote(raw_filter)
             order_by = ''
         elif model == ProductImage:

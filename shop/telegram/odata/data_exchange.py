@@ -122,6 +122,7 @@ def import_prices(year: datetime = None, month: datetime = None, load_all: bool 
     """
     result_messages = []
     update = 0
+    skip = 0
     if not year or not month:
         now = datetime.now()
         year = now.year
@@ -132,36 +133,38 @@ def import_prices(year: datetime = None, month: datetime = None, load_all: bool 
     for price in data:
         exist_product = Product.objects.filter(ref_key=price.product_key)
         if not exist_product:
+            skip += 1
             continue
         else:
             update += 1
             exist_product = exist_product[0]
             exist_product.price = price.price
             exist_product.save()
-    result_messages.append((messages.INFO, f'Цены были обновлены у {update} товаров'))
+    result_messages.append((messages.INFO, f'Цены были обновлены у {update} товаров, не удалось обновить цены у {skip} товаров'))
     return result_messages
 
 
-def import_rests(year: datetime = None, month: datetime = None) -> list:
+def import_rests(year: datetime = None, month: datetime = None, day: datetime = None) -> list:
     result_messages = []
     create = 0
     update = 0
     conflict = 0
     last_data = RestsOdataLoad.objects.last()
-    if not year or not month:
+    if not year or not month or not day:
         if not last_data:
             load_date = datetime.now()
         else:
             load_date = last_data.date_time
         year = load_date.year
         month = load_date.month
+        day = load_date.day
     up_to_date = datetime.now() + timedelta(days=1)
 
     while True:
         data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'],
                               model=ProductAmount,
                               server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/', year=year,
-                              month=month)
+                              month=month, day=day)
         for rest in data:
             exist_rest = RestsOdataLoad.objects.filter(recorder=rest.recorder, product_key=rest.product_key)
 
