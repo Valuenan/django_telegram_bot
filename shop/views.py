@@ -240,7 +240,7 @@ class ProductsCheckList(View):
 
                             exel_data = workbook.sheet_by_index(0)
                             db_products = Product.objects.all().only('price')
-                            rests_bot = Rests.objects.all()
+                            rests_bot = Rests.objects.all().exclude(amount=0)
 
                             try:
                                 for row in range(3, exel_data.nrows - 1):
