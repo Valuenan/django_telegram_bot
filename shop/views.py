@@ -20,7 +20,6 @@ from .telegram.bot import ready_order_message, send_message_to_user, manager_edi
 from .telegram.odata.data_exchange import import_category, import_products, import_prices, import_rests, import_images, \
     remove_duplicates, remove_no_ref_key
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -241,6 +240,8 @@ class ProductsCheckList(View):
 
                             exel_data = workbook.sheet_by_index(0)
                             db_products = Product.objects.all().only('price')
+                            rests_bot = Rests.objects.all()
+
                             try:
                                 for row in range(3, exel_data.nrows - 1):
                                     product = Product_data(exel_data.cell_value(row, 1).strip())
@@ -248,13 +249,16 @@ class ProductsCheckList(View):
                                     product.price_1c = int(exel_data.cell_value(row, 5) // product.rest_1c)
 
                                     product_bot_info = db_products.filter(name=product.name)
+
                                     if product_bot_info:
                                         product.price_bot = int(product_bot_info[0].price)
                                         if product.price_1c != product.price_bot:
                                             product.info_color = 'red'
                                         product_bot_rests = product_bot_info[0].rests_set.all()
                                         if product_bot_rests:
-                                            product.rest_bot = int(product_bot_rests[0].amount)
+                                            product_bot_rests = product_bot_rests[0]
+                                            rests_bot = rests_bot.exclude(product=product_bot_rests.product)
+                                            product.rest_bot = int(product_bot_rests.amount)
                                             if product.rest_1c != product.rest_bot:
                                                 product.info_color = 'red'
                                         else:
@@ -270,7 +274,14 @@ class ProductsCheckList(View):
                                         continue
 
                                     products.append(product)
-
+                                for rest in rests_bot:
+                                    product = Product_data(rest.product.name)
+                                    product.rest_1c = 'нет'
+                                    product.price_1c = 'нет'
+                                    product.info_color = 'red'
+                                    product.price_bot = rest.product.price
+                                    product.rest_bot = rest.amount
+                                    products.append(product)
 
                             except (ValueError, ZeroDivisionError) as ex:
                                 logger.error(f'import {file} error Bad values - {ex}')
