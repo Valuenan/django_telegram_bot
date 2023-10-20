@@ -154,7 +154,7 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
         if not last_data:
             load_date = datetime.now()
         else:
-            load_date = last_data.date_time
+            load_date = last_data.date_time - timedelta(days=1)
         year = load_date.year
         month = load_date.month
         day = load_date.day
