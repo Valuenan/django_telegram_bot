@@ -18,7 +18,7 @@ from users.models import Orders, Profile, OrderStatus, UserMessage
 from .models import File, Product, Rests, Shop
 from .telegram.bot import ready_order_message, send_message_to_user, manager_edit_order, manager_remove_order
 from .telegram.odata.data_exchange import import_category, import_products, import_prices, import_rests, import_images, \
-    remove_duplicates, remove_no_ref_key
+    remove_duplicates, remove_no_ref_key, mark_sale
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +94,18 @@ class ImportImages1CView(View):
             update = True
         result_messages = import_images(load_all, update)
         _add_messages(request, result_messages)
+        return render(request, 'admin/admin_import_from_1c.html')
+
+
+class MarkProductsSale(View):
+
+    @staticmethod
+    def get(request):
+        return render(request, 'admin/admin_import_from_1c.html')
+
+    def post(self, request):
+        result_messages = mark_sale()
+        # _add_messages(request, result_messages)
         return render(request, 'admin/admin_import_from_1c.html')
 
 

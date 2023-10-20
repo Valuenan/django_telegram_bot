@@ -59,6 +59,12 @@
         <td><p style="font-size: 14px;">Утилиты для базы бота:</p></td>
         <td>
             <div style="margin: 15px 0 15px 0;">
+                <form action="{% url 'mark_sale' %}" method="post">
+                    {% csrf_token %}
+                    <button type="submit">Добавить отметки для товаров по акции</button>
+                </form>
+            </div>
+            <div style="margin: 15px 0 15px 0;">
                 <form action="{% url 'remove_duplicates' %}" method="post">
                     {% csrf_token %}
                     <button type="submit">Удалить дубли</button>

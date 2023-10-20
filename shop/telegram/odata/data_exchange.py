@@ -140,7 +140,8 @@ def import_prices(year: datetime = None, month: datetime = None, load_all: bool 
             exist_product = exist_product[0]
             exist_product.price = price.price
             exist_product.save()
-    result_messages.append((messages.INFO, f'Цены были обновлены у {update} товаров, не удалось обновить цены у {skip} товаров'))
+    result_messages.append(
+        (messages.INFO, f'Цены были обновлены у {update} товаров, не удалось обновить цены у {skip} товаров'))
     return result_messages
 
 
@@ -291,6 +292,13 @@ def import_images(load_all: bool = False, update: bool = False) -> list:
     result_messages.append((messages.INFO,
                             f'Создано {created} изображение товаров, обновленно {updated} изображений товаров, отсутсвуют фото у {skip} товаров'))
     return result_messages
+
+
+def mark_sale():
+    products = Product.objects.filter(name__contains='*')
+    for product in products:
+        product.sale = True
+        product.save()
 
 
 def _relocate_duplicated_data(main_duplicate: object, main_duplicate_data: dict, duplicates: list) -> object:
