@@ -295,10 +295,14 @@ def import_images(load_all: bool = False, update: bool = False) -> list:
 
 
 def mark_sale():
-    products = Product.objects.filter(name__contains='*')
+    products = Product.objects.all()
     for product in products:
-        product.sale = False
-        product.save()
+        if product.name[-1] == '*':
+            product.sale = False
+            product.save()
+        else:
+            product.sale = True
+            product.save()
 
 
 def _relocate_duplicated_data(main_duplicate: object, main_duplicate_data: dict, duplicates: list) -> object:
