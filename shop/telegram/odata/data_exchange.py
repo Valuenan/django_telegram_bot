@@ -79,9 +79,9 @@ def import_products() -> list:
         exist_product = Product.objects.filter(ref_key=product.ref_key)
         if not exist_product:
             if product.name.strip()[-1] == '*':
-                sale = True
-            else:
                 sale = False
+            else:
+                sale = True
             category = Category.objects.filter(ref_key=product.parent_key)
             if category:
                 new_product = Product.objects.create(category=category[0], ref_key=product.ref_key, sale=sale,
@@ -91,6 +91,10 @@ def import_products() -> list:
                 continue
             created += 1
         else:
+            if exist_product.name[-1] == '*':
+                sale = False
+            else:
+                sale = True
             exist_product = exist_product[0]
             new_category = Category.objects.filter(ref_key=product.parent_key)
             if not new_category:
