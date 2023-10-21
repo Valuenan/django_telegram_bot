@@ -297,7 +297,7 @@ def import_images(load_all: bool = False, update: bool = False) -> list:
 def mark_sale():
     products = Product.objects.filter(name__contains='*')
     for product in products:
-        product.sale = True
+        product.sale = False
         product.save()
 
 
