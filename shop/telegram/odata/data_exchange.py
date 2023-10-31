@@ -100,11 +100,11 @@ def import_products() -> list:
                 continue
             created += 1
         else:
+            exist_product = exist_product[0]
             if exist_product.name[-1] == '*':
                 sale = False
             else:
                 sale = True
-            exist_product = exist_product[0]
             new_category = Category.objects.filter(ref_key=product.parent_key)
             if not new_category:
                 result_messages.append((messages.ERROR, f'Товар {product.name} был пропущен, отсутствует категория'))
