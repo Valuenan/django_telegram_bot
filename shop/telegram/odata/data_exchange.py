@@ -9,6 +9,15 @@ from users.models import Carts
 from shop.models import Category, Product, Rests, Shop, Image, RestsOdataLoad
 from shop.telegram.settings import CREDENTIALS_1C
 
+elimination_nomenclature = ['76577798-75bc-11eb-a0c1-005056b6fe75',
+                            'a3b8770e-5c30-11ec-a0ca-005056b6fe75',
+                            '0c9ffff5-1847-11ea-a082-005056b6fe75',
+                            '5856a462-bf2d-11ec-a0cd-005056b6fe75',
+                            '3e736a22-488f-11ed-a0d2-005056b6fe75',
+                            '19a53e4d-f5cb-11e7-b10d-f068df5bef8b',
+                            '07a53d7e-79f2-11ed-a1ff-be3af2b6059f',
+                            '3e736a22-488f-11ed-a0d2-005056b6fe75']
+
 
 def import_category() -> list:
     """
@@ -193,10 +202,7 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
                         product = Product.objects.filter(ref_key=rest.product_key)
                         if not product:
                             # Пропуск номенклатуры "Пакет, Тестовый товар, карточки акций"
-                            if rest.product_key in ['76577798-75bc-11eb-a0c1-005056b6fe75',
-                                                    'a3b8770e-5c30-11ec-a0ca-005056b6fe75',
-                                                    '0c9ffff5-1847-11ea-a082-005056b6fe75',
-                                                    '5856a462-bf2d-11ec-a0cd-005056b6fe75']:
+                            if rest.product_key in elimination_nomenclature:
                                 continue
                             result_messages.append((messages.ERROR,
                                                     f'Ошибка: Отсутсвует товар {rest.product_key}. Сначала загрузите товары. Товар был пропущен'))
