@@ -16,7 +16,9 @@ elimination_nomenclature = ['76577798-75bc-11eb-a0c1-005056b6fe75',
                             '3e736a22-488f-11ed-a0d2-005056b6fe75',
                             '19a53e4d-f5cb-11e7-b10d-f068df5bef8b',
                             '07a53d7e-79f2-11ed-a1ff-be3af2b6059f',
-                            '3e736a22-488f-11ed-a0d2-005056b6fe75']
+                            '3e736a22-488f-11ed-a0d2-005056b6fe75',
+                            '69dbf95a-3360-11ec-a0c9-005056b6fe75']
+
 
 
 def import_category() -> list:
