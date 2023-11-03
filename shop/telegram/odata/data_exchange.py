@@ -20,7 +20,6 @@ elimination_nomenclature = ['76577798-75bc-11eb-a0c1-005056b6fe75',
                             '69dbf95a-3360-11ec-a0c9-005056b6fe75']
 
 
-
 def import_category() -> list:
     """
     Загрузить категории из 1с
@@ -165,7 +164,7 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
     create = 0
     update = 0
     conflict = 0
-    last_data = RestsOdataLoad.objects.last()
+    last_data = RestsOdataLoad.objects.latest('date_time')
     if not year or not month or not day:
         if not last_data:
             load_date = datetime.now()
@@ -250,6 +249,7 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
         if load_date.month == up_to_date.month and load_date.day == up_to_date.day:
             break
         load_date += timedelta(days=1)
+        print(load_date)
     result_messages.append((messages.INFO,
                             f'Были обновлены остатки {update} товаров, создано {create} остатков, конфликтов {conflict}'))
     return result_messages
