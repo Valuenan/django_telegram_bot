@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta
+from django.db import close_old_connections, OperationalError, connection
+import time
 
 from django.contrib import messages
 from django.db.models import Count
@@ -254,7 +256,7 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
     return result_messages
 
 
-def import_images(load_all: bool = False, update: bool = False) -> list:
+def import_images(product: Product, update: bool) -> list:
     """
     Загрузить изображения из 1с
     :param load_all: если параметр False, будут загружены фото только у номенклатуры у которой отсутвуют
@@ -262,36 +264,24 @@ def import_images(load_all: bool = False, update: bool = False) -> list:
     :return: сообщения о результатах обмена
     """
     result_messages = []
-    created = 0
-    updated = 0
-    skip = 0
-    if load_all:
-        products = Product.objects.all().only('ref_key', 'name', 'image')
-    else:
-        products = Product.objects.filter(image=None).only('ref_key', 'name', 'image')
-    for product in products:
-        if not product.ref_key:
-            result_messages.append((messages.INFO,
-                                    f'У товара {product.name} отсутсвует ссылка на 1с, поэтому будет пропущен'))
-            skip += 1
-            continue
-        image = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'],
-                               model=ProductImage,
-                               server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/',
-                               guid=product.ref_key)
-        # Пропускаем при отсутвии фото
-        if not image:
-            skip += 1
-            continue
-        else:
-            image = image[0]
+
+    if not product.ref_key:
+        result_messages.append((messages.INFO,
+                                f'У товара {product.name} отсутсвует ссылка на 1с, поэтому будет пропущен'))
+    image = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'],
+                           model=ProductImage,
+                           server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/',
+                           guid=product.ref_key)
+    # Пропускаем при отсутвии фото
+    print(image)
+    if image:
+        image = image[0]
         exist_image = Image.objects.filter(ref_key=image.ref_key)
         if not exist_image:
             image_link = Image.objects.create(name=f'{image.description.strip()}.{image.file_format.strip()}',
                                               ref_key=image.ref_key)
             product.image = image_link
             product.save()
-            created += 1
         elif update:
             exist_image = exist_image[0]
             exist_image.ref_key = image.ref_key
@@ -299,10 +289,7 @@ def import_images(load_all: bool = False, update: bool = False) -> list:
             image_link = exist_image.save()
             product.image = image_link
             product.save()
-            updated += 1
-    result_messages.append((messages.INFO,
-                            f'Создано {created} изображение товаров, обновленно {updated} изображений товаров, отсутсвуют фото у {skip} товаров'))
-    return result_messages
+        result_messages.append((messages.INFO, f'Была добавлена фотография для товара {product.name}'))
 
 
 def mark_sale():

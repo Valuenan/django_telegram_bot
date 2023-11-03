@@ -21,6 +21,9 @@ migrate:
 	python manage.py makemigrations
 	python manage.py migrate
 
+migrate_docker:
+	docker-compose run web python manage.py migrate
+
 fixtures:
 	python manage.py loaddata DefaultData.json
 

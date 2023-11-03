@@ -20,6 +20,8 @@ from .telegram.bot import ready_order_message, send_message_to_user, manager_edi
 from .telegram.odata.data_exchange import import_category, import_products, import_prices, import_rests, import_images, \
     remove_duplicates, remove_no_ref_key, mark_sale
 
+from .tasks import load_images_task
+
 logger = logging.getLogger(__name__)
 
 
@@ -86,14 +88,14 @@ class ImportImages1CView(View):
         return render(request, 'admin/admin_import_from_1c.html')
 
     def post(self, request):
+        messages.add_message(request, messages.INFO, 'Начал загружать изображения для товаров...')
         form = request.POST.copy()
         load_all, update = False, False
         if 'load_all' in form.keys():
             load_all = True
         if 'update' in form.keys():
             update = True
-        result_messages = import_images(load_all, update)
-        _add_messages(request, result_messages)
+        load_images_task.delay(load_all, update)
         return render(request, 'admin/admin_import_from_1c.html')
 
 
