@@ -170,12 +170,12 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
             load_date = datetime.now()
         else:
             load_date = last_data.date_time - timedelta(days=1)
-        year = load_date.year
-        month = load_date.month
-        day = load_date.day
     up_to_date = datetime.now() + timedelta(days=1)
 
     while True:
+        year = load_date.year
+        month = load_date.month
+        day = load_date.day
         data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'],
                               model=ProductAmount,
                               server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/', year=year,
@@ -227,7 +227,7 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
                     product = Product.objects.filter(ref_key=rest.product_key)
                     if not product:
                         # Пропуск номенклатуры "Пакет"
-                        if rest.product_key == '76577798-75bc-11eb-a0c1-005056b6fe75':
+                        if rest.product_key in elimination_nomenclature:
                             continue
                         result_messages.append((messages.ERROR,
                                                 f'Ошибка: Отсутсвует товар {rest.product_key}. Сначала загрузите товары. Товар был пропущен'))
@@ -249,7 +249,6 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
         if load_date.month == up_to_date.month and load_date.day == up_to_date.day:
             break
         load_date += timedelta(days=1)
-        print(load_date)
     result_messages.append((messages.INFO,
                             f'Были обновлены остатки {update} товаров, создано {create} остатков, конфликтов {conflict}'))
     return result_messages

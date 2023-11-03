@@ -45,4 +45,4 @@ class RestsAdmin(admin.ModelAdmin):
 @admin.register(RestsOdataLoad)
 class RestsOdataLoadAdmin(admin.ModelAdmin):
     list_display = ['active', 'date_time', 'recorder']
-    ordering = ['date_time']
+    ordering = ['-date_time']
