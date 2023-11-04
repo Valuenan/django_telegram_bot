@@ -263,11 +263,6 @@ def import_images(product: Product, update: bool):
     :param load_all: если параметр False, будут загружены фото только у номенклатуры у которой отсутвуют
     :param update: разрешить обновлять фото в номенклатуре
     """
-    result_messages = []
-
-    if not product.ref_key:
-        result_messages.append((messages.INFO,
-                                f'У товара {product.name} отсутсвует ссылка на 1с, поэтому будет пропущен'))
     image = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'],
                            model=ProductImage,
                            server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/',
@@ -275,33 +270,23 @@ def import_images(product: Product, update: bool):
     # Пропускаем при отсутвии фото
     print(image)
     if image:
-        attempt = 0
-        done = False
-        while attempt != 10 or done:
-            try:
-                if type(image) == list:
-                    image = image[0]
-                exist_image = Image.objects.filter(ref_key=image.ref_key)
-                if not exist_image:
-                    image_link = Image.objects.create(name=f'{image.description.strip()}.{image.file_format.strip()}',
-                                                      ref_key=image.ref_key)
-                    product.image = image_link
-                    product.save()
-                elif update:
-                    exist_image = exist_image[0]
-                    exist_image.ref_key = image.ref_key
-                    exist_image.name = f'{image.description.strip()}.{image.file_format.strip()}'
-                    image_link = exist_image.save()
-                    product.image = image_link
-                    product.save()
-                result_messages.append((messages.INFO, f'Была добавлена фотография для товара {product.name}'))
-                done = True
-            except OperationalError:
-                print(f'Попытка сохранить {attempt}')
-                attempt += 1
-                close_old_connections()
-                connection.ensure_connection()
-                sleep(1)
+        close_old_connections()
+        connection.ensure_connection()
+        if type(image) == list:
+            image = image[0]
+        exist_image = Image.objects.filter(ref_key=image.ref_key)
+        if not exist_image:
+            image_link = Image.objects.create(name=f'{image.description.strip()}.{image.file_format.strip()}',
+                                              ref_key=image.ref_key)
+            product.image = image_link
+            product.save()
+        elif update:
+            exist_image = exist_image[0]
+            exist_image.ref_key = image.ref_key
+            exist_image.name = f'{image.description.strip()}.{image.file_format.strip()}'
+            image_link = exist_image.save()
+            product.image = image_link
+            product.save()
 
 
 def mark_sale():
