@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
+from time import sleep
+
 from django.db import close_old_connections, OperationalError, connection
-import time
 
 from django.contrib import messages
 from django.db.models import Count
@@ -256,12 +257,11 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
     return result_messages
 
 
-def import_images(product: Product, update: bool) -> list:
+def import_images(product: Product, update: bool):
     """
     Загрузить изображения из 1с
     :param load_all: если параметр False, будут загружены фото только у номенклатуры у которой отсутвуют
     :param update: разрешить обновлять фото в номенклатуре
-    :return: сообщения о результатах обмена
     """
     result_messages = []
 
@@ -275,21 +275,33 @@ def import_images(product: Product, update: bool) -> list:
     # Пропускаем при отсутвии фото
     print(image)
     if image:
-        image = image[0]
-        exist_image = Image.objects.filter(ref_key=image.ref_key)
-        if not exist_image:
-            image_link = Image.objects.create(name=f'{image.description.strip()}.{image.file_format.strip()}',
-                                              ref_key=image.ref_key)
-            product.image = image_link
-            product.save()
-        elif update:
-            exist_image = exist_image[0]
-            exist_image.ref_key = image.ref_key
-            exist_image.name = f'{image.description.strip()}.{image.file_format.strip()}'
-            image_link = exist_image.save()
-            product.image = image_link
-            product.save()
-        result_messages.append((messages.INFO, f'Была добавлена фотография для товара {product.name}'))
+        attempt = 0
+        done = False
+        while attempt != 10 or done:
+            try:
+                if type(image) == list:
+                    image = image[0]
+                exist_image = Image.objects.filter(ref_key=image.ref_key)
+                if not exist_image:
+                    image_link = Image.objects.create(name=f'{image.description.strip()}.{image.file_format.strip()}',
+                                                      ref_key=image.ref_key)
+                    product.image = image_link
+                    product.save()
+                elif update:
+                    exist_image = exist_image[0]
+                    exist_image.ref_key = image.ref_key
+                    exist_image.name = f'{image.description.strip()}.{image.file_format.strip()}'
+                    image_link = exist_image.save()
+                    product.image = image_link
+                    product.save()
+                result_messages.append((messages.INFO, f'Была добавлена фотография для товара {product.name}'))
+                done = True
+            except OperationalError:
+                print(f'Попытка сохранить {attempt}')
+                attempt += 1
+                close_old_connections()
+                connection.ensure_connection()
+                sleep(1)
 
 
 def mark_sale():
