@@ -1,0 +1,20 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block content %}
+<p>Отсутсвуют фото:</p>
+<table border="1px">
+    <tr style="color:{{ product.info_color }}">
+        <td>Товар</td>
+        <td>Название файла фотографии</td>
+    </tr>
+
+        {% for missing_photo in missing_photos %}
+    <tr>
+        <td>{{ missing_photo.name }}</td>
+        <td>{{ missing_photo.image }}</td>
+    </tr>
+        {% endfor %}
+
+</table>
+{{ block.super }}
+{% endblock %}

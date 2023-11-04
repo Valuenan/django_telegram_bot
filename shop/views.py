@@ -13,6 +13,7 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.views.generic import ListView, DetailView
 
+from django_telegram_bot.settings import BASE_DIR
 from .forms import ImportGoodsForm
 from users.models import Orders, Profile, OrderStatus, UserMessage
 from .models import File, Product, Rests, Shop
@@ -225,6 +226,22 @@ class Product_data:
     def __init__(self, name):
         self.info_color = 'green'
         self.name = name
+
+
+class PhotoCheckList(View):
+    login_url = '/login'
+
+    def get(self, request):
+        missing_photos = []
+        products = Product.objects.exclude(image=None).only('name', 'image')
+        for product in products:
+            try:
+                with open(f'{BASE_DIR}/static/products/{product.image}'):
+                    pass
+            except FileNotFoundError:
+                missing_photos.append(product)
+
+        return render(request, 'admin/photo_checklist.html', context={'missing_photos': missing_photos})
 
 
 class ProductsCheckList(View):
