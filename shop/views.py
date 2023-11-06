@@ -236,6 +236,8 @@ class PhotoCheckList(View):
         rests = Rests.objects.exclude(amount=0).only('product')
         for rest in rests:
             product = rest.product
+            if product.image is None:
+                continue
             try:
                 with open(f'{BASE_DIR}/static/products/{product.image}'):
                     pass
