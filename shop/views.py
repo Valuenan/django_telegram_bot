@@ -233,8 +233,9 @@ class PhotoCheckList(View):
 
     def get(self, request):
         missing_photos = []
-        products = Product.objects.exclude(image=None).only('name', 'image')
-        for product in products:
+        rests = Rests.objects.exclude(amount=0).only('product')
+        for rest in rests:
+            product = rest.product
             try:
                 with open(f'{BASE_DIR}/static/products/{product.image}'):
                     pass
