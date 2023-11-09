@@ -1,7 +1,9 @@
 import os
 import logging
+import pickle
 from decimal import Decimal
 import xlrd
+import redis
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
@@ -13,7 +15,7 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.views.generic import ListView, DetailView
 
-from django_telegram_bot.settings import BASE_DIR
+from django_telegram_bot.settings import BASE_DIR, REDIS_HOST
 from .forms import ImportGoodsForm
 from users.models import Orders, Profile, OrderStatus, UserMessage
 from .models import File, Product, Rests, Shop
@@ -21,9 +23,13 @@ from .telegram.bot import ready_order_message, send_message_to_user, manager_edi
 from .telegram.odata.data_exchange import import_category, import_products, import_prices, import_rests, import_images, \
     remove_duplicates, remove_no_ref_key, mark_sale
 
-from .tasks import load_images_task
+from .tasks import load_images_task, load_category_task, load_products_task
 
 logger = logging.getLogger(__name__)
+
+load_task_tags = {"message_load-image": "Загрузка фотографий",
+                  "message_load-category": "Загрузка категорий",
+                  "message_load-products": "Загрузка номенклатуры"}
 
 
 def _add_messages(request, messages_info: list):
@@ -34,12 +40,20 @@ def _add_messages(request, messages_info: list):
 class ImportCategory1CView(View):
     @staticmethod
     def get(request):
+        r = redis.Redis(host=f'{REDIS_HOST[0]}', db=1)
+        for message_tag in load_task_tags.keys():
+            dict_bytes = r.get(message_tag)
+            if dict_bytes:
+                r.delete(message_tag)
+                loads = pickle.loads(dict_bytes)
+                message = f'{loads["time"]}. {load_task_tags[message_tag]} выполнена. Создано: {loads["created"]}, обновлено: {loads["updated"]}, пропущено: {loads["skipped"]}'
+                messages.add_message(request, messages.INFO, message)
         return render(request, 'admin/admin_import_from_1c.html')
 
     def post(self, request):
-        result_messages = import_category()
-        _add_messages(request, result_messages)
-        return render(request, 'admin/admin_import_from_1c.html')
+        messages.add_message(request, messages.INFO, 'Загрузка категорий...')
+        load_category_task.delay()
+        return redirect('load_from_1c')
 
 
 class ImportProducts1CView(View):
@@ -49,9 +63,9 @@ class ImportProducts1CView(View):
         return render(request, 'admin/admin_import_from_1c.html')
 
     def post(self, request):
-        result_messages = import_products()
-        _add_messages(request, result_messages)
-        return render(request, 'admin/admin_import_from_1c.html')
+        messages.add_message(request, messages.INFO, 'Загрузка номенклатуры...')
+        load_products_task.delay()
+        return redirect('load_from_1c')
 
 
 class ImportPrices1CView(View):
@@ -89,7 +103,7 @@ class ImportImages1CView(View):
         return render(request, 'admin/admin_import_from_1c.html')
 
     def post(self, request):
-        messages.add_message(request, messages.INFO, 'Начал загружать изображения для товаров...')
+        messages.add_message(request, messages.INFO, 'Загрузка изображений товаров...')
         form = request.POST.copy()
         load_all, update = False, False
         if 'load_all' in form.keys():
@@ -97,7 +111,7 @@ class ImportImages1CView(View):
         if 'update' in form.keys():
             update = True
         load_images_task.delay(load_all, update)
-        return render(request, 'admin/admin_import_from_1c.html')
+        return redirect('load_from_1c')
 
 
 class MarkProductsSale(View):
@@ -108,7 +122,6 @@ class MarkProductsSale(View):
 
     def post(self, request):
         result_messages = mark_sale()
-        # _add_messages(request, result_messages)
         return render(request, 'admin/admin_import_from_1c.html')
 
 
@@ -120,7 +133,6 @@ class RemoveDuplicates(View):
 
     def post(self, request):
         result_messages = remove_duplicates()
-        _add_messages(request, result_messages)
         return render(request, 'admin/admin_import_from_1c.html')
 
 
@@ -132,7 +144,6 @@ class RemoveNoRefKey(View):
 
     def post(self, request):
         result_messages = remove_no_ref_key()
-        _add_messages(request, result_messages)
         return render(request, 'admin/admin_import_from_1c.html')
 
 

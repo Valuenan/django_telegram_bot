@@ -23,37 +23,35 @@ elimination_nomenclature = ['76577798-75bc-11eb-a0c1-005056b6fe75',
                             '69dbf95a-3360-11ec-a0c9-005056b6fe75']
 
 
-def import_category() -> list:
+def import_category() -> dict:
     """
     Загрузить категории из 1с
-    :return: сообщения о результатах обмена
+    :return: результаты обмена
     """
-    result_messages = []
-    created = 0
-    updated = 0
+    result = {'created': 0, 'updated': 0, 'skipped': 0}
     data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=CatalogFolder,
                           server_url=CREDENTIALS_1C['server'], base=CREDENTIALS_1C['base'])
     for category in data:
         # Не принимаю группу 'XXX' и вложенные - это папка с мусором
         if 'd8915c68-29fd-11ee-a0fe-005056b6fe75' in [category.ref_key, category.parent_key]:
             continue
+        close_old_connections()
+        connection.ensure_connection()
         exist_category = Category.objects.filter(id=category.search)
         if not exist_category:
             if category.parent_key != '00000000-0000-0000-0000-000000000000':
                 parent_category = Category.objects.filter(ref_key=category.parent_key)
                 if parent_category:
-                    new_category = Category.objects.create(command=category.description.strip(),
-                                                           ref_key=category.ref_key,
-                                                           id=category.search, parent_category=parent_category[0])
-                    result_messages.append((messages.INFO, f'Создана категория {new_category.command}'))
-                    created += 1
+                    Category.objects.create(command=category.description.strip(),
+                                            ref_key=category.ref_key,
+                                            id=category.search, parent_category=parent_category[0])
+                    result['created'] += 1
 
             else:
-                new_category = Category.objects.create(command=category.description.strip(),
-                                                       ref_key=category.ref_key,
-                                                       id=category.search)
-                result_messages.append((messages.INFO, f'Создана категория {new_category.command}'))
-                created += 1
+                Category.objects.create(command=category.description.strip(),
+                                        ref_key=category.ref_key,
+                                        id=category.search)
+                result['created'] += 1
         else:
             exist_category = exist_category[0]
             new_parent_category = None
@@ -64,30 +62,29 @@ def import_category() -> list:
                     new_parent_category = parent_category[0]
                 else:
                     continue
-            if exist_category.parent_category == new_parent_category and exist_category.command == category.description.strip() and exist_category.ref_key == category.ref_key:
-                continue
-            else:
+            if exist_category.parent_category != new_parent_category and exist_category.command != category.description.strip() and exist_category.ref_key != category.ref_key:
                 exist_category.parent_category = new_parent_category
                 exist_category.command = category.description.strip()
                 exist_category.ref_key = category.ref_key
                 exist_category.save()
-                updated += 1
-    result_messages.append((messages.INFO, f'Создано {created} категорий, обновленно {updated} категорий'))
-    if created != 0 or updated != 0:
-        import_category()
-    return result_messages
+                result['updated'] += 1
+    if result['created'] != 0 or result['updated'] != 0:
+        add_result = import_category()
+        result['created'] += add_result['created']
+        result['updated'] += add_result['updated']
+    return result
 
 
-def import_products() -> list:
+def import_products() -> dict:
     """
     Загрузить товары из 1с
-    :return: сообщения о результатах обмена
+    :return: результаты обмена
     """
-    result_messages = []
-    created = 0
-    updated = 0
+    result = {'created': 0, 'updated': 0, 'skipped': 0}
     data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=CatalogProduct,
                           server_url=CREDENTIALS_1C['server'], base=CREDENTIALS_1C['base'])
+    close_old_connections()
+    connection.ensure_connection()
     for product in data:
         exist_product = Product.objects.filter(ref_key=product.ref_key)
         if not exist_product:
@@ -97,12 +94,11 @@ def import_products() -> list:
                 sale = True
             category = Category.objects.filter(ref_key=product.parent_key)
             if category:
-                new_product = Product.objects.create(category=category[0], ref_key=product.ref_key, sale=sale,
-                                                     name=product.name.strip(), price=0, search=product.search)
-                result_messages.append((messages.INFO, f'Создан товар {new_product.name}'))
+                Product.objects.create(category=category[0], ref_key=product.ref_key, sale=sale,
+                                       name=product.name.strip(), price=0, search=product.search)
             else:
                 continue
-            created += 1
+            result['created'] += 1
         else:
             exist_product = exist_product[0]
             if exist_product.name[-1] == '*':
@@ -111,21 +107,19 @@ def import_products() -> list:
                 sale = True
             new_category = Category.objects.filter(ref_key=product.parent_key)
             if not new_category:
-                result_messages.append((messages.ERROR, f'Товар {product.name} был пропущен, отсутствует категория'))
+                result['skipped'] += 1
                 continue
-            if exist_product.category == new_category[
-                0] and exist_product.ref_key == product.ref_key and exist_product.name == product.name.strip() and exist_product.search == product.search and exist_product.sale == sale:
-                continue
-            else:
+            if exist_product.category != new_category[0] and exist_product.ref_key != product.ref_key \
+                    and exist_product.name != product.name.strip() and exist_product.search != product.search \
+                    and exist_product.sale != sale:
                 exist_product.category = new_category[0]
                 exist_product.ref_key = product.ref_key
                 exist_product.name = product.name.strip()
                 exist_product.search = product.search
                 exist_product.sale = sale
                 exist_product.save()
-                updated += 1
-    result_messages.append((messages.INFO, f'Создано {created} товаров, обновленно {updated} товаров'))
-    return result_messages
+                result['updated'] += 1
+    return result
 
 
 def import_prices(year: datetime = None, month: datetime = None, load_all: bool = False) -> list:
@@ -268,7 +262,6 @@ def import_images(product: Product, update: bool):
                            server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/',
                            guid=product.ref_key)
     # Пропускаем при отсутвии фото
-    print(image)
     if image:
         close_old_connections()
         connection.ensure_connection()
@@ -280,6 +273,7 @@ def import_images(product: Product, update: bool):
                                               ref_key=image.ref_key)
             product.image = image_link
             product.save()
+            return 'created'
         elif update:
             exist_image = exist_image[0]
             exist_image.ref_key = image.ref_key
@@ -287,6 +281,8 @@ def import_images(product: Product, update: bool):
             image_link = exist_image.save()
             product.image = image_link
             product.save()
+            return 'updated'
+    return 'skipped'
 
 
 def mark_sale():
