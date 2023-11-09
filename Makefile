@@ -2,7 +2,7 @@ runserver:
 	python manage.py runserver
 
 runcelery:
-	celery -A django_telegram_bot worker -l info
+	nohup celery -A django_telegram_bot worker -l info &
 
 runbot:
 	python manage.py bot
