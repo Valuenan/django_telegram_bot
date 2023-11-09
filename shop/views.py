@@ -20,8 +20,7 @@ from .forms import ImportGoodsForm
 from users.models import Orders, Profile, OrderStatus, UserMessage
 from .models import File, Product, Rests, Shop
 from .telegram.bot import ready_order_message, send_message_to_user, manager_edit_order, manager_remove_order
-from .telegram.odata.data_exchange import import_category, import_products, import_prices, import_rests, import_images, \
-    remove_duplicates, remove_no_ref_key, mark_sale
+from .telegram.odata.data_exchange import import_prices, import_rests, remove_duplicates, remove_no_ref_key, mark_sale
 
 from .tasks import load_images_task, load_category_task, load_products_task
 
@@ -122,6 +121,7 @@ class MarkProductsSale(View):
 
     def post(self, request):
         result_messages = mark_sale()
+        _add_messages(request, result_messages)
         return render(request, 'admin/admin_import_from_1c.html')
 
 
@@ -133,6 +133,7 @@ class RemoveDuplicates(View):
 
     def post(self, request):
         result_messages = remove_duplicates()
+        _add_messages(request, result_messages)
         return render(request, 'admin/admin_import_from_1c.html')
 
 
@@ -144,6 +145,7 @@ class RemoveNoRefKey(View):
 
     def post(self, request):
         result_messages = remove_no_ref_key()
+        _add_messages(request, result_messages)
         return render(request, 'admin/admin_import_from_1c.html')
 
 
