@@ -62,7 +62,9 @@ def import_category() -> dict:
                     new_parent_category = parent_category[0]
                 else:
                     continue
-            if exist_category.parent_category != new_parent_category and exist_category.command != category.description.strip() and exist_category.ref_key != category.ref_key:
+            if exist_category.parent_category != new_parent_category \
+                    or exist_category.command != category.description.strip() \
+                    or exist_category.ref_key != category.ref_key:
                 exist_category.parent_category = new_parent_category
                 exist_category.command = category.description.strip()
                 exist_category.ref_key = category.ref_key
@@ -109,9 +111,9 @@ def import_products() -> dict:
             if not new_category:
                 result['skipped'] += 1
                 continue
-            if exist_product.category != new_category[0] and exist_product.ref_key != product.ref_key \
-                    and exist_product.name != product.name.strip() and exist_product.search != product.search \
-                    and exist_product.sale != sale:
+            if exist_product.category != new_category[0] or exist_product.ref_key != product.ref_key \
+                    or exist_product.name != product.name.strip() or exist_product.search != product.search \
+                    or exist_product.sale != sale:
                 exist_product.category = new_category[0]
                 exist_product.ref_key = product.ref_key
                 exist_product.name = product.name.strip()
