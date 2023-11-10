@@ -7,28 +7,27 @@ import redis
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
-from django.db import Error as DbError
-from django.db.transaction import Error as TransactionError
 from django.shortcuts import render, redirect
 from django.views import View
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.views.generic import ListView, DetailView
-
 from django_telegram_bot.settings import BASE_DIR, REDIS_HOST
+
 from .forms import ImportGoodsForm
 from users.models import Orders, Profile, OrderStatus, UserMessage
 from .models import File, Product, Rests, Shop
-from .telegram.bot import ready_order_message, send_message_to_user, manager_edit_order, manager_remove_order
+from .telegram.bot import ready_order_message, manager_edit_order, manager_remove_order
 from .telegram.odata.data_exchange import import_prices, import_rests, remove_duplicates, remove_no_ref_key, mark_sale
-
-from .tasks import load_images_task, load_category_task, load_products_task
+from .tasks import load_images_task, load_category_task, load_products_task, send_everyone_task
+from .utilities import _send_message_to_user
 
 logger = logging.getLogger(__name__)
 
 load_task_tags = {"message_load-image": "Загрузка фотографий",
                   "message_load-category": "Загрузка категорий",
-                  "message_load-products": "Загрузка номенклатуры"}
+                  "message_load-products": "Загрузка номенклатуры",
+                  "message_send-everyone": "Отправка сообщений"}
 
 
 def _add_messages(request, messages_info: list):
@@ -43,10 +42,19 @@ class ImportCategory1CView(View):
         for message_tag in load_task_tags.keys():
             dict_bytes = r.get(message_tag)
             if dict_bytes:
-                r.delete(message_tag)
                 loads = pickle.loads(dict_bytes)
-                message = f'{loads["time"]}. {load_task_tags[message_tag]} выполнена. Создано: {loads["created"]}, обновлено: {loads["updated"]}, пропущено: {loads["skipped"]}'
+                if message_tag == "message_send-everyone":
+                    progress = 'в процессе'
+                    print(loads['complete'])
+                    if loads['complete']:
+                        r.delete(message_tag)
+                        progress = 'выполнена'
+                    message = f'{loads["time"]}. {load_task_tags[message_tag]} {progress}. Пользователей к рассылке: {loads["all"]} -  отправлено: {loads["success"]}, пропущено: {loads["error"]}'
+                else:
+                    r.delete(message_tag)
+                    message = f'{loads["time"]}. {load_task_tags[message_tag]} выполнена. Создано: {loads["created"]}, обновлено: {loads["updated"]}, пропущено: {loads["skipped"]}'
                 messages.add_message(request, messages.INFO, message)
+
         return render(request, 'admin/admin_import_from_1c.html')
 
     def post(self, request):
@@ -488,33 +496,6 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         return redirect(f'/order/{pk}')
 
 
-def _send_message_to_user(request, form, user_chat_id, everyone=False):
-    if 'disable_notification' in form:
-        disable_notification = True
-    else:
-        disable_notification = False
-
-    try:
-
-        if form['message'] and not everyone:
-            UserMessage.objects.create(user=user_chat_id, manager=request.user, message=form['message'],
-                                       checked=True)
-            user_chat_id = user_chat_id.chat_id
-        result, text = send_message_to_user(chat_id=user_chat_id, message=form['message'],
-                                            disable_notification=disable_notification)
-
-        if result == 'ok' and not everyone:
-            messages.success(request, text)
-        elif result == 'ok' and everyone:
-            pass
-        else:
-            messages.error(request,
-                           f'Сообщение не отправлено пользователю ид {user_chat_id}, {text}. Обратитесь к администратору')
-
-    except (DbError, TransactionError) as error:
-        messages.error(request, f'Возникла ошибка ид пользователя {user_chat_id}, {error}. Обратитесь к администратору')
-
-
 class SendMessageToUser(LoginRequiredMixin, View):
     login_url = '/login'
 
@@ -524,7 +505,11 @@ class SendMessageToUser(LoginRequiredMixin, View):
         messages_not_checked = UserMessage.objects.filter(user=user_chat_id, checked=False)
         if messages_not_checked:
             messages_not_checked.update(checked=True)
-        _send_message_to_user(request, form, user_chat_id)
+        result = _send_message_to_user(form, user_chat_id=user_chat_id, manager=request.user)
+        if result[0] == 'error':
+            messages.error(request, result[1])
+        else:
+            messages.success(request, result[1])
         return redirect(request.META.get('HTTP_REFERER'))
 
 
@@ -562,10 +547,9 @@ class SendMessageToEveryone(LoginRequiredMixin, View):
         return render(request, 'users/send_everyone.html', context={'new_message': new_message})
 
     def post(self, request):
-        form = request.POST.copy()
+        messages.add_message(request, messages.INFO, 'Начал рассылку...')
+        form = dict(request.POST.copy())
         users_ids = Profile.objects.all().values('chat_id')
-        for user_chat_id in users_ids:
-            _send_message_to_user(request, form, user_chat_id['chat_id'], everyone=True)
-        if not list(messages.get_messages(request)):
-            messages.success(request, 'Все сообщения были отправленны')
+        users_ids = list(users_ids)
+        send_everyone_task.delay(form, users_ids)
         return redirect(request.META.get('HTTP_REFERER'))

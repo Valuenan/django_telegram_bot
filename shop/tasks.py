@@ -1,4 +1,4 @@
-from asyncio import sleep
+from time import sleep
 import datetime
 import redis
 import pickle
@@ -7,6 +7,7 @@ from django_telegram_bot.celery import app
 from django_telegram_bot.settings import REDIS_HOST
 from shop.models import Product
 from shop.telegram.odata.data_exchange import import_images, import_category, import_products
+from shop.utilities import _send_message_to_user
 
 
 @app.task
@@ -18,7 +19,6 @@ def load_images_task(load_all: bool = False, update: bool = False):
     else:
         products = Product.objects.filter(image=None).only('ref_key', 'name', 'image')
     for product in products:
-        sleep(1)
         import_result = import_images(product, update)
         global_result[import_result] += 1
     r = redis.Redis(host=f'{REDIS_HOST[0]}', db=1)
@@ -44,3 +44,20 @@ def load_products_task():
     r = redis.Redis(host=f'{REDIS_HOST[0]}', db=1)
     dict_bytes = pickle.dumps(import_result)
     r.mset({'message_load-products': dict_bytes})
+
+
+@app.task
+def send_everyone_task(form, users_ids):
+    time_start = datetime.datetime.now().strftime('%d-%m-%Y %H:%M')
+    complete_result = {'time': time_start, 'success': 0, 'error': 0, 'all': len(users_ids), 'complete': False}
+    r = redis.Redis(host=f'{REDIS_HOST[0]}', db=1)
+
+    for user_chat_id in users_ids:
+        result = _send_message_to_user(form, user_chat_id=user_chat_id['chat_id'], everyone=True)
+        complete_result[result[0]] += 1
+        dict_bytes = pickle.dumps(complete_result)
+        r.mset({'message_send-everyone': dict_bytes})
+        sleep(1)
+    complete_result['complete'] = True
+    dict_bytes = pickle.dumps(complete_result)
+    r.mset({'message_send-everyone': dict_bytes})
