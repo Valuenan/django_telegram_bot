@@ -527,7 +527,7 @@ def _user_settings_from_db(chat_id: int) -> (str, int):
         text = f'Доставка по адресу {delivery_street}'
     else:
         shop_name = get_delivery_shop(chat_id)
-        text = f'Товары зарезервированы в магазине {shop_name} '
+        text = f'Пункт выдачи - магазин {shop_name} '
 
     return text, discount
 
@@ -639,10 +639,10 @@ def order(update: Update, context: CallbackContext):
     text_products = ''
     discount_message = 'р.'
     if discount < Decimal(1):
-        discount_message = f'\n со скидкой {int(100 - discount * 100)}%'
+        discount_message = f'\nваша скидка {int(100 - discount * 100)}%'
     for product_name, product_amount in order_products:
         text_products += f'\n{product_name[0]} - {int(product_amount)} шт.'
-    order_message = f'<b><u>Заказ №: {order_id}</u></b> \n{text_products} \n{call.message.text} \n<b>на сумму: {round(int(cart_price), 2)}{discount_message}</b>'
+    order_message = f'<b><u>Заказ №: {order_id}</u></b> \n{text_products} \n{call.message.text} \n<b>на сумму: {round(int(cart_price), 2)}р.{discount_message}</b>'
     context.bot.answer_callback_query(callback_query_id=call.id,
                                       text=f'Ваш заказ принят')
     context.bot.edit_message_text(text=f'Клиент: {user} \n{order_message}',
@@ -651,7 +651,7 @@ def order(update: Update, context: CallbackContext):
     message = context.bot.forward_message(chat_id=ORDERS_CHAT_ID,
                                           from_chat_id=call.message.chat_id,
                                           message_id=call.message.message_id)
-    context.bot.edit_message_text(text=f'Ваш {order_message} \n\n ожидайте счет на оплату...',
+    context.bot.edit_message_text(text=f'Ваш {order_message} \n\n Ожидайте ссылку на оплату, после оплаты товары будут зарезервированы...',
                                   chat_id=call.message.chat.id,
                                   message_id=call.message.message_id, parse_mode='HTML')
     add_manager_message_id(order_id=order_id, message_id=message.message_id)
