@@ -35,7 +35,7 @@ def main_keyboard(update: Update, context: CallbackContext):
     user = update.message.from_user
     text, status = start_user(username=user.username, first_name=user.first_name, last_name=user.last_name,
                               chat_id=update.message.chat_id, cart_message_id=0, discount=1)
-    message = context.bot.send_message(chat_id=update.effective_chat.id, text=text)
+    message = context.bot.send_message(chat_id=update.effective_chat.id, text=text, parse_mode='HTML')
     if status == 'ok':
         check = check_user_is_staff(update.message.chat_id)
     elif status in ['no-phone', 'new_user']:
@@ -411,7 +411,7 @@ def get_offer_settings(update: Update, context: CallbackContext, settings_stage=
                                               InlineKeyboardButton(text='Нет', callback_data='offer-stage_2_no')]])
             context.bot.edit_message_text(chat_id=chat_id,
                                           message_id=message_id,
-                                          text=f'Вам доставить? 🚚 (доставка будет расчитана после оформления заказа)',
+                                          text=f'Вам доставить? 🚚 (доставка будет рассчитана после оформления заказа)',
                                           reply_markup=keyboard)
         elif settings_stage == '2' and answer == 'yes':
 
