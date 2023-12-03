@@ -638,7 +638,7 @@ def order(update: Update, context: CallbackContext):
     discount = get_best_discount(chat_id)
     order_products, order_id = save_order(chat_id, call.message.text, cart_price, discount, int(payment_type))
     text_products = ''
-    discount_message = 'р.'
+    discount_message = ''
     if discount < Decimal(1):
         discount_message = f'\nваша скидка {int(100 - discount * 100)}%'
     for product_name, product_amount in order_products:
@@ -653,7 +653,7 @@ def order(update: Update, context: CallbackContext):
                                           from_chat_id=call.message.chat_id,
                                           message_id=call.message.message_id)
     context.bot.edit_message_text(
-        text=f'Ваш {order_message} \n\n Ожидайте ссылку на оплату, после оплаты товары будут зарезервированы...',
+        text=f'Ваш {order_message} \n\nОжидайте ссылку на оплату, после оплаты товары будут зарезервированы...',
         chat_id=call.message.chat.id,
         message_id=call.message.message_id, parse_mode='HTML')
     add_manager_message_id(order_id=order_id, message_id=message.message_id)
@@ -1185,6 +1185,10 @@ def ready_order_message(chat_id: int, order_id: int, status: str, deliver: bool,
     except Exception as error:
         return 'error', error
     return 'ok', f'Ваш заказ № {order_id} на сумму {order_sum} р. {message}\nотслеживать свои заявки можно перейдя "Меню" -> "Статусы заказов"'
+
+
+def message_to_manager(message=str):
+    updater.bot.send_message(chat_id=ORDERS_CHAT_ID, text=message)
 
 
 def send_message_to_user(chat_id: int, message: str, disable_notification: bool = True) -> tuple:

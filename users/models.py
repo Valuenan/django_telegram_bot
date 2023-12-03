@@ -36,6 +36,9 @@ class Profile(models.Model):
     def __str__(self):
         return self.user.username
 
+    def __int__(self):
+        return self.chat_id
+
     class Meta:
         db_table = 'profile'
         verbose_name = 'Профиль'
