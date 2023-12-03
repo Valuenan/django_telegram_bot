@@ -408,12 +408,12 @@ class OrderDetail(LoginRequiredMixin, DetailView):
             context['order_statuses'] = OrderStatus.objects.exclude(id='4')
         context['shops'] = Shop.objects.all().order_by('-id')
         context['new_message'] = UserMessage.objects.filter(checked=False)
+        context['add_products'] = Rests.objects.exclude(amount=0).select_related('product').only('product')
 
         return context
 
     def post(self, request, pk):
         form = request.POST.copy()
-
         _, new_status, shop = form.pop('csrfmiddlewaretoken'), form.pop('new_status')[0], int(form.pop('shop')[0])
 
         order = Orders.objects.get(id=pk)
@@ -435,6 +435,16 @@ class OrderDetail(LoginRequiredMixin, DetailView):
             order.save()
         elif 'delivery_info' in form:
             form.pop('delivery_info')
+
+        product_id = form.pop('add_product')[0]
+        add_num = form.pop('add_num')[0]
+        if product_id:
+            product_id = int(product_id)
+            if add_num:
+                add_num = int(add_num)
+            else:
+                add_num = 1
+            order.add_product(product_id=product_id, add_amount=add_num)
 
         order.admin_check = request.user
         old_status = order.status.title

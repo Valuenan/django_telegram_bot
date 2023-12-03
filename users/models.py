@@ -87,6 +87,23 @@ class Payment(models.Model):
         verbose_name_plural = 'Виды оплаты'
 
 
+class Carts(models.Model):
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, verbose_name='Пользователь')
+    product = models.ForeignKey(Product, on_delete=models.DO_NOTHING, verbose_name='Товары')
+    amount = models.DecimalField(max_digits=6, decimal_places=3, verbose_name='Количество', default=0)
+    price = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Цена')
+    order = models.ForeignKey('Orders', on_delete=models.DO_NOTHING, verbose_name='Заказ', blank=True, null=True)
+    soft_delete = models.BooleanField(verbose_name='Удалить', default=False)
+
+    def __str__(self):
+        return self.profile.telegram_name
+
+    class Meta:
+        db_table = 'carts'
+        verbose_name = 'Корзина'
+        verbose_name_plural = 'Корзины'
+
+
 class Orders(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, verbose_name='Пользователь')
     date = models.DateField(auto_now_add=True, verbose_name='Дата заказа')
@@ -105,7 +122,7 @@ class Orders(models.Model):
     payed_delivery = models.BooleanField(verbose_name='Оплачена доставка', default=False)
     tracing_num = models.CharField(max_length=30, verbose_name='Трек номер', null=True, blank=True)
     manager_message_id = models.IntegerField(verbose_name='Номер сообщения в канале менеджеров', default=0, blank=True,
-                                              null=True)
+                                             null=True)
 
     def __str__(self):
         return f'{self.id}'
@@ -116,6 +133,14 @@ class Orders(models.Model):
             item.price = item.product.price
             order_sum += item.amount * item.price
         return order_sum
+
+    def add_product(self, product_id: int, add_amount: int):
+        add_product = Product.objects.get(id=product_id)
+        Carts.objects.create(profile=self.profile, product=add_product, amount=add_amount, price=add_product.price,
+                             order=self)
+        order_carts = self.carts_set.all()
+        self.order_price = self.update_order_sum(order_carts)
+        self.save()
 
     def update_order_quantity(self, form: dict, rests_action: str, shop: int):
         """Обновляет количество товара и спысываем со склада"""
@@ -159,20 +184,3 @@ class Orders(models.Model):
         db_table = 'orders'
         verbose_name = 'Заказ'
         verbose_name_plural = 'Заказы'
-
-
-class Carts(models.Model):
-    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, verbose_name='Пользователь')
-    product = models.ForeignKey(Product, on_delete=models.DO_NOTHING, verbose_name='Товары')
-    amount = models.DecimalField(max_digits=6, decimal_places=3, verbose_name='Количество', default=0)
-    price = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Цена')
-    order = models.ForeignKey(Orders, on_delete=models.DO_NOTHING, verbose_name='Заказ', blank=True, null=True)
-    soft_delete = models.BooleanField(verbose_name='Удалить', default=False)
-
-    def __str__(self):
-        return self.profile.telegram_name
-
-    class Meta:
-        db_table = 'carts'
-        verbose_name = 'Корзина'
-        verbose_name_plural = 'Корзины'
