@@ -111,7 +111,6 @@ def avangard_check(orders: dict):
             with open('test_payment.html', encoding="UTF-8", ) as html:
                 bs = BeautifulSoup(html, 'html.parser')
         else:
-            print('here')
             # обновление headers сессии
             session.headers.update({'User-Agent': user_agent})
             # автооризация
