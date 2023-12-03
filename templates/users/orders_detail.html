@@ -85,19 +85,21 @@ $(document).ready(function(){
                     {% endif %}
                 </tr>
                 {% endfor %}
-                <tr>
-                    <td>
-                        <select class="js-chosen" name="add_product" placeholder="Добавить товар">
-                            <option value=""></option>
-                            {% for add_product in add_products %}
-                                <option value="{{ add_product.product.id }}">{{ add_product }}</option>
-                            {% endfor %}
-                        </select>
-                    </td>
-                    <td>
-                        <input name="add_num" type="number">
-                    </td>
-                </tr>
+                {% if order.status.title == "0" %}
+                    <tr>
+                        <td>
+                            <select class="js-chosen" name="add_product" placeholder="Добавить товар">
+                                <option value=""></option>
+                                {% for add_product in add_products %}
+                                    <option value="{{ add_product.product.id }}">{{ add_product }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            <input name="add_num" type="number">
+                        </td>
+                    </tr>
+                {% endif %}
                 {% if order.deliver %}
                     <tr>
                         <td colspan="2">
