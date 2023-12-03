@@ -535,8 +535,10 @@ class UsersMessagesDetail(LoginRequiredMixin, View):
         user = Profile.objects.get(chat_id=pk)
         user_messages = UserMessage.objects.filter(user=user)
         new_message = self.model.objects.filter(checked=False)
+        user_orders = Orders.objects.filter(profile=user, status__in=[1, 2, 3, 4, 5]).values('id')
         return render(request, 'users/messages_detail.html',
-                      context={'user_messages': user_messages, 'new_message': new_message, 'pk': pk})
+                      context={'user_messages': user_messages, 'new_message': new_message, 'pk': pk,
+                               'user_orders': user_orders})
 
 
 class SendMessageToEveryone(LoginRequiredMixin, View):

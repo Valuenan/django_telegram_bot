@@ -20,4 +20,9 @@
         <p>Тихое уведомление: <input name="disable_notification" type="checkbox" checked></p>
         <button type="submit">Отправить</button>
     </form>
+    <div><p>Заказы пользователя:</p>
+    {% for order_id in user_orders %}
+        <p><a href="/order/{{ order_id.id }}">Заказ № {{ order_id.id }}</a></p>
+    {% endfor %}
+    </div>
 {% endblock %}
