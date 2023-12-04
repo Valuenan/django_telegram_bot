@@ -17,8 +17,9 @@ class ShopAdmin(admin.ModelAdmin):
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ['command', 'parent_category']
+    list_display = ['command', 'parent_category', 'hide']
     search_fields = ['id', 'command', 'ref_key']
+    sortable_by = ['hide']
 
 
 @admin.register(Image)

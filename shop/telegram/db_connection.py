@@ -119,11 +119,11 @@ def get_shops() -> list:
     return shops
 
 
-def get_category(category_id: int = None) -> list:
+def get_category(category_id: int = None) -> (list, list):
     """Получить список категорй"""
     if category_id is not None:
         db, cur = connect_db(
-            f"SELECT command, id, parent_category_id FROM categories WHERE parent_category_id='{category_id}'")
+            f"SELECT command, id, parent_category_id FROM categories WHERE hide='0' and parent_category_id='{category_id}'")
         categories = cur.fetchall()
         db, cur = connect_db(f"SELECT command FROM categories WHERE id='{category_id}'")
         this_category_name = cur.fetchone()
@@ -131,7 +131,7 @@ def get_category(category_id: int = None) -> list:
         db.close()
         return categories, this_category_name
     else:
-        db, cur = connect_db("SELECT command, id, parent_category_id FROM categories WHERE parent_category_id is NULL")
+        db, cur = connect_db("SELECT command, id, parent_category_id FROM categories WHERE hide='0' and parent_category_id is NULL")
         categories = cur.fetchall()
         cur.close()
         db.close()

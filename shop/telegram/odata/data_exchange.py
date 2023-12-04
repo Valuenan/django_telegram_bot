@@ -31,6 +31,7 @@ def import_category() -> dict:
     result = {'created': 0, 'updated': 0, 'skipped': 0}
     data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=CatalogFolder,
                           server_url=CREDENTIALS_1C['server'], base=CREDENTIALS_1C['base'])
+    categories_visible = list(Category.objects.filter(hide=False))
     for category in data:
         # Не принимаю группу 'XXX' и вложенные - это папка с мусором
         if 'd8915c68-29fd-11ee-a0fe-005056b6fe75' in [category.ref_key, category.parent_key]:
@@ -54,20 +55,27 @@ def import_category() -> dict:
                 result['created'] += 1
         else:
             exist_category = exist_category[0]
+            if exist_category in categories_visible:
+                categories_visible.remove(exist_category)
             new_parent_category = None
             if category.parent_key != '00000000-0000-0000-0000-000000000000':
-
                 parent_category = Category.objects.filter(ref_key=category.parent_key)
                 if parent_category:
                     new_parent_category = parent_category[0]
                 else:
                     continue
-            if exist_category.parent_category != new_parent_category or exist_category.command != category.description.strip() or exist_category.ref_key != category.ref_key:
+            if exist_category.hide or exist_category.parent_category != new_parent_category or exist_category.command != category.description.strip() or exist_category.ref_key != category.ref_key:
+                exist_category.hide = False
                 exist_category.parent_category = new_parent_category
                 exist_category.command = category.description.strip()
                 exist_category.ref_key = category.ref_key
                 exist_category.save()
                 result['updated'] += 1
+    if categories_visible:
+        for category_hide in categories_visible:
+            category_hide.hide = True
+            category_hide.save()
+            result['updated'] += 1
     if result['created'] != 0 or result['updated'] != 0:
         add_result = import_category()
         result['created'] += add_result['created']

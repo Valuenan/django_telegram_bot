@@ -36,6 +36,7 @@ class Category(models.Model):
     id = models.IntegerField(unique=True, primary_key=True, db_index=True, verbose_name="ИД группы")
     parent_category = models.ForeignKey('self', on_delete=models.CASCADE, verbose_name='Родительсая категоря',
                                         null=True, blank=True)
+    hide = models.BooleanField(verbose_name='Скрыть категорию', default=False)
 
     def __str__(self):
         return f'{self.id}.{self.command}'
