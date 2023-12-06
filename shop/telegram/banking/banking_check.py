@@ -1,11 +1,14 @@
 from decimal import Decimal
 
+from django.db import close_old_connections, connection
 from shop.telegram.banking.banking import avangard_check
 from shop.telegram.bot import ready_order_message, message_to_manager
 from users.models import Orders, OrderStatus
 
 
 def check_orders_payment():
+    close_old_connections()
+    connection.ensure_connection()
     orders_for_check = Orders.objects.filter(status=2)
     if orders_for_check:
         checked_orders = avangard_check(orders=orders_for_check)
