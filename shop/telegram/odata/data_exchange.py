@@ -284,8 +284,8 @@ def import_images(product: Product, update: bool):
             exist_image = exist_image[0]
             exist_image.ref_key = image.ref_key
             exist_image.name = f'{image.description.strip()}.{image.file_format.strip()}'
-            image_link = exist_image.save()
-            product.image = image_link
+            exist_image.save()
+            product.image = exist_image
             product.save()
             return 'updated'
     return 'skipped'
