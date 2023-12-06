@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.contrib.auth.models import User
 from django.db import models
 
@@ -77,9 +79,12 @@ class Product(models.Model):
         if action == 'add':
             rest.amount += old_amount
             rest.save()
+            odata = RestsOdataLoad.objects.filter(recorder=None, product_key=self.ref_key, amount=old_amount)
+            odata[0].delete()
         elif action == 'remove':
             rest.amount -= new_amount
             rest.save()
+            RestsOdataLoad.objects.create(active=True, date_time=datetime.now(), product_key=self.ref_key, amount=new_amount)
 
     class Meta:
         db_table = 'products'
@@ -104,11 +109,12 @@ class Rests(models.Model):
 class RestsOdataLoad(models.Model):
     active = models.BooleanField(verbose_name="Активно")
     date_time = models.DateTimeField(verbose_name="Дата и время документа")
-    recorder = models.CharField(verbose_name="Ссылка на документ в 1с", max_length=36)
+    recorder = models.CharField(verbose_name="Ссылка на документ в 1с", max_length=36, null=True, blank=True)
     product_key = models.CharField(verbose_name="Ссылка на товар в 1с", max_length=36)
+    amount = models.IntegerField(verbose_name='Количество', blank=True, null=True)
 
     def __str__(self):
-        return self.recorder
+        return f'{self.recorder}'
 
     class Meta:
         db_table = 'rests_odata_load'

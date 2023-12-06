@@ -8,7 +8,7 @@ from django.db.models import Count
 
 from shop.telegram.odata.loader import create_request, CatalogFolder, CatalogProduct, ProductImage, ProductPrice, \
     ProductAmount
-from users.models import Carts
+from users.models import Carts, Orders
 from shop.models import Category, Product, Rests, Shop, Image, RestsOdataLoad
 from shop.telegram.settings import CREDENTIALS_1C
 
@@ -167,7 +167,9 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
     create = 0
     update = 0
     conflict = 0
-    last_data = RestsOdataLoad.objects.latest('date_time')
+    last_data = RestsOdataLoad.objects.exclude(recorder=None).latest('date_time')
+    not_linked_odata_records = RestsOdataLoad.objects.filter(recorder=None)
+
     if not year or not month or not day:
         if not last_data:
             load_date = datetime.now()
@@ -188,6 +190,16 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
 
             if not exist_rest:
                 if rest.active:
+                    add_link = not_linked_odata_records.filter(product_key=rest.product_key,
+                                                               amount=rest.change_quantity)
+                    print(rest.product_key, rest.change_quantity, rest.date_time, rest.record_type)
+                    if add_link and rest.record_type == 'Expense':
+                        add_link = add_link[0]
+                        add_link.recorder = rest.recorder
+                        add_link.date = rest.date_time
+                        add_link.save()
+                        not_linked_odata_records = not_linked_odata_records.filter(recorder=None)
+                        continue
                     db_rest = Rests.objects.filter(product__ref_key=rest.product_key)
                     if db_rest:
                         db_rest = db_rest[0]

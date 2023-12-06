@@ -172,7 +172,7 @@ class Orders(models.Model):
         """Обновляет статус возвращаем действие для склада"""
         rests_action = 'pass'
         if self.status.title != new_status:
-            if new_status == "0":
+            if new_status in ["0", "6"]:
                 rests_action = 'add'
             elif self.status.title == "0":
                 rests_action = 'remove'

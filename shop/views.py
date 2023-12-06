@@ -463,27 +463,31 @@ class OrderDetail(LoginRequiredMixin, DetailView):
                 order_sum += round(cart.product.price * cart.amount, 2)
 
         if new_status == '0':
-            order.update_order_quantity(form, rests_action, shop)
+            if old_status != '6':
+                order.update_order_quantity(form, rests_action, shop)
             result = manager_edit_order(order)
             message = f'Данные схранены, статус изменен. {result}'
         elif new_status == '2':
-            order.update_order_quantity(form, rests_action, shop)
             message = 'Данные схранены, статус изменен'
         elif new_status == '5':
             try:
                 manager_remove_order(order)
                 message = 'Данные схранены, статус изменен'
             except Exception as err:
-                message = f'Неудалось удалить сообщение из канала поп причине: {err}'
+                message = f'Неудалось удалить сообщение из канала по причине: {err}'
                 messages.add_message(request, messages.ERROR, message)
         elif new_status in ['1', '3', '4', '6'] and old_status != new_status:
+            if new_status == '1' and old_status == '0':
+                order.update_order_quantity(form, rests_action, shop)
             if new_status == '6':
+                if old_status != '0':
+                    order.update_order_quantity(form, rests_action, shop)
                 try:
                     manager_remove_order(order)
                     message = 'Заявка удалена из канала менеджеров'
                     messages.add_message(request, messages.INFO, message)
                 except Exception as err:
-                    err_message = f'Неудалось удалить сообщение из канала поп причине: {err}'
+                    err_message = f'Неудалось удалить сообщение из канала по причине: {err}'
                     messages.add_message(request, messages.ERROR, err_message)
             status, result = ready_order_message(chat_id=order.profile.chat_id, order_id=order.id,
                                                  order_sum=int(order_sum),
