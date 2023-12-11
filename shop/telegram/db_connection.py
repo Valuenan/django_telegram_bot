@@ -131,7 +131,8 @@ def get_category(category_id: int = None) -> (list, list):
         db.close()
         return categories, this_category_name
     else:
-        db, cur = connect_db("SELECT command, id, parent_category_id FROM categories WHERE hide='0' and parent_category_id is NULL")
+        db, cur = connect_db(
+            "SELECT command, id, parent_category_id FROM categories WHERE hide='0' and parent_category_id is NULL")
         categories = cur.fetchall()
         cur.close()
         db.close()
@@ -413,6 +414,16 @@ def save_order(chat_id: int, delivery_info: str, cart_price: int, discount=1, pa
     products_names = _id_to_name('products', products_id)
     products = zip(products_names, products_amount)
     return products, order_id
+
+
+def add_products_to_order(chat_id: int, order_id: int):
+    db, cur = connect_db(f"""UPDATE carts 
+    INNER JOIN profile ON profile.id = carts.profile_id
+    SET order_id = '{order_id}'
+    WHERE profile.chat_id='{chat_id}' AND carts.order_id IS NULL""")
+    db.commit()
+    cur.close()
+    db.close()
 
 
 def add_manager_message_id(order_id: int, message_id: int):

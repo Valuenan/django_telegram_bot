@@ -12,7 +12,7 @@ from shop.telegram.db_connection import get_category, get_products, \
     edit_profile, get_delivery_settings, get_user_address, \
     get_shops, user_add_phone, ADMIN_TG, get_user_phone, get_delivery_shop, save_payment_link, get_parent_category_id, \
     save_user_message, get_user_profile, edit_user, count_user_messages, get_best_discount, add_manager_message_id, \
-    get_order_address
+    get_order_address, add_products_to_order
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from telegram.error import TelegramError
 from users.models import ORDER_STATUS
@@ -402,10 +402,25 @@ def get_offer_settings(update: Update, context: CallbackContext, settings_stage=
         message_id = call.message.message_id
         _, settings_stage, answer = call.data.split('_')
 
+    user_orders = get_user_orders(chat_id=chat_id, filter='AND order_status.title = "0"')
+
     if not get_user_phone(chat_id):
         users_message[user.id] = 'phone'
         context.bot.send_message(chat_id=update.effective_chat.id,
                                  text='Для оформления заказа требуется ваш номер телефона, напишите его в чат. Формат (+7** или 8**)')
+    elif user_orders and answer == 'none':
+        buttons = {}
+        for user_order in user_orders:
+            order_id = user_order[0]
+            buttons[order_id] = [InlineKeyboardButton(text=f'Добавить в заказ № {order_id}',
+                                                      callback_data=f'add-to-offer_{order_id}')]
+        buttons['new'] = [InlineKeyboardButton(text=f'Сделать новый заказ',
+                                               callback_data='offer-stage_1_new')]
+        keyboard = InlineKeyboardMarkup(list(buttons.values()))
+        context.bot.edit_message_text(chat_id=update.effective_chat.id,
+                                      message_id=message_id,
+                                      text=f'У вас имеются заказы в обработке, хотите добавить в имеющийся или сделать новый заказ?:',
+                                      reply_markup=keyboard)
     else:
         if settings_stage == '1':
             keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Да', callback_data='offer-stage_2_yes'),
@@ -517,6 +532,60 @@ def get_offer_settings(update: Update, context: CallbackContext, settings_stage=
 
 offer_settings = CallbackQueryHandler(get_offer_settings, pattern=str('offer-stage'))
 dispatcher.add_handler(offer_settings)
+
+
+def add_to_offer(update: Update, context: CallbackContext):
+    """Объеденить корзину с имеющимся заказом"""
+    call = update.callback_query
+    chat_id = update.effective_chat.id
+    message_id = call.message.message_id
+    _, add_to_order = call.data.split('_')
+    user_order = get_user_orders(chat_id=chat_id, filter=f'AND orders.id="{add_to_order}" AND carts.soft_delete="0"')
+    if user_order[0][5] == '0':
+        discount_sum = 0
+        product_price_sum = 0
+        position = 1
+        order_message = f'<b><u>Заказ № {add_to_order}</u></b>\n'
+        add_products_to_order(chat_id=chat_id, order_id=add_to_order)
+
+        user_order = get_user_orders(chat_id=chat_id,
+                                     filter=f'AND orders.id="{add_to_order}" AND carts.soft_delete="0"')
+        for order_data in user_order:
+            order_id, product_name, product_price, product_amount, order_sum, order_status, payment_url, extra_payment_url, tracing_num, for_sale, discount, delivery_price = order_data
+            if discount < Decimal(1) and for_sale:
+                discount_sum += product_price - product_price * discount
+                calc_price = round(product_price * discount)
+            else:
+                calc_price = product_price
+            product_price_sum += calc_price
+            order_message += f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price} р.\n'
+            position += 1
+
+        if discount < Decimal(1) and discount_sum != 0:
+            order_message += f'''\nВаша скидка {int(100 - discount * 100)}% - {round(discount_sum)} р.
+<b>ИТОГО со скидкой: {product_price_sum} р.</b>'''
+        else:
+            order_message += f'ИТОГО: {product_price_sum} р.'
+
+        context.bot.delete_message(chat_id=update.effective_chat.id,
+                                   message_id=message_id)
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
+        context.bot.send_message(
+            text=f'{order_message} \n\nОжидайте ссылку на оплату, после оплаты товары будут зарезервированы...',
+            chat_id=call.message.chat.id,
+            parse_mode='HTML', reply_markup=keyboard, disable_notification=True)
+
+    else:
+        context.bot.delete_message(chat_id=update.effective_chat.id,
+                                   message_id=message_id)
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
+        context.bot.send_message(chat_id=chat_id,
+                                 text='Не удалось добавить товары в заказ. Статус заказа, в который вы пытаетесь добавить, не "Заявка обрабатывается".',
+                                 parse_mode='HTML', reply_markup=keyboard, disable_notification=True)
+
+
+add_to_offer_handler = CallbackQueryHandler(add_to_offer, pattern=str('add-to-offer'))
+dispatcher.add_handler(add_to_offer_handler)
 
 
 def _user_settings_from_db(chat_id: int) -> (str, int):
