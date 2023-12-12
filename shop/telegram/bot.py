@@ -774,7 +774,7 @@ def orders_history(update: Update, context: CallbackContext):
                                            text='У вас нет заказов',
                                            reply_markup=keyboard, disable_notification=True)
     else:
-        text, paymet_urls_text, text_products, tracing_text = '', '', '', ''
+        text, payment_urls_text, text_products, tracing_text = '', '', '', ''
         full_price, product_price_sum, position = 0, 0, 1
 
         for index, order in enumerate(orders):
@@ -800,10 +800,10 @@ def orders_history(update: Update, context: CallbackContext):
                     discount_text = ''
                 if order_status == '1':
                     if extra_payment_url:
-                        paymet_urls_text += f'\n ссылка на оплату товаров (чек): {payment_url}'
-                        paymet_urls_text += f'\n ссылка на оплату доставки (чек): {extra_payment_url}'
+                        payment_urls_text += f'\n ссылка на оплату товаров (чек): {payment_url}'
+                        payment_urls_text += f'\n ссылка на оплату доставки (чек): {extra_payment_url}'
                     else:
-                        paymet_urls_text += f'\n ссылка на оплату (чек): {payment_url}'
+                        payment_urls_text += f'\n ссылка на оплату (чек): {payment_url}'
                 elif order_status == '3':
                     if tracing_num not in [None, 'None', '']:
                         tracing_text = f'👉🏻<b> Трек номер: {tracing_num} </b>👈🏻\n'
@@ -813,9 +813,9 @@ def orders_history(update: Update, context: CallbackContext):
                 text += f'''<b><u>Заказ № {order_id}</u></b> 
 <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u>
 {tracing_text}{text_products}{delivery_price_text}
-ИТОГО: {full_price + delivery_price} р.{discount_text}{paymet_urls_text}'''
+ИТОГО: {full_price + delivery_price} р.{discount_text}{payment_urls_text}'''
                 text += f'\n {"_" * 20} \n'
-                paymet_urls_text, text_products, tracing_text = '', '', ''
+                payment_urls_text, text_products, tracing_text = '', '', ''
                 full_price, product_price_sum, position = 0, 0, 1
         if update.callback_query:
             context.bot.edit_message_text(chat_id=chat_id,
