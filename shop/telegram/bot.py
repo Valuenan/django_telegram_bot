@@ -12,7 +12,7 @@ from shop.telegram.db_connection import get_category, get_products, \
     edit_profile, get_delivery_settings, get_user_address, \
     get_shops, user_add_phone, ADMIN_TG, get_user_phone, get_delivery_shop, save_payment_link, get_parent_category_id, \
     save_user_message, get_user_profile, edit_user, count_user_messages, get_best_discount, add_manager_message_id, \
-    get_order_address, add_products_to_order
+    get_order_address, add_products_to_order, get_user_order_by_id
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from telegram.error import TelegramError
 from users.models import ORDER_STATUS
@@ -538,43 +538,40 @@ def add_to_offer(update: Update, context: CallbackContext):
     """Объеденить корзину с имеющимся заказом"""
     call = update.callback_query
     chat_id = update.effective_chat.id
+    user = update.effective_user.username
     message_id = call.message.message_id
     _, add_to_order = call.data.split('_')
-    user_order = get_user_orders(chat_id=chat_id, filter=f'AND orders.id="{add_to_order}" AND carts.soft_delete="0"')
-    if user_order[0][5] == '0':
-        discount_sum = 0
-        product_price_sum = 0
-        position = 1
-        order_message = f'<b><u>Заказ № {add_to_order}</u></b>\n'
+    order_status = get_user_order_by_id(chat_id=chat_id, order_id=add_to_order)[0][4]
+    if order_status == '0':
         add_products_to_order(chat_id=chat_id, order_id=add_to_order)
-
-        user_order = get_user_orders(chat_id=chat_id,
-                                     filter=f'AND orders.id="{add_to_order}" AND carts.soft_delete="0"')
+        user_order = get_user_order_by_id(chat_id=chat_id, order_id=add_to_order)
+        text_products = ''
+        discount_message = 'р.'
+        order_sum = 0
         for order_data in user_order:
-            order_id, product_name, product_price, product_amount, order_sum, order_status, payment_url, extra_payment_url, tracing_num, for_sale, discount, delivery_price = order_data
-            if discount < Decimal(1) and for_sale:
-                discount_sum += product_price - product_price * discount
-                calc_price = round(product_price * discount)
-            else:
-                calc_price = product_price
-            product_price_sum += calc_price
-            order_message += f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price} р.\n'
-            position += 1
-
-        if discount < Decimal(1) and discount_sum != 0:
-            order_message += f'''\nВаша скидка {int(100 - discount * 100)}% - {round(discount_sum)} р.
-<b>ИТОГО со скидкой: {product_price_sum} р.</b>'''
-        else:
-            order_message += f'ИТОГО: {product_price_sum} р.'
-
-        context.bot.delete_message(chat_id=update.effective_chat.id,
-                                   message_id=message_id)
+            order_id, product_name, product_price, cart_amount, order_status, cart_sale, order_discount, delivery_price, delivery_info, manager_message_id = order_data
+            if cart_sale:
+                product_price = round(product_price * order_discount)
+            text_products += f'\n{product_name} - {int(cart_amount)} шт.'
+            order_sum += round(product_price * cart_amount, 2)
+        order_id, product_name, product_price, cart_amount, order_status, cart_sale, order_discount, delivery_price, delivery_info, manager_message_id = \
+            user_order[0]
+        if order_discount < Decimal(1):
+            discount_message = f'\n со скидкой {int(100 - order_discount * 100)}%'
+        order_message = f'<b><u>Заказ №: {order_id}</u></b> \n{text_products} \n{delivery_info} \n<b>на сумму: {math.ceil(order_sum) + delivery_price}{discount_message}</b>'
         keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
-        context.bot.send_message(
-            text=f'{order_message} \n\nОжидайте ссылку на оплату, после оплаты товары будут зарезервированы...',
-            chat_id=call.message.chat.id,
-            parse_mode='HTML', reply_markup=keyboard, disable_notification=True)
-
+        context.bot.send_message(chat_id=chat_id,
+                                 text=f'Товары были добавлены в заказ {add_to_order}',
+                                 parse_mode='HTML', reply_markup=keyboard, disable_notification=True)
+        orders_history(update, context)
+        try:
+            updater.bot.edit_message_text(chat_id=ORDERS_CHAT_ID, message_id=manager_message_id,
+                                          text=f'Клиент: {user}\n{order_message}', parse_mode='HTML')
+            updater.bot.send_message(chat_id=ORDERS_CHAT_ID,
+                                     text=f'Заказ № {add_to_order} был отредактирован пользователем', parse_mode='HTML')
+            return 'Заявка изменена в канале менеджеров'
+        except Exception as err:
+            return f'Неудалось изменить заявку в канале менеджеров по причине: {err}'
     else:
         context.bot.delete_message(chat_id=update.effective_chat.id,
                                    message_id=message_id)
@@ -715,12 +712,8 @@ def order(update: Update, context: CallbackContext):
     order_message = f'<b><u>Заказ №: {order_id}</u></b> \n{text_products} \n{call.message.text} \n<b>на сумму: {round(int(cart_price), 2)}р.{discount_message}</b>'
     context.bot.answer_callback_query(callback_query_id=call.id,
                                       text=f'Ваш заказ принят')
-    context.bot.edit_message_text(text=f'Клиент: {user} \n{order_message}',
-                                  chat_id=call.message.chat.id,
-                                  message_id=call.message.message_id, parse_mode='HTML')
-    message = context.bot.forward_message(chat_id=ORDERS_CHAT_ID,
-                                          from_chat_id=call.message.chat_id,
-                                          message_id=call.message.message_id)
+    message = context.bot.send_message(text=f'Клиент: {user} \n{order_message}', chat_id=ORDERS_CHAT_ID,
+                                       parse_mode='HTML')
     context.bot.edit_message_text(
         text=f'Ваш {order_message} \n\nОжидайте ссылку на оплату, после оплаты товары будут зарезервированы...',
         chat_id=call.message.chat.id,
@@ -782,16 +775,16 @@ def orders_history(update: Update, context: CallbackContext):
                                            reply_markup=keyboard, disable_notification=True)
     else:
         text, paymet_urls_text, text_products, tracing_text = '', '', '', ''
-        discount_sum, product_price_sum, position = 0, 0, 1
+        full_price, product_price_sum, position = 0, 0, 1
 
         for index, order in enumerate(orders):
             order_id, product_name, product_price, product_amount, order_sum, order_status, payment_url, extra_payment_url, tracing_num, for_sale, discount, delivery_price = order
             if discount < Decimal(1) and for_sale:
-                discount_sum += product_price - product_price * discount
                 calc_price = round(product_price * discount)
             else:
                 calc_price = product_price
             product_price_sum += calc_price
+            full_price += product_price
             text_products += f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price} р.\n'
             position += 1
             if index == len(orders) - 1 or order_id != orders[index + 1][0]:
@@ -800,8 +793,8 @@ def orders_history(update: Update, context: CallbackContext):
                     delivery_price_text = f'\nСтоимость доставки {delivery_price} р.'
                 else:
                     delivery_price_text = ''
-                if discount < Decimal(1) and discount_sum != 0:
-                    discount_text = f'''\nВаша скидка {int(100 - discount * 100)}% - {round(discount_sum)} р.
+                if discount < Decimal(1) and full_price != product_price_sum:
+                    discount_text = f'''\nВаша скидка {int(100 - discount * 100)}% - {round(full_price - product_price_sum)} р.
 <b>ИТОГО со скидкой: {product_price_sum + delivery_price} р.</b>'''
                 else:
                     discount_text = ''
@@ -820,10 +813,10 @@ def orders_history(update: Update, context: CallbackContext):
                 text += f'''<b><u>Заказ № {order_id}</u></b> 
 <u>Статус заказа: {ORDER_STATUS[int(order_status)][1]}</u>
 {tracing_text}{text_products}{delivery_price_text}
-ИТОГО: {order_sum + delivery_price} р.{discount_text}{paymet_urls_text}'''
+ИТОГО: {full_price + delivery_price} р.{discount_text}{paymet_urls_text}'''
                 text += f'\n {"_" * 20} \n'
                 paymet_urls_text, text_products, tracing_text = '', '', ''
-                discount_sum, product_price_sum, position = 0, 0, 1
+                full_price, product_price_sum, position = 0, 0, 1
         if update.callback_query:
             context.bot.edit_message_text(chat_id=chat_id,
                                           text=text,
@@ -1181,15 +1174,16 @@ def manager_edit_order(user_order: object) -> str:
     if user_order.discount < Decimal(1):
         discount_message = f'\n со скидкой {int(100 - user_order.discount * 100)}%'
     for cart in carts:
+        if cart.product.sale:
+            product_price = round(cart.product.price * user_order.discount)
+        else:
+            product_price = cart.product.price
         text_products += f'\n{cart.product.name} - {int(cart.amount)} шт.'
-        order_sum += round(cart.product.price * cart.amount, 2)
-    order_message = f'<b><u>Заказ №: {user_order.id}</u></b> \n{text_products} \n{user_order.delivery_info} \n<b>на сумму: {math.ceil(order_sum * user_order.discount) + user_order.delivery_price}{discount_message}</b>'
+        order_sum += round(product_price * cart.amount, 2)
+    order_message = f'<b><u>Заказ №: {user_order.id}</u></b> \n{text_products} \n{user_order.delivery_info} \n<b>на сумму: {math.ceil(order_sum) + user_order.delivery_price}{discount_message}</b>'
     try:
-        manager_remove_order(user_order)
-        message = updater.bot.send_message(chat_id=ORDERS_CHAT_ID, text=order_message,
-                                           parse_mode='HTML', disable_notification=True)
-        user_order.manager_message_id = message.message_id
-        user_order.save()
+        updater.bot.edit_message_text(chat_id=ORDERS_CHAT_ID, message_id=user_order.manager_message_id,
+                                      text=order_message, parse_mode='HTML')
         return 'Заявка изменена в канале менеджеров'
     except Exception as err:
         return f'Неудалось изменить заявку в канале менеджеров по причине: {err}'

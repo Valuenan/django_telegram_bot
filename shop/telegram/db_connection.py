@@ -452,6 +452,22 @@ def get_user_orders(chat_id: int, filter: str = '') -> list:
     return orders
 
 
+def get_user_order_by_id(chat_id: int, order_id: int) -> list:
+    """Получить список заказов пользователя"""
+    db, cur = connect_db(f"""SELECT orders.id, products.name, products.price ,carts.amount, order_status.title, products.sale, orders.discount, orders.delivery_price, orders.delivery_info, orders.manager_message_id
+    FROM orders
+    INNER JOIN carts ON orders.id = carts.order_id 
+    INNER JOIN products ON carts.product_id = products.id
+    INNER JOIN profile ON profile.id = orders.profile_id
+    INNER JOIN order_status ON orders.status_id = order_status.id
+    WHERE profile.chat_id='{chat_id}' AND orders.id="{order_id}" AND carts.soft_delete="0"
+    ORDER BY orders.id""")
+    orders = cur.fetchall()
+    cur.close()
+    db.close()
+    return orders
+
+
 def get_order_address(order_id: int) -> None or str:
     """Получить адрес заказа"""
     db, cur = connect_db(f"SELECT delivery_info FROM orders WHERE id='{order_id}'")
