@@ -45,5 +45,6 @@ class RestsAdmin(admin.ModelAdmin):
 
 @admin.register(RestsOdataLoad)
 class RestsOdataLoadAdmin(admin.ModelAdmin):
-    list_display = ['active', 'date_time', 'recorder']
+    list_display = ['active', 'date_time', 'recorder', 'product_key', 'amount']
+    search_fields = ['recorder', 'product_key']
     ordering = ['-date_time']
