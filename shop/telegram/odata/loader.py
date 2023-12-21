@@ -48,6 +48,7 @@ class ProductAmount(BaseModel):
     product_key: str = Field(alias='Номенклатура_Key')
     store_key: str = Field(alias='Склад_Key')
     change_quantity: int = Field(alias='ВНаличии')
+    line_number: int = Field(alias='LineNumber')
 
 
 class ProductImage(BaseModel):
@@ -121,7 +122,7 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
             """record_type - 'Receipt' or 'Expense'"""
             format_ = 'json'
             content = 'AccumulationRegister_ТоварыНаСкладах_RecordType/'
-            select = 'Period,Recorder,Active,RecordType,Номенклатура_Key,Склад_Key,ВНаличии'
+            select = 'Period,Recorder,Active,RecordType,Номенклатура_Key,Склад_Key,ВНаличии,LineNumber'
             raw_filter = f"Active and year(Period) eq {kwargs['year']} and month(Period) ge {kwargs['month']} and day(Period) ge {kwargs['day']}"
             filter_ = quote(raw_filter)
             order_by = ''

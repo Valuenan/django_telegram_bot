@@ -117,7 +117,8 @@ def import_products() -> dict:
             if not new_category:
                 result['skipped'] += 1
                 continue
-            if exist_product.category != new_category[0] or exist_product.ref_key != product.ref_key or exist_product.name != product.name.strip() or exist_product.search != product.search or exist_product.sale != sale:
+            if exist_product.category != new_category[
+                0] or exist_product.ref_key != product.ref_key or exist_product.name != product.name.strip() or exist_product.search != product.search or exist_product.sale != sale:
                 exist_product.category = new_category[0]
                 exist_product.ref_key = product.ref_key
                 exist_product.name = product.name.strip()
@@ -186,17 +187,18 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
                               server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/', year=year,
                               month=month, day=day)
         for rest in data:
-            exist_rest = RestsOdataLoad.objects.filter(recorder=rest.recorder, product_key=rest.product_key)
-
+            exist_rest = RestsOdataLoad.objects.filter(recorder=rest.recorder, product_key=rest.product_key,
+                                                       line_number=rest.line_number)
             if not exist_rest:
                 if rest.active:
+                    # Добавляем ссылку на документ 1с - если товар был продан через бота
                     add_link = not_linked_odata_records.filter(product_key=rest.product_key,
                                                                amount=rest.change_quantity)
-                    print(rest.product_key, rest.change_quantity, rest.date_time, rest.record_type)
                     if add_link and rest.record_type == 'Expense':
                         add_link = add_link[0]
                         add_link.recorder = rest.recorder
-                        add_link.date = rest.date_time
+                        add_link.date_time = rest.date_time
+                        add_link.line_number = rest.line_number
                         add_link.save()
                         not_linked_odata_records = not_linked_odata_records.filter(recorder=None)
                         continue
@@ -204,8 +206,9 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
                     if db_rest:
                         db_rest = db_rest[0]
                         if rest.record_type == 'Expense':
-                            rest.change_quantity *= -1
-                        db_rest.amount += rest.change_quantity
+                            db_rest.amount += rest.change_quantity * -1
+                        else:
+                            db_rest.amount += rest.change_quantity
                         if db_rest.amount >= 0:
                             db_rest.save()
                         else:
@@ -232,7 +235,8 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
                             conflict += 1
                             continue
                 RestsOdataLoad.objects.create(active=rest.active, date_time=rest.date_time, recorder=rest.recorder,
-                                              product_key=rest.product_key)
+                                              product_key=rest.product_key, amount=rest.change_quantity,
+                                              line_number=rest.line_number)
                 create += 1
             else:
                 exist_rest = exist_rest[0]
@@ -247,10 +251,11 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
                         result_messages.append((messages.ERROR,
                                                 f'Ошибка: Отсутсвует товар {rest.product_key}. Сначала загрузите товары. Товар был пропущен'))
                         continue
-                    if rest.record_type == 'Receipt':
-                        rest.change_quantity *= -1
                     db_rest = Rests.objects.filter(product__ref_key=rest.product_key)[0]
-                    db_rest.amount += rest.change_quantity
+                    if rest.record_type == 'Receipt':
+                        db_rest.amount += rest.change_quantity * -1
+                    else:
+                        db_rest.amount += rest.change_quantity
                     if db_rest.amount >= 0:
                         db_rest.save()
                     else:

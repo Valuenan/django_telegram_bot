@@ -84,7 +84,8 @@ class Product(models.Model):
         elif action == 'remove':
             rest.amount -= new_amount
             rest.save()
-            RestsOdataLoad.objects.create(active=True, date_time=datetime.now(), product_key=self.ref_key, amount=new_amount)
+            RestsOdataLoad.objects.create(active=True, date_time=datetime.now(), product_key=self.ref_key,
+                                          amount=new_amount)
 
     class Meta:
         db_table = 'products'
@@ -112,6 +113,7 @@ class RestsOdataLoad(models.Model):
     recorder = models.CharField(verbose_name="Ссылка на документ в 1с", max_length=36, null=True, blank=True)
     product_key = models.CharField(verbose_name="Ссылка на товар в 1с", max_length=36)
     amount = models.IntegerField(verbose_name='Количество', blank=True, null=True)
+    line_number = models.IntegerField(verbose_name='Позиция в документе 1с', blank=True, null=True)
 
     def __str__(self):
         return f'{self.recorder}'
