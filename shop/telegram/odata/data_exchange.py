@@ -1,26 +1,15 @@
 from datetime import datetime, timedelta
-from time import sleep
 
-from django.db import close_old_connections, OperationalError, connection
+from django.db import close_old_connections, connection
 
 from django.contrib import messages
 from django.db.models import Count
 
 from shop.telegram.odata.loader import create_request, CatalogFolder, CatalogProduct, ProductImage, ProductPrice, \
     ProductAmount
-from users.models import Carts, Orders
+from users.models import Carts
 from shop.models import Category, Product, Rests, Shop, Image, RestsOdataLoad
 from shop.telegram.settings import CREDENTIALS_1C
-
-elimination_nomenclature = ['76577798-75bc-11eb-a0c1-005056b6fe75',
-                            'a3b8770e-5c30-11ec-a0ca-005056b6fe75',
-                            '0c9ffff5-1847-11ea-a082-005056b6fe75',
-                            '5856a462-bf2d-11ec-a0cd-005056b6fe75',
-                            '3e736a22-488f-11ed-a0d2-005056b6fe75',
-                            '19a53e4d-f5cb-11e7-b10d-f068df5bef8b',
-                            '07a53d7e-79f2-11ed-a1ff-be3af2b6059f',
-                            '3e736a22-488f-11ed-a0d2-005056b6fe75',
-                            '69dbf95a-3360-11ec-a0c9-005056b6fe75']
 
 
 def import_category() -> dict:
@@ -100,7 +89,10 @@ def import_products() -> dict:
                 sale = False
             else:
                 sale = True
-            category = Category.objects.filter(ref_key=product.parent_key)
+            if product.parent_key != '00000000-0000-0000-0000-000000000000':
+                category = Category.objects.filter(ref_key=product.parent_key)
+            else:
+                category = [None]
             if category:
                 Product.objects.create(category=category[0], ref_key=product.ref_key, sale=sale,
                                        name=product.name.strip(), price=0, search=product.search)
@@ -113,10 +105,14 @@ def import_products() -> dict:
                 sale = False
             else:
                 sale = True
-            new_category = Category.objects.filter(ref_key=product.parent_key)
-            if not new_category:
-                result['skipped'] += 1
-                continue
+            if product.parent_key != '00000000-0000-0000-0000-000000000000':
+                new_category = Category.objects.filter(ref_key=product.parent_key)
+                if not new_category:
+                    result['skipped'] += 1
+                    continue
+            else:
+                new_category = [None]
+
             if exist_product.category != new_category[
                 0] or exist_product.ref_key != product.ref_key or exist_product.name != product.name.strip() or exist_product.search != product.search or exist_product.sale != sale:
                 exist_product.category = new_category[0]
@@ -220,9 +216,6 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
                     else:
                         product = Product.objects.filter(ref_key=rest.product_key)
                         if not product:
-                            # Пропуск номенклатуры "Пакет, Тестовый товар, карточки акций"
-                            if rest.product_key in elimination_nomenclature:
-                                continue
                             result_messages.append((messages.ERROR,
                                                     f'Ошибка: Отсутсвует товар {rest.product_key}. Сначала загрузите товары. Товар был пропущен'))
                             continue
@@ -245,9 +238,6 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
                 else:
                     product = Product.objects.filter(ref_key=rest.product_key)
                     if not product:
-                        # Пропуск номенклатуры "Пакет"
-                        if rest.product_key in elimination_nomenclature:
-                            continue
                         result_messages.append((messages.ERROR,
                                                 f'Ошибка: Отсутсвует товар {rest.product_key}. Сначала загрузите товары. Товар был пропущен'))
                         continue

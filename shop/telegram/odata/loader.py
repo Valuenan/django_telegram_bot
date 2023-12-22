@@ -95,7 +95,7 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
             format_ = 'json'
             content = 'Catalog_Номенклатура/'
             select = 'DeletionMark,Parent_Key,Ref_Key,НаименованиеПолное,КодДляПоиска,ФайлКартинки_Key'
-            raw_filter = "not IsFolder and not DeletionMark and Parent_Key ne guid'00000000-0000-0000-0000-000000000000'"
+            raw_filter = "not IsFolder and not DeletionMark"
             filter_ = quote(raw_filter)
             order_by = ''
         elif model == CatalogFolder:
