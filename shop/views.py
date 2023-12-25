@@ -7,6 +7,7 @@ import redis
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
+from django.db.models import Count, Avg, Sum
 from django.shortcuts import render, redirect
 from django.views import View
 from django.contrib import messages
@@ -355,30 +356,66 @@ class ProductsCheckList(View):
 
 class OrdersList(LoginRequiredMixin, ListView):
     login_url = '/login'
-    model = Orders
     queryset = Orders.objects.exclude(status__in=[6, 7])
     context_object_name = 'orders'
     ordering = ['id']
 
     def get_context_data(self, **kwargs):
         context = super(OrdersList, self).get_context_data(**kwargs)
+        filter_date = self.request.GET.get('filter_date')
+        filter_status = self.request.GET.get('filter_status')
         users = Profile.objects.values('phone')
         context['count_users'] = users.count()
         context['count_users_phone'] = users.exclude(phone=None).count()
         context['new_message'] = UserMessage.objects.filter(checked=False)
+        context['orders_dates'] = Orders.objects.values('date').distinct().order_by('-date')
+        context['order_statuses'] = OrderStatus.objects.exclude(id__in=[6, 7])
+
+        if filter_date:
+            context['orders'] = context['orders'].filter(date=filter_date)
+            if context['orders']:
+                context['filter_date'] = context['orders'][0].date
+        if filter_status:
+            context['orders'] = context['orders'].filter(status_id=filter_status)
+            context['filter_status'] = context['order_statuses'].filter(id=filter_status)[0]
+
+        context['orders_count'] = context['orders'].count()
+        if context['orders']:
+            context['price_sum'] = int(context['orders'].aggregate(Sum("order_price"))['order_price__sum'])
+            context['price_avg'] = int(context['orders'].aggregate(Avg("order_price"))['order_price__avg'])
+        else:
+            context['price_sum'] = context['price_avg'] = 0
         return context
 
 
 class OrdersHistory(LoginRequiredMixin, ListView):
     login_url = '/login'
-    model = Orders
     queryset = Orders.objects.filter(status__in=[6, 7])
     context_object_name = 'orders'
     ordering = ['id']
 
     def get_context_data(self, **kwargs):
         context = super(OrdersHistory, self).get_context_data(**kwargs)
+        filter_date = self.request.GET.get('filter_date')
+        filter_status = self.request.GET.get('filter_status')
         context['new_message'] = UserMessage.objects.filter(checked=False)
+        context['orders_dates'] = self.queryset.values('date').distinct().order_by('-date')
+        context['order_statuses'] = OrderStatus.objects.filter(id__in=[6, 7])
+
+        if filter_date:
+            context['orders'] = context['orders'].filter(date=filter_date)
+            if context['orders']:
+                context['filter_date'] = context['orders'][0].date
+        if filter_status:
+            context['orders'] = context['orders'].filter(status_id=filter_status)
+            context['filter_status'] = context['order_statuses'].filter(id=filter_status)[0]
+
+        context['orders_count'] = context['orders'].count()
+        if context['orders']:
+            context['price_sum'] = int(context['orders'].aggregate(Sum("order_price"))['order_price__sum'])
+            context['price_avg'] = int(context['orders'].aggregate(Avg("order_price"))['order_price__avg'])
+        else:
+            context['price_sum'] = context['price_avg'] = 0
         return context
 
 

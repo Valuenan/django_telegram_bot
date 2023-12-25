@@ -1,16 +1,43 @@
 {% extends 'base.html' %}
 {% load static shop_tags %}
 
-{% block extrahead %}<meta http-equiv="refresh" content="60">{% endblock %}
+{% block extrahead %}
+<meta http-equiv="refresh" content="60">{% endblock %}
 {% block content %}
 {% if request.user.is_superuser %}
-    <p>Пользователей {{ count_users }}, указали номер телефона {{ count_users_phone }}</p>
+<p>Пользователей {{ count_users }}, указали номер телефона {{ count_users_phone }}</p>
 {% endif %}
 {% if new_message %}
-    <div><audio hidden autoplay controls src="{% static 'audio/zvonok-kak-v-kolokolchik.mp3' %}"></audio></div>
+<div>
+    <audio hidden autoplay controls src="{% static 'audio/zvonok-kak-v-kolokolchik.mp3' %}"></audio>
+</div>
 {% endif %}
 
 <h1>Список заявок</h1>
+<div pading="2px">
+    <form name="orders_filter">
+
+        <select name="filter_date">
+            <option value="">Дата оформления (все)</option>
+            {% for order in orders_dates %}
+            <option {% if order.date == filter_date %} selected {% endif %}
+                    value="{{ order.date.year }}-{{ order.date.month }}-{{ order.date.day }}">{{ order.date }}
+            </option>
+            {% endfor %}
+        </select>
+        <select name="filter_status">
+            <option value="">Статус (все)</option>
+            {% for status in order_statuses %}
+            <option {% if status.id == filter_status.id %} selected {% endif %}
+                    value="{{ status.id }}">{{ status }}
+            </option>
+            {% endfor %}
+        </select>
+        <button type="submit">Найти</button>
+    </form>
+
+</div>
+
 <table border="1px">
     <tr>
         <td>Дата оформления</td>
@@ -24,36 +51,39 @@
         <td>Оплачена доставка</td>
     </tr>
     {% for order in orders %}
-        <tr>
-            <td>{{ order.date }}</td>
-            <td><a href="{% url 'orders_detail' order.id  %}">{{ order.id }}</a></td>
-            <td><a href="{% url 'orders_detail' order.id  %}">{{ order.status }}</a></td>
-            <td><a href="{% url 'orders_detail' order.id  %}">
-                {% if not order.admin_check %}
-                    -
-                {% else %}
-                    {{ order.admin_check.last_name }}
-                {% endif %}
-            </a></td>
+    <tr>
+        <td>{{ order.date }}</td>
+        <td><a href="{% url 'orders_detail' order.id  %}">{{ order.id }}</a></td>
+        <td><a href="{% url 'orders_detail' order.id  %}">{{ order.status }}</a></td>
+        <td><a href="{% url 'orders_detail' order.id  %}">
+            {% if not order.admin_check %}
+            -
+            {% else %}
+            {{ order.admin_check.last_name }}
+            {% endif %}
+        </a></td>
 
-            <td><a href="{% url 'orders_detail' order.id  %}">
-                {% if order.deliver %}
-                    да
-                {% else %}
-                    нет
-                {% endif %}
-            </a></td>
-            <td><a href="{% url 'orders_detail' order.id  %}">{{ order.delivery_info }}</a></td>
-            <td>
-                {% get_discount order.discount %}%
-            </td>
-            <td>
-                {% if order.payed %} да {% else %} нет {% endif %}
-            </td>
-            <td>
-                {% if order.payed_delivery %} да {% else %} нет {% endif %}
-            </td>
-        </tr>
+        <td><a href="{% url 'orders_detail' order.id  %}">
+            {% if order.deliver %}
+            да
+            {% else %}
+            нет
+            {% endif %}
+        </a></td>
+        <td><a href="{% url 'orders_detail' order.id  %}">{{ order.delivery_info }}</a></td>
+        <td>
+            {% get_discount order.discount %}%
+        </td>
+        <td>
+            {% if order.payed %} да {% else %} нет {% endif %}
+        </td>
+        <td>
+            {% if order.payed_delivery %} да {% else %} нет {% endif %}
+        </td>
+    </tr>
     {% endfor %}
 </table>
+<p>Всего заявок {{ orders_count }} шт.</p>
+<p>На сумму {{ price_sum }} р. (средняя стоимость заказа {{ price_avg }} р.)</p>
+
 {% endblock %}
