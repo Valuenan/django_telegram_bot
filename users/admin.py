@@ -5,7 +5,7 @@ from .models import Profile, Carts, Orders, OrderStatus, Payment, UserMessage
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ['telegram_name', 'chat_id', 'phone', 'discount']
+    list_display = ['date', 'telegram_name', 'chat_id', 'phone', 'discount']
     search_fields = ['chat_id']
 
 
