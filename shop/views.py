@@ -7,7 +7,7 @@ import redis
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
-from django.db.models import Count, Avg, Sum
+from django.db.models import Avg, Sum
 from django.shortcuts import render, redirect
 from django.views import View
 from django.contrib import messages
@@ -362,19 +362,25 @@ class OrdersList(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super(OrdersList, self).get_context_data(**kwargs)
-        filter_date = self.request.GET.get('filter_date')
+        filter_date_year = self.request.GET.get('filter_date_year')
+        filter_date_month = self.request.GET.get('filter_date_month')
         filter_status = self.request.GET.get('filter_status')
         users = Profile.objects.values('phone')
         context['count_users'] = users.count()
         context['count_users_phone'] = users.exclude(phone=None).count()
         context['new_message'] = UserMessage.objects.filter(checked=False)
-        context['orders_dates'] = Orders.objects.values('date').distinct().order_by('-date')
+        context['orders_years'] = self.queryset.values('date__year').distinct().order_by('-date__year')
+        context['orders_months'] = context['orders'].values('date__month').distinct().order_by('-date__month')
         context['order_statuses'] = OrderStatus.objects.exclude(id__in=[6, 7])
 
-        if filter_date:
-            context['orders'] = context['orders'].filter(date=filter_date)
-            if context['orders']:
-                context['filter_date'] = context['orders'][0].date
+        if filter_date_year:
+            filter_date_year = int(filter_date_year)
+            context['orders'] = self.queryset.filter(date__year=filter_date_year)
+            context['filter_year'] = filter_date_year
+        if filter_date_month:
+            filter_date_month = int(filter_date_month)
+            context['orders'] = context['orders'].filter(date__month=filter_date_month)
+            context['filter_month'] = filter_date_month
         if filter_status:
             context['orders'] = context['orders'].filter(status_id=filter_status)
             context['filter_status'] = context['order_statuses'].filter(id=filter_status)[0]
@@ -396,16 +402,21 @@ class OrdersHistory(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super(OrdersHistory, self).get_context_data(**kwargs)
-        filter_date = self.request.GET.get('filter_date')
+        filter_date_year = self.request.GET.get('filter_date_year')
+        filter_date_month = self.request.GET.get('filter_date_month')
         filter_status = self.request.GET.get('filter_status')
         context['new_message'] = UserMessage.objects.filter(checked=False)
-        context['orders_dates'] = self.queryset.values('date').distinct().order_by('-date')
+        context['orders_years'] = self.queryset.values('date__year').distinct().order_by('-date__year')
+        context['orders_months'] = context['orders'].values('date__month').distinct().order_by('-date__month')
         context['order_statuses'] = OrderStatus.objects.filter(id__in=[6, 7])
-
-        if filter_date:
-            context['orders'] = context['orders'].filter(date=filter_date)
-            if context['orders']:
-                context['filter_date'] = context['orders'][0].date
+        if filter_date_year:
+            filter_date_year = int(filter_date_year)
+            context['orders'] = self.queryset.filter(date__year=filter_date_year)
+            context['filter_year'] = filter_date_year
+        if filter_date_month:
+            filter_date_month = int(filter_date_month)
+            context['orders'] = context['orders'].filter(date__month=filter_date_month)
+            context['filter_month'] = filter_date_month
         if filter_status:
             context['orders'] = context['orders'].filter(status_id=filter_status)
             context['filter_status'] = context['order_statuses'].filter(id=filter_status)[0]

@@ -16,13 +16,20 @@
 <h1>Список заявок</h1>
 <div pading="2px">
     <form name="orders_filter">
-
-        <select name="filter_date">
-            <option value="">Дата оформления (все)</option>
-            {% for order in orders_dates %}
-            <option {% if order.date == filter_date %} selected {% endif %}
-                    value="{{ order.date.year }}-{{ order.date.month }}-{{ order.date.day }}">{{ order.date }}
-            </option>
+        <select name="filter_date_year">
+            <option value="">Год (все)</option>
+            {% for year in orders_years %}
+                <option {% if year.date__year == filter_year %} selected {% endif %} value="{{ year.date__year }}">
+                    {{ year.date__year }}
+                </option>
+            {% endfor %}
+        </select>
+        <select name="filter_date_month">
+            <option value="">Месяц (все)</option>
+            {% for month in orders_months %}
+                <option {% if month.date__month == filter_month %} selected {% endif %} value="{{ month.date__month }}">
+                    {{ month.date__month }}
+                </option>
             {% endfor %}
         </select>
         <select name="filter_status">
