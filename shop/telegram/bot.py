@@ -780,11 +780,11 @@ def orders_history(update: Update, context: CallbackContext):
         for index, order in enumerate(orders):
             order_id, product_name, product_price, product_amount, order_sum, order_status, payment_url, extra_payment_url, tracing_num, for_sale, discount, delivery_price = order
             if discount < Decimal(1) and for_sale:
-                calc_price = round(product_price * discount)
+                calc_price = round(product_price * discount) * int(product_amount)
             else:
-                calc_price = product_price
+                calc_price = product_price * int(product_amount)
             product_price_sum += calc_price
-            full_price += product_price
+            full_price += product_price * int(product_amount)
             text_products += f'<i>{position}.</i> {product_name} - {int(product_amount)} шт. по {product_price} р.\n'
             position += 1
             if index == len(orders) - 1 or order_id != orders[index + 1][0]:
