@@ -6,7 +6,7 @@ import pickle
 from django_telegram_bot.celery import app
 from django_telegram_bot.settings import REDIS_HOST
 from shop.models import Product
-from shop.telegram.odata.data_exchange import import_images, import_category, import_products
+from shop.telegram.odata.data_exchange import import_images, import_category, import_products, mark_sale
 from shop.utilities import _send_message_to_user
 
 
@@ -40,6 +40,7 @@ def load_category_task():
 def load_products_task():
     time_start = datetime.datetime.now().strftime('%d-%m-%Y %H:%M')
     import_result = import_products()
+    mark_sale()
     import_result['time'] = time_start
     r = redis.Redis(host=f'{REDIS_HOST[0]}', db=1)
     dict_bytes = pickle.dumps(import_result)

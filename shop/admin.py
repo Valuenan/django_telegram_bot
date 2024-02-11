@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Category, Product, File, Rests, Shop, Image, RestsOdataLoad
+from .models import Category, Product, File, Rests, Shop, Image, RestsOdataLoad, DiscountGroup
 
 
 @admin.register(File)
@@ -27,6 +27,11 @@ class ImageAdmin(admin.ModelAdmin):
     list_display = ['name', 'ref_key']
     search_fields = ['name']
     ordering = ['name']
+
+
+@admin.register(DiscountGroup)
+class DiscountGroupAdmin(admin.ModelAdmin):
+    list_display = ['name', 'trigger', 'regular_value', 'extra_value']
 
 
 @admin.register(Product)

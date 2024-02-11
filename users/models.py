@@ -3,7 +3,7 @@ import decimal
 from django.contrib.auth.models import User
 from django.db import models
 
-from shop.models import Product, Shop
+from shop.models import Product, Shop, SALE_TYPES
 
 ORDER_STATUS = (
     ('0', 'Заявка обрабатывается'),
@@ -115,7 +115,6 @@ class Orders(models.Model):
     deliver = models.BooleanField(verbose_name='Доставить по адресу')
     status = models.ForeignKey(OrderStatus, blank=True, on_delete=models.DO_NOTHING, verbose_name='Статус заказа')
     delivery_price = models.IntegerField(verbose_name='Стомость доставки', default=0, blank=True, null=True)
-    discount = models.DecimalField(verbose_name='Коэффициент скидки', max_digits=3, decimal_places=2, default=1)
     payment = models.ForeignKey(Payment, on_delete=models.DO_NOTHING, verbose_name='Вид оплаты', blank=True, null=True)
     payment_url = models.URLField(verbose_name='Ссылка на оплату Авангард', blank=True, null=True)
     extra_payment_url = models.URLField(verbose_name='Дополнительная ссылка на оплату Авангард', blank=True, null=True)
@@ -124,6 +123,8 @@ class Orders(models.Model):
     tracing_num = models.CharField(max_length=30, verbose_name='Трек номер', null=True, blank=True)
     manager_message_id = models.IntegerField(verbose_name='Номер сообщения в канале менеджеров', default=0, blank=True,
                                              null=True)
+    sale_type = models.CharField(max_length=50, verbose_name='Тип скидки', choices=SALE_TYPES, blank=False,
+                                 default='no_sale')
 
     def __str__(self):
         return f'{self.id}'

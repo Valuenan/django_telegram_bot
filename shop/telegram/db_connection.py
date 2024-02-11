@@ -112,7 +112,7 @@ def user_add_phone(chat_id: int, phone_num: str):
 
 def get_shops() -> list:
     """Получить список магазинов"""
-    db, cur = connect_db(f"SELECT id, name FROM shops")
+    db, cur = connect_db(f"SELECT id, name, sale_type FROM shops")
     shops = cur.fetchall()
     cur.close()
     db.close()
@@ -152,9 +152,10 @@ def get_parent_category_id(category_id: int) -> list:
 def get_products(chosen_category: int, page: int) -> (list, int):
     """Получить список товаров и пагинация"""
     db, cur = connect_db((f"""
-    SELECT products.id, products.name, image.name, products.price, products.category_id, products.sale, sum(rests.amount) AS rest
+    SELECT products.id, products.name, image.name, products.price, products.category_id, discount_group.regular_value, discount_group.extra_value, sum(rests.amount) AS rest
     FROM products 
     INNER JOIN rests ON products.id = rests.product_id
+    INNER JOIN discount_group ON products.discount_group_id = discount_group.id
     LEFT JOIN image ON image.id = products.image_id
     WHERE category_id='{chosen_category}' AND rests.amount > 0
     GROUP BY products.id
@@ -248,10 +249,10 @@ def old_cart_message(chat_id) -> (int or None):
 
 def show_cart(chat_id: int) -> list:
     """Получить список товаров в корзине"""
-    db, cur = connect_db(f"""SELECT products.name, products.sale, carts.amount, carts.price
+    db, cur = connect_db(f"""SELECT products.name, discount_group.regular_value, discount_group.extra_value, carts.amount, carts.price
     FROM carts  
-    INNER JOIN products 
-    ON carts.product_id = products.id 
+    INNER JOIN products ON carts.product_id = products.id 
+    INNER JOIN discount_group ON products.discount_group_id = discount_group.id
     WHERE carts.order_id IS NULL AND carts.profile_id = (SELECT id FROM profile where chat_id='{chat_id}') AND carts.soft_delete = '0'""")
     cart_info = cur.fetchall()
     if cart_info is None:
@@ -343,25 +344,6 @@ def get_delivery_shop(chat_id: int) -> tuple:
     return shop
 
 
-def get_best_discount(chat_id: int = None) -> tuple:
-    """Получить лучшую скидку"""
-    db, cur = connect_db(f"""SELECT MIN(sale) FROM shops""")
-    shop_discount = cur.fetchone()
-
-    if chat_id:
-        db, cur = connect_db(f"""SELECT discount
-            FROM profile 
-            WHERE chat_id='{chat_id}'""")
-        user_discount = cur.fetchone()
-        best_discount = min(user_discount, shop_discount)
-    else:
-        best_discount = shop_discount
-    cur.close()
-    db.close()
-
-    return best_discount[0]
-
-
 def get_user_phone(chat_id: int) -> None or str:
     """Получить магазин пользователя"""
     db, cur = connect_db(f"SELECT phone FROM profile WHERE chat_id='{chat_id}'")
@@ -389,15 +371,15 @@ def get_user_shop(chat_id: int) -> None or str:
     return street
 
 
-def save_order(chat_id: int, delivery_info: str, cart_price: int, discount=1, payment_type: int = 2) -> list and int:
+def save_order(chat_id: int, delivery_info: str, cart_price: int, sale_type: int, payment_type: int = 2) -> list and int:
     """Сохранить заказ"""
     db, cur = connect_db(f"""SELECT carts.product_id, carts.amount FROM carts
     INNER JOIN profile ON profile.id = carts.profile_id
     WHERE profile.chat_id='{chat_id}' AND carts.order_id IS NULL""")
     products_id, products_amount = list(zip(*cur.fetchall()))
 
-    cur.execute(f"""INSERT INTO orders (profile_id, delivery_info, order_price, deliver, discount, date, status_id, payment_id ,payed, payed_delivery, delivery_price, manager_message_id) 
-    SELECT id, '{delivery_info}', '{cart_price}', profile.delivery, '{discount}','{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}','1' ,'{payment_type}' ,'0', '0', 0, 0
+    cur.execute(f"""INSERT INTO orders (profile_id, delivery_info, order_price, deliver, date, status_id, payment_id ,payed, payed_delivery, delivery_price, manager_message_id, sale_type) 
+    SELECT id, '{delivery_info}', '{cart_price}', profile.delivery,'{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}','1' ,'{payment_type}' ,'0', '0', 0, 0, '{sale_type}'
     FROM profile WHERE profile.chat_id='{chat_id}'""")
     db.commit()
 
@@ -438,10 +420,11 @@ def add_manager_message_id(order_id: int, message_id: int):
 
 def get_user_orders(chat_id: int, filter: str = '') -> list:
     """Получить список заказов пользователя"""
-    db, cur = connect_db(f"""SELECT orders.id, products.name, products.price ,carts.amount, orders.order_price, order_status.title, orders.payment_url, orders.extra_payment_url, orders.tracing_num, products.sale, orders.discount, delivery_price
+    db, cur = connect_db(f"""SELECT orders.id, products.name, products.price ,carts.amount, orders.order_price, order_status.title, orders.payment_url, orders.extra_payment_url, orders.tracing_num, discount_group.regular_value, discount_group.extra_value, delivery_price, orders.sale_type
     FROM orders
     INNER JOIN carts ON orders.id = carts.order_id 
     INNER JOIN products ON carts.product_id = products.id
+    INNER JOIN discount_group ON products.discount_group_id = discount_group.id
     INNER JOIN profile ON profile.id = orders.profile_id
     INNER JOIN order_status ON orders.status_id = order_status.id
     WHERE profile.chat_id='{chat_id}' {filter}
@@ -454,10 +437,11 @@ def get_user_orders(chat_id: int, filter: str = '') -> list:
 
 def get_user_order_by_id(chat_id: int, order_id: int) -> list:
     """Получить список заказов пользователя"""
-    db, cur = connect_db(f"""SELECT orders.id, products.name, products.price ,carts.amount, order_status.title, products.sale, orders.discount, orders.delivery_price, orders.delivery_info, orders.manager_message_id
+    db, cur = connect_db(f"""SELECT orders.id, products.name, products.price, carts.amount, order_status.title, discount_group.regular_value, discount_group.extra_value, orders.sale_type, orders.delivery_price, orders.delivery_info, orders.manager_message_id
     FROM orders
     INNER JOIN carts ON orders.id = carts.order_id 
     INNER JOIN products ON carts.product_id = products.id
+    INNER JOIN discount_group on products.discount_group_id = discount_group.id
     INNER JOIN profile ON profile.id = orders.profile_id
     INNER JOIN order_status ON orders.status_id = order_status.id
     WHERE profile.chat_id='{chat_id}' AND orders.id="{order_id}" AND carts.soft_delete="0"

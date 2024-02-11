@@ -129,8 +129,8 @@ class MarkProductsSale(View):
         return render(request, 'admin/admin_import_from_1c.html')
 
     def post(self, request):
-        result_messages = mark_sale()
-        _add_messages(request, result_messages)
+        mark_sale()
+        messages.add_message(request, messages.INFO, 'Группы скидок были установлены')
         return render(request, 'admin/admin_import_from_1c.html')
 
 
@@ -440,11 +440,13 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         self.model = self.model.objects.prefetch_related('carts_set').all()
         context['products'] = context['order'].carts_set.all()
         context['order_sum'] = context['order'].delivery_price
-        if context['order'].discount < Decimal(1):
+        context['full_discount'] = 0
+        if context['order'].sale_type != 'no_sale':
             for cart in context['products']:
-                if cart.product.sale:
-                    new_price = round(cart.product.price * context['order'].discount)
-                    cart.product.price = new_price
+                discount = getattr(cart.product.discount_group, f"{context['order'].sale_type}_value")
+                new_price = round(cart.product.price * discount)
+                context['full_discount'] += round((cart.product.price - new_price) * cart.amount, 2)
+                cart.product.price = new_price
                 context['order_sum'] += round(cart.product.price * cart.amount, 2)
         else:
             for cart in context['products']:
@@ -463,7 +465,6 @@ class OrderDetail(LoginRequiredMixin, DetailView):
     def post(self, request, pk):
         form = request.POST.copy()
         _, new_status, shop = form.pop('csrfmiddlewaretoken'), form.pop('new_status')[0], int(form.pop('shop')[0])
-
         order = Orders.objects.get(id=pk)
 
         if 'delivery_price' in form:
@@ -500,12 +501,10 @@ class OrderDetail(LoginRequiredMixin, DetailView):
 
         order_sum = delivery_price
         carts = order.carts_set.filter(soft_delete=False)
-        if order.discount < Decimal(1):
+        if order.sale_type != 'no_sale':
             for cart in carts:
-                if cart.product.sale:
-                    order_sum += round(cart.product.price * order.discount) * int(cart.amount)
-                else:
-                    order_sum += cart.product.price * int(cart.amount)
+                discount = getattr(cart.product.discount_group, f"{order.sale_type}_value")
+                order_sum += round(cart.product.price * discount) * int(cart.amount)
         else:
             for cart in carts:
                 order_sum += round(cart.product.price * cart.amount, 2)

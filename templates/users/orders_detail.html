@@ -63,7 +63,7 @@ $(document).ready(function(){
                         <td {% if order.profile.main_shop == shop %} bgcolor="green" {% endif %}> {{ shop }}</td>
                     {% endfor %}
                     <td>Стоимость за шт.</td>
-                    <td><b>Сумма</b></td>
+                    <td><b>Сумма без скидки</b></td>
                 </tr>
                 {% for product in products %}
                 <tr>
@@ -76,13 +76,10 @@ $(document).ready(function(){
                         <td {% if product.amount > rest.amount %} bgcolor="yellow" {% endif %}>
                             {% formatted_float rest.amount %} шт.</td>
                     {% endfor %}
-                    {% if product.product.sale %}
-                        <td> {% get_sum 1 product.price order.discount %} р.</td>
-                    <td> <b>{% get_sum product.amount product.price order.discount %} р.</b></td>
-                    {% else %}
-                        <td> {% formatted_float product.price %} р.</td>
-                        <td> <b>{% get_sum product.amount product.price %} р.</b></td>
-                    {% endif %}
+
+                    <td> {% formatted_float product.price %} р.</td>
+                    <td> <b>{% get_sum product.amount product.price %} р.</b></td>
+
                 </tr>
                 {% endfor %}
                 {% if order.status.title == "0" %}
@@ -120,8 +117,9 @@ $(document).ready(function(){
             </table>
             <button type="submit">Записать</button>
         </form>
-        {% if order.discount < 1 %}
-            <p>Сумма со скидкой {% get_discount order.discount %}%: {{ order_sum }} р.</p>
+        {% if order.sale_type != 'no_sale' %}
+            <p>Скидка: {{ full_discount }} р.</p>
+            <p>Сумма со скидкой: {{ order_sum }} р.</p>
         {% else %}
             <p>Сумма: {{ order_sum }} р.</p>
         {% endif %}

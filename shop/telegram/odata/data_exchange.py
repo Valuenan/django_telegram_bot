@@ -8,7 +8,7 @@ from django.db.models import Count
 from shop.telegram.odata.loader import create_request, CatalogFolder, CatalogProduct, ProductImage, ProductPrice, \
     ProductAmount
 from users.models import Carts
-from shop.models import Category, Product, Rests, Shop, Image, RestsOdataLoad
+from shop.models import Category, Product, Rests, Shop, Image, RestsOdataLoad, DiscountGroup
 from shop.telegram.settings import CREDENTIALS_1C
 
 
@@ -85,26 +85,18 @@ def import_products() -> dict:
     for product in data:
         exist_product = Product.objects.filter(ref_key=product.ref_key)
         if not exist_product:
-            if product.name.strip()[-1] == '*':
-                sale = False
-            else:
-                sale = True
             if product.parent_key != '00000000-0000-0000-0000-000000000000':
                 category = Category.objects.filter(ref_key=product.parent_key)
             else:
                 category = [None]
             if category:
-                Product.objects.create(category=category[0], ref_key=product.ref_key, sale=sale,
-                                       name=product.name.strip(), price=0, search=product.search)
+                Product.objects.create(category=category[0], ref_key=product.ref_key, name=product.name.strip(),
+                                       price=0, search=product.search)
             else:
                 continue
             result['created'] += 1
         else:
             exist_product = exist_product[0]
-            if exist_product.name[-1] == '*':
-                sale = False
-            else:
-                sale = True
             if product.parent_key != '00000000-0000-0000-0000-000000000000':
                 new_category = Category.objects.filter(ref_key=product.parent_key)
                 if not new_category:
@@ -114,12 +106,11 @@ def import_products() -> dict:
                 new_category = [None]
 
             if exist_product.category != new_category[
-                0] or exist_product.ref_key != product.ref_key or exist_product.name != product.name.strip() or exist_product.search != product.search or exist_product.sale != sale:
+                0] or exist_product.ref_key != product.ref_key or exist_product.name != product.name.strip() or exist_product.search != product.search:
                 exist_product.category = new_category[0]
                 exist_product.ref_key = product.ref_key
                 exist_product.name = product.name.strip()
                 exist_product.search = product.search
-                exist_product.sale = sale
                 exist_product.save()
                 result['updated'] += 1
     return result
@@ -299,13 +290,21 @@ def import_images(product: Product, update: bool):
 
 
 def mark_sale():
+    """
+    Выдать группу скидок товарам, согласно тригеру
+    """
+
     products = Product.objects.all()
+    discounts = DiscountGroup.objects.all()
+    discount_groups = {}
+    for discount in discounts:
+        discount_groups[discount.trigger] = discount
     for product in products:
-        if product.name[-1] == '*':
-            product.sale = False
+        if product.name[-1] in discount_groups.keys():
+            product.discount_group = discount_groups[product.name[-1]]
             product.save()
         else:
-            product.sale = True
+            product.discount_group = discount_groups['Def']
             product.save()
 
 

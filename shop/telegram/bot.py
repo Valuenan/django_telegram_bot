@@ -5,13 +5,14 @@ from decimal import Decimal
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, error
 from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, \
     filters
+
 from shop.telegram.banking.banking import avangard_invoice
 from shop.telegram.db_connection import get_category, get_products, \
     save_order, get_user_orders, edit_to_cart, show_cart, db_delete_cart, get_product_id, start_user, \
     old_cart_message, save_cart_message_id, old_cart_message_to_none, check_user_is_staff, \
     edit_profile, get_delivery_settings, get_user_address, \
     get_shops, user_add_phone, ADMIN_TG, get_user_phone, get_delivery_shop, save_payment_link, get_parent_category_id, \
-    save_user_message, get_user_profile, edit_user, count_user_messages, get_best_discount, add_manager_message_id, \
+    save_user_message, get_user_profile, edit_user, count_user_messages, add_manager_message_id, \
     get_order_address, add_products_to_order, get_user_order_by_id
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from telegram.error import TelegramError
@@ -172,6 +173,7 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
     page = 0
     pagination = False
     call = update.callback_query
+    _, shop_name, sale_type = get_shops()[0]
     if '#' in str(update.callback_query.data) and not chosen_category:
         chosen_category = update.callback_query.data.split('_')[1]
         chosen_category, page = chosen_category.split('#')
@@ -183,9 +185,9 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
         context.bot.delete_message(chat_id=call.message.chat.id,
                                    message_id=call.message.message_id)
         for product in products:
-            product_id, product_name, product_img, price, category_id, product_for_sale, rests = product
-            buttons = ([InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add_{product_id}'),
-                        InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove_{product_id}')],)
+            product_id, product_name, product_img, price, category_id, product_regular_discount, product_extra_discount, rests = product
+            discount = {'regular': product_regular_discount, 'extra': product_extra_discount}
+
             if not product_img:
                 product_img = 'no-image.jpg'
             imgs = [product_img]
@@ -199,17 +201,19 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
             if len(imgs) > 1:
                 compounds_url = f'{BASE_DIR}/static/products/{imgs[1]}'
                 buttons[0].append(InlineKeyboardButton(text='Состав', callback_data=f'roll_{compounds_url}'))
-            keyboard = InlineKeyboardMarkup([button for button in buttons])
 
             try:
                 product_photo = open(f'{BASE_DIR}/static/products/{imgs[0]}', 'rb')
             except FileNotFoundError:
                 product_photo = open(f'{BASE_DIR}/static/products/no-image.jpg', 'rb')
-            shop_discount = get_best_discount()
-            if shop_discount < Decimal(1) and product_for_sale:
-                product_info = f'''{product_name}  \n <b>Цена: <s>{price}</s> {round(price * shop_discount)}.00 р.</b> \n <i>В наличии: {int(rests)} шт.</i>'''
+            if sale_type != 'no_sale':
+                product_info = f'''{product_name}  \n <b>Цена: <s>{price}</s> {round(price * discount[sale_type])}.00 р.</b>\n скидка: {(1 - discount[sale_type]) * 100}% \n <i>В наличии: {int(rests)} шт.</i> '''
             else:
                 product_info = f'''{product_name}  \n <b>Цена: {price} р.</b> \n <i>В наличии: {int(rests)} шт.</i>'''
+
+            buttons = ([InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add_{product_id}'),
+                        InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove_{product_id}')],)
+            keyboard = InlineKeyboardMarkup([button for button in buttons])
             context.bot.send_photo(chat_id=update.effective_chat.id,
                                    photo=product_photo,
                                    disable_notification=True)
@@ -316,25 +320,29 @@ def cart(update: Update, context: CallbackContext, call_func=False):
                 context.bot.delete_message(chat_id=chat_id, message_id=old_cart_message_id)
         except error.BadRequest:
             pass
+    _, shop_name, sale_type = get_shops()[0]
     cart_info = show_cart(chat_id)
     cart_price = 0
 
     cart_message = ''
-
-    best_discount = get_best_discount(chat_id)
+    cart_discount = 0
 
     if len(cart_info) > 0:
         for num, product in enumerate(cart_info):
-            product_name, product_sale, amount, price = product
-            if best_discount < Decimal(1) and product_sale:
-                price = round(round(price * best_discount), 2)
-            cart_price += round(int(price) * amount)
+            product_name, product_regular_discount, product_extra_discount, amount, price = product
+            discount = {'regular': product_regular_discount, 'extra': product_extra_discount}
+            if sale_type != 'no_sale':
+                price_count = round(round(price * discount[sale_type]), 2)
+                cart_discount += (price - price_count) * amount
+            else:
+                price_count = price
+            cart_price += round(int(price_count) * amount)
             cart_message += f'{num + 1}. {product_name} - {int(amount)} шт. по {price} р.\n'
         else:
-            if best_discount == 1:
+            if sale_type == 'no_sale':
                 cart_message += f'Итого: {cart_price}.00 р.'
             else:
-                cart_message += f'Скидка: {int(100 - best_discount * 100)}%\n Итого co скидкой: {cart_price}.00 р.'
+                cart_message += f'Ваша скидка: {round(cart_discount, 2)} р.\n Итого co скидкой: {cart_price}.00 р.'
         buttons = ([InlineKeyboardButton(text='Оформить заказ 📝', callback_data='offer-stage_1_none')],
                    [InlineKeyboardButton(text='Очистить 🗑️', callback_data='delete-cart'),
                     InlineKeyboardButton(text='Редактировать 📋', callback_data='correct-cart')])
@@ -453,7 +461,7 @@ def get_offer_settings(update: Update, context: CallbackContext, settings_stage=
             edit_profile(value='0', field='delivery', chat_id=chat_id)
             buttons = []
             for shop in get_shops():
-                shop_id, shop_name = shop
+                shop_id, shop_name, _ = shop
                 buttons.append(InlineKeyboardButton(text=shop_name, callback_data=f'offer-stage_3_{shop_id}'))
             keyboard = InlineKeyboardMarkup([buttons])
             context.bot.edit_message_text(chat_id=chat_id,
@@ -511,12 +519,13 @@ def get_offer_settings(update: Update, context: CallbackContext, settings_stage=
 
             cart_price = 0
             cart_info = show_cart(chat_id)
-            best_discount = get_best_discount(chat_id)
+            _, shop_name, sale_type = get_shops()[0]
 
             for product in cart_info:
-                product_name, product_sale, amount, price = product
-                if best_discount < Decimal(1) and product_sale:
-                    price = round(price * best_discount)
+                product_name, product_regular_discount, product_extra_discount, amount, price = product
+                discount = {'regular': product_regular_discount, 'extra': product_extra_discount}
+                if sale_type != 'no_sale':
+                    price = round(price * discount[sale_type])
                 cart_price += round(int(price) * amount)
 
             keyboard = InlineKeyboardMarkup(
@@ -546,19 +555,17 @@ def add_to_offer(update: Update, context: CallbackContext):
         add_products_to_order(chat_id=chat_id, order_id=add_to_order)
         user_order = get_user_order_by_id(chat_id=chat_id, order_id=add_to_order)
         text_products = ''
-        discount_message = 'р.'
         order_sum = 0
         for order_data in user_order:
-            order_id, product_name, product_price, cart_amount, order_status, cart_sale, order_discount, delivery_price, delivery_info, manager_message_id = order_data
-            if cart_sale:
-                product_price = round(product_price * order_discount)
+            order_id, product_name, product_price, cart_amount, order_status, cart_regular_discount, cart_extra_discount, order_discount_group, delivery_price, delivery_info, manager_message_id = order_data
+            if order_discount_group != 'no_sale':
+                discount = {'regular': cart_regular_discount, 'extra': cart_extra_discount}
+                product_price = round(product_price * discount[order_discount_group])
             text_products += f'\n{product_name} - {int(cart_amount)} шт.'
             order_sum += round(product_price * cart_amount, 2)
-        order_id, product_name, product_price, cart_amount, order_status, cart_sale, order_discount, delivery_price, delivery_info, manager_message_id = \
+        order_id, product_name, product_price, cart_amount, order_status, cart_regular_discount, cart_extra_discount, order_discount_group, delivery_price, delivery_info, manager_message_id = \
             user_order[0]
-        if order_discount < Decimal(1):
-            discount_message = f'\n со скидкой {int(100 - order_discount * 100)}%'
-        order_message = f'<b><u>Заказ №: {order_id}</u></b> \n{text_products} \n{delivery_info} \n<b>на сумму: {math.ceil(order_sum) + delivery_price}{discount_message}</b>'
+        order_message = f'<b><u>Заказ №: {order_id}</u></b> \n{text_products} \n{delivery_info} \n<b>на сумму: {math.ceil(order_sum) + delivery_price}</b>'
         keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
         context.bot.send_message(chat_id=chat_id,
                                  text=f'Товары были добавлены в заказ {add_to_order}',
@@ -651,7 +658,7 @@ def start_edit(update: Update, context: CallbackContext):
                                message_id=message_id)
     if len(cart_info) > 0:
         for product in cart_info:
-            product_name, sale, amount, price = product
+            product_name, _, _, amount, price = product
             product_id = get_product_id(product_name)[0]
             amount, product, product_rests = edit_to_cart('get', chat_id, product_id)
 
@@ -701,12 +708,12 @@ def order(update: Update, context: CallbackContext):
     chat_id = call.message.chat_id
     user = call.message.chat.username
     command, cart_price, payment_type = call.data.split('_')
-    discount = get_best_discount(chat_id)
-    order_products, order_id = save_order(chat_id, call.message.text, cart_price, discount, int(payment_type))
+    _, shop_name, sale_type = get_shops()[0]
+
+    order_products, order_id = save_order(chat_id=chat_id, delivery_info=call.message.text, cart_price=cart_price,
+                                          payment_type=int(payment_type), sale_type=sale_type)
     text_products = ''
     discount_message = ''
-    if discount < Decimal(1):
-        discount_message = f'\nваша скидка {int(100 - discount * 100)}%'
     for product_name, product_amount in order_products:
         text_products += f'\n{product_name[0]} - {int(product_amount)} шт.'
     order_message = f'<b><u>Заказ №: {order_id}</u></b> \n{text_products} \n{call.message.text} \n<b>на сумму: {round(int(cart_price), 2)}р.{discount_message}</b>'
@@ -774,13 +781,14 @@ def orders_history(update: Update, context: CallbackContext):
                                            text='У вас нет заказов',
                                            reply_markup=keyboard, disable_notification=True)
     else:
-        text, payment_urls_text, text_products, tracing_text = '', '', '', ''
+        text, payment_urls_text, text_products, tracing_text = '', '\n', '', ''
         full_price, product_price_sum, position = 0, 0, 1
 
         for index, order in enumerate(orders):
-            order_id, product_name, product_price, product_amount, order_sum, order_status, payment_url, extra_payment_url, tracing_num, for_sale, discount, delivery_price = order
-            if discount < Decimal(1) and for_sale:
-                calc_price = round(product_price * discount) * int(product_amount)
+            order_id, product_name, product_price, product_amount, order_sum, order_status, payment_url, extra_payment_url, tracing_num, product_regular_discount, product_extra_discount, delivery_price, sale_type = order
+            discount = {'regular': product_regular_discount, 'extra': product_extra_discount}
+            if sale_type != 'no_sale':
+                calc_price = round(product_price * discount[sale_type]) * int(product_amount)
             else:
                 calc_price = product_price * int(product_amount)
             product_price_sum += calc_price
@@ -793,9 +801,9 @@ def orders_history(update: Update, context: CallbackContext):
                     delivery_price_text = f'\nСтоимость доставки {delivery_price} р.'
                 else:
                     delivery_price_text = ''
-                if discount < Decimal(1) and full_price != product_price_sum:
-                    discount_text = f'''\nВаша скидка {int(100 - discount * 100)}% - {round(full_price - product_price_sum)} р.
-<b>ИТОГО со скидкой: {product_price_sum + delivery_price} р.</b>'''
+                if sale_type != 'no_sale' and full_price != product_price_sum:
+                    discount_text = f'''\nВаша скидка {round(full_price - product_price_sum)}.00 р.
+<b>ИТОГО со скидкой: {product_price_sum + delivery_price}.00 р.</b>'''
                 else:
                     discount_text = ''
                 if order_status == '1':
@@ -1168,19 +1176,20 @@ def manager_remove_order(user_order: object) -> str or bool:
 def manager_edit_order(user_order: object) -> str:
     """Изменить сообщение в канале менеджеров"""
     text_products = ''
-    discount_message = 'р.'
     order_sum = 0
     carts = user_order.carts_set.filter(soft_delete=False).select_related('product')
-    if user_order.discount < Decimal(1):
-        discount_message = f'\n со скидкой {int(100 - user_order.discount * 100)}%'
+    sale_type = user_order.sale_type
+    fix = ''
+
     for cart in carts:
-        if cart.product.sale:
-            product_price = round(cart.product.price * user_order.discount)
+        discount = getattr(cart.product.discount_group, f"{sale_type}_value")
+        if sale_type != 'no_sale':
+            product_price = round(cart.product.price * discount)
         else:
             product_price = cart.product.price
         text_products += f'\n{cart.product.name} - {int(cart.amount)} шт.'
         order_sum += round(product_price * cart.amount, 2)
-    order_message = f'<b><u>Заказ №: {user_order.id}</u></b> \n{text_products} \n{user_order.delivery_info} \n<b>на сумму: {math.ceil(order_sum) + user_order.delivery_price}{discount_message}</b>'
+    order_message = f'{fix}\n<b><u>Заказ №: {user_order.id}</u></b> \n{text_products} \n{user_order.delivery_info} \n<b>на сумму: {math.ceil(order_sum) + user_order.delivery_price}</b>'
     try:
         updater.bot.edit_message_text(chat_id=ORDERS_CHAT_ID, message_id=user_order.manager_message_id,
                                       text=order_message, parse_mode='HTML')

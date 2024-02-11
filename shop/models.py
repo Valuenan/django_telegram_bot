@@ -3,6 +3,12 @@ from datetime import datetime
 from django.contrib.auth.models import User
 from django.db import models
 
+SALE_TYPES = (
+    ('no_sale', 'Нет скидки'),
+    ('regular', 'Обычная скидка'),
+    ('extra', 'Повышенная скидка'),
+)
+
 
 class File(models.Model):
     user = models.ForeignKey(User, on_delete=models.DO_NOTHING, verbose_name='Загруженно')
@@ -20,8 +26,8 @@ class File(models.Model):
 
 class Shop(models.Model):
     name = models.CharField(max_length=100, verbose_name='Название магазина')
-    sale = models.DecimalField(verbose_name="Коэффициент скидки на все товары", max_digits=3, decimal_places=2,
-                               default=1)
+    sale_type = models.CharField(max_length=50, verbose_name='Тип скидки', choices=SALE_TYPES, blank=False,
+                                 default='no_sale')
 
     def __str__(self):
         return self.name
@@ -62,6 +68,23 @@ class Image(models.Model):
         verbose_name_plural = 'Изображения'
 
 
+class DiscountGroup(models.Model):
+    name = models.CharField(verbose_name="Название", max_length=30)
+    trigger = models.CharField(verbose_name="Символ в товаре", max_length=3)
+    regular_value = models.DecimalField(verbose_name="Коэффициент скидки (%) (обычная)", max_digits=3, decimal_places=2,
+                                        default=1)
+    extra_value = models.DecimalField(verbose_name="Коэффициент скидки (%) (повышенная)", max_digits=3,
+                                      decimal_places=2, default=1)
+
+    def __str__(self):
+        return str(self.name)
+
+    class Meta:
+        db_table = 'discount_group'
+        verbose_name = 'Группа скидок'
+        verbose_name_plural = 'Группы скидок'
+
+
 class Product(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE, verbose_name='Категория', null=True, blank=True)
     ref_key = models.CharField(max_length=36, verbose_name='Ссылка в базе 1с', unique=True, null=True, blank=True)
@@ -69,7 +92,8 @@ class Product(models.Model):
     image = models.ForeignKey(Image, on_delete=models.CASCADE, verbose_name='Изображение товара', null=True, blank=True)
     price = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Цена товара')
     search = models.IntegerField(verbose_name='Номер для поиска', null=True, blank=True)
-    sale = models.BooleanField(verbose_name='Учавствует в распродаже', default=False)
+    discount_group = models.ForeignKey(DiscountGroup, on_delete=models.SET_NULL, verbose_name='Категория скидки',
+                                       null=True, blank=True)
 
     def __str__(self):
         return self.name
