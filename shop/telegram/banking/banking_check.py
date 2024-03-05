@@ -18,14 +18,11 @@ def check_orders_payment():
                 order_sum = 0
                 order = order[0]
                 carts = order.carts_set.filter(soft_delete=False)
-                if order.discount < Decimal(1):
-                    for cart in carts:
-                        if cart.product.sale:
-                            order_sum += round(cart.product.price * order.discount) * int(cart.amount)
-                        else:
-                            order_sum += cart.product.price * int(cart.amount)
-                else:
-                    for cart in carts:
+                for cart in carts:
+                    if cart.sale_type != 'no_sale':
+                        discount = getattr(cart.product.discount_group, f"{cart.sale_type}_value")
+                        order_sum += round(cart.product.price * discount) * int(cart.amount)
+                    else:
                         order_sum += round(cart.product.price * cart.amount, 2)
                 user = int(order.profile)
                 if order.payment_url and order.extra_payment_url is None:
