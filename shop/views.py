@@ -19,7 +19,8 @@ from .forms import ImportGoodsForm
 from users.models import Orders, Profile, OrderStatus, UserMessage
 from .models import File, Product, Rests, Shop, Category
 from .telegram.bot import ready_order_message, manager_edit_order, manager_remove_order
-from .telegram.odata.data_exchange import import_prices, import_rests, remove_duplicates, remove_no_ref_key, mark_sale
+from .telegram.odata.data_exchange import import_prices, import_rests, remove_duplicates, remove_no_ref_key, mark_sale, \
+    edit_users_profile
 from .tasks import load_images_task, load_category_task, load_products_task, send_everyone_task
 from .utilities import _send_message_to_user
 
@@ -154,6 +155,18 @@ class RemoveNoRefKey(View):
 
     def post(self, request):
         result_messages = remove_no_ref_key()
+        _add_messages(request, result_messages)
+        return render(request, 'admin/admin_import_from_1c.html')
+
+
+class ReconfigureUsersProfile(View):
+
+    @staticmethod
+    def get(request):
+        return render(request, 'admin/admin_import_from_1c.html')
+
+    def post(self, request):
+        result_messages = edit_users_profile()
         _add_messages(request, result_messages)
         return render(request, 'admin/admin_import_from_1c.html')
 
@@ -441,16 +454,14 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         context['products'] = context['order'].carts_set.all()
         context['order_sum'] = context['order'].delivery_price
         context['full_discount'] = 0
-        if context['order'].sale_type != 'no_sale':
-            for cart in context['products']:
+
+        for cart in context['products']:
+            if context['order'].sale_type != 'no_sale':
                 discount = getattr(cart.product.discount_group, f"{context['order'].sale_type}_value")
                 new_price = round(cart.product.price * discount)
                 context['full_discount'] += round((cart.product.price - new_price) * cart.amount, 2)
                 cart.product.price = new_price
-                context['order_sum'] += round(cart.product.price * cart.amount, 2)
-        else:
-            for cart in context['products']:
-                context['order_sum'] += round(cart.product.price * cart.amount, 2)
+            context['order_sum'] += round(cart.product.price * cart.amount, 2)
 
         if context['object'].deliver:
             context['order_statuses'] = OrderStatus.objects.exclude(id='5')

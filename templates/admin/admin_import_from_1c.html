@@ -7,7 +7,7 @@
     </tr>
     <tr>
         <td>
-            <p style="font-size: 14px;">Первичная загрузка:</p>
+            <p style="font-size: 14px;">Обмен с 1с:</p>
         </td>
         <td>
             <div style="margin: 15px 0 15px 0">
@@ -77,6 +77,17 @@
                 <form action="{% url 'remove_no_ref_key' %}" method="post">
                     {% csrf_token %}
                     <button type="submit">Удалить товары без ссылки на 1с</button>
+                </form>
+            </div>
+        </td>
+    </tr>
+    <tr>
+        <td><p style="font-size: 14px;">Временные утилиты для бота:</p></td>
+        <td>
+            <div style="margin: 15px 0 15px 0;">
+                <form action="{% url 'reconfigure_users_profile' %}" method="post">
+                    {% csrf_token %}
+                    <button type="submit">Перенос имени, фамили пользователя в профиль. Удаение User модели пользователя бота</button>
                 </form>
             </div>
         </td>

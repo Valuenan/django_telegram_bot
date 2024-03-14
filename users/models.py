@@ -5,6 +5,17 @@ from django.db import models
 
 from shop.models import Product, Shop, SALE_TYPES
 
+DISCUSSION_STATUS = (
+    ('messaging', 'Принимаем сообщения пользователя'),
+    ('phone_main', 'Запросить телефон'),
+    ('phone', 'Запросить телефон из корзины'),
+    ('phone_profile', 'Именить телефон в профиле'),
+    ('first_name', 'Именить имя в профиле'),
+    ('last_name', 'Именить фамилию в профиле'),
+    ('address', 'Именить адрес магазина в профиле'),
+    ('offer_address', 'Именить адрес доставки в профиле'),
+)
+
 ORDER_STATUS = (
     ('0', 'Заявка обрабатывается'),
     ('1', 'Ожидается оплата'),
@@ -23,8 +34,12 @@ PAYMENT = (
 
 class Profile(models.Model):
     date = models.DateTimeField(verbose_name='Дата регистрации', auto_now_add=True)
-    user = models.OneToOneField(User, on_delete=models.CASCADE, verbose_name='Пользователь')
+    user = models.OneToOneField(User, on_delete=models.DO_NOTHING, verbose_name='Пользователь', blank=True, null=True)
+    discussion_status = models.CharField(max_length=50, verbose_name='Ожидаемое действие от пользователя',
+                                         choices=DISCUSSION_STATUS, default='messaging')
     telegram_name = models.CharField(verbose_name='Ник пользователя в Телеграм', max_length=50, blank=True, null=True)
+    first_name = models.CharField(verbose_name='Имя пользователя', max_length=150, blank=True, null=True)
+    last_name = models.CharField(verbose_name='Фамилия пользователя', max_length=150, blank=True, null=True)
     phone = models.CharField(verbose_name='Номер телефона', max_length=20, blank=True, null=True)
     chat_id = models.BigIntegerField(verbose_name='ИД чата пользователя', db_index=True, unique=True)
     cart_message_id = models.IntegerField(verbose_name='ИД сообщения корзины', blank=True, null=True)
@@ -35,7 +50,7 @@ class Profile(models.Model):
     delivery_street = models.CharField(max_length=200, verbose_name='Улица доставки', blank=True, null=True)
 
     def __str__(self):
-        return self.user.username
+        return self.telegram_name
 
     def __int__(self):
         return self.chat_id
@@ -51,7 +66,7 @@ class UserMessage(models.Model):
     user = models.ForeignKey(Profile, on_delete=models.PROTECT, verbose_name='Пользователь')
     manager = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name='Менеждер', blank=True, null=True)
     message = models.CharField(max_length=500, verbose_name='Сообщение')
-    checked = models.BooleanField(verbose_name='Прочитано')
+    checked = models.BooleanField(verbose_name='Прочитано', default=False)
 
     def __str__(self):
         return self.user.__str__()
@@ -112,7 +127,7 @@ class Orders(models.Model):
     order_price = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Цена заказа')
     admin_check = models.ForeignKey(User, verbose_name='Заявка принята работником:', on_delete=models.PROTECT,
                                     null=True, blank=True)
-    deliver = models.BooleanField(verbose_name='Доставить по адресу')
+    deliver = models.BooleanField(verbose_name='Доставить по адресу', default=False)
     status = models.ForeignKey(OrderStatus, blank=True, on_delete=models.DO_NOTHING, verbose_name='Статус заказа')
     delivery_price = models.IntegerField(verbose_name='Стомость доставки', default=0, blank=True, null=True)
     payment = models.ForeignKey(Payment, on_delete=models.DO_NOTHING, verbose_name='Вид оплаты', blank=True, null=True)

@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+from django.contrib.auth.models import User
 from django.db import close_old_connections, connection
 
 from django.contrib import messages
@@ -7,7 +8,7 @@ from django.db.models import Count
 
 from shop.telegram.odata.loader import create_request, CatalogFolder, CatalogProduct, ProductImage, ProductPrice, \
     ProductAmount
-from users.models import Carts
+from users.models import Carts, Profile
 from shop.models import Category, Product, Rests, Shop, Image, RestsOdataLoad, DiscountGroup
 from shop.telegram.settings import CREDENTIALS_1C
 
@@ -433,6 +434,31 @@ def remove_no_ref_key() -> list:
                 result_messages.append((messages.ERROR, f'Товар {product.name}. Причина: {err}'))
                 conflicts += 1
     result_messages.append((messages.INFO, f'Удалено {removed} товаров без ссылки на 1с, не удалось {conflicts}'))
+    return result_messages
+
+
+def edit_users_profile() -> list:
+    """
+    Переместить имя и фамилию пользователя бота из User в Profile
+    Удалить User модель для пользователя бота
+    :return: сообщения о результатах обмена
+    """
+    result_messages = []
+    users = User.objects.exclude(is_staff=True)
+
+    for user in users:
+        try:
+            profile = Profile.objects.filter(user=user)
+            if profile:
+                profile.update(user=None, first_name=user.first_name, last_name=user.last_name)
+            else:
+                Profile.objects.create(user=None, first_name=user.first_name, last_name=user.last_name, chat_id=user.username)
+            user.delete()
+        except Exception as err:
+            user_name = str(user.username)
+            result_messages.append((messages.ERROR, f'{user_name=}, {err=}'))
+
+    result_messages.append((messages.INFO, 'Измененения были внесены'))
     return result_messages
 
 

@@ -18,7 +18,7 @@ class UserMessageAdmin(admin.ModelAdmin):
 @admin.register(Carts)
 class CartsAdmin(admin.ModelAdmin):
     list_display = ['profile', 'product', 'order', 'soft_delete']
-    search_fields = ['product__name']
+    search_fields = ['profile__telegram_name']
 
 
 @admin.register(OrderStatus)
@@ -34,4 +34,4 @@ class PaymentAdmin(admin.ModelAdmin):
 @admin.register(Orders)
 class ProductsAdmin(admin.ModelAdmin):
     list_display = ['id', 'date', 'profile', 'admin_check', 'payed']
-    search_fields = ['id']
+    search_fields = ['id', 'profile__telegram_name']
