@@ -2,6 +2,7 @@ import logging
 import math
 import re
 
+from django.db import close_old_connections, connection
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, error
 from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, \
     filters
@@ -25,9 +26,18 @@ PRODUCTS_PAGINATION_NUM = 5
 BUTTONS_IN_ROW_CATEGORY = 2
 
 
+def connection_decorator(func):
+    def inner(*args, **kwargs):
+        close_old_connections()
+        connection.ensure_connection()
+        func(*args, **kwargs)
+
+    return inner
+
+
 # ДЛЯ ПОЛЬЗОВАТЕЛЕЙ
 
-
+@connection_decorator
 def main_keyboard(update: Update, context: CallbackContext):
     """Основаня клавиатура снизу"""
     user = update.message.from_user
@@ -58,6 +68,7 @@ start_handler = CommandHandler('start', main_keyboard)
 dispatcher.add_handler(start_handler)
 
 
+@connection_decorator
 def phone_check(update: Update, context: CallbackContext, phone, trace_back) -> bool:
     """Проверка номера телефона"""
     chat_id = update.message.chat_id
@@ -90,6 +101,7 @@ def phone_check(update: Update, context: CallbackContext, phone, trace_back) -> 
     return bool(result)
 
 
+@connection_decorator
 def profile_update(update: Update, context: CallbackContext, first_name: str = None, last_name: str = None,
                    address: str = None):
     """Основаня клавиатура снизу"""
@@ -125,6 +137,7 @@ def profile_update(update: Update, context: CallbackContext, first_name: str = N
     profile_menu(update, context)
 
 
+@connection_decorator
 def catalog(update: Update, context: CallbackContext):
     """Вызов каталога по группам"""
     buttons = [[]]
@@ -179,6 +192,7 @@ catalog_handler = CallbackQueryHandler(catalog, pattern="^" + str('category_'))
 dispatcher.add_handler(catalog_handler)
 
 
+@connection_decorator
 def products_catalog(update: Update, context: CallbackContext, chosen_category=False):
     """Вызов каталога товаров"""
     page = 0
@@ -270,6 +284,7 @@ catalog_handler = CallbackQueryHandler(products_catalog, pattern="^" + str('prod
 dispatcher.add_handler(catalog_handler)
 
 
+@connection_decorator
 def roll_photo(update: Update, context: CallbackContext):
     """Показать фото с составом и обратно"""
     call = update.callback_query
@@ -302,6 +317,7 @@ roll_photo_handler = CallbackQueryHandler(roll_photo, pattern="^" + str('roll_')
 dispatcher.add_handler(roll_photo_handler)
 
 
+@connection_decorator
 def _cart_edit(chat_id, product_id, command):
     cart_info = Carts.objects.select_related('product').filter(profile__chat_id=chat_id, product__id=product_id,
                                                                order__isnull=True)
@@ -331,6 +347,7 @@ def _cart_edit(chat_id, product_id, command):
     return product_info.name, amount, product_rests
 
 
+@connection_decorator
 def edit(update: Update, context: CallbackContext):
     """Добавить/Удаить товар в корзине"""
 
@@ -350,6 +367,7 @@ catalog_handler = CallbackQueryHandler(edit, pattern="^" + str('remove_'))
 dispatcher.add_handler(catalog_handler)
 
 
+@connection_decorator
 def cart(update: Update, context: CallbackContext, call_func=False):
     """Показать корзину покупателя/ Отмена удаления корзины"""
     profile = Profile.objects.only('cart_message_id').get(chat_id=update.effective_chat.id)
@@ -447,6 +465,7 @@ return_cart_handler = CallbackQueryHandler(cart, pattern="^" + str('return-to-ca
 dispatcher.add_handler(return_cart_handler)
 
 
+@connection_decorator
 def get_offer_settings(update: Update, context: CallbackContext, settings_stage=None, answer=None):
     """Настройки заказа (доставка, вид оплаты, магазин)"""
     call = update.callback_query
@@ -591,6 +610,7 @@ offer_settings = CallbackQueryHandler(get_offer_settings, pattern=str('offer-sta
 dispatcher.add_handler(offer_settings)
 
 
+@connection_decorator
 def add_to_offer(update: Update, context: CallbackContext):
     """Объеденить корзину с имеющимся заказом"""
     call = update.callback_query
@@ -639,6 +659,7 @@ add_to_offer_handler = CallbackQueryHandler(add_to_offer, pattern=str('add-to-of
 dispatcher.add_handler(add_to_offer_handler)
 
 
+@connection_decorator
 def start_edit(update: Update, context: CallbackContext):
     """Список товаров для редактирования и выход из редактирования"""
     messages_ids = ''
@@ -683,6 +704,7 @@ cart_list_handler = CallbackQueryHandler(start_edit, pattern=str('correct-cart')
 dispatcher.add_handler(cart_list_handler)
 
 
+@connection_decorator
 def edit_cart(update: Update, context: CallbackContext):
     """Редактирование товаров в корзине"""
     call = update.callback_query
@@ -726,6 +748,7 @@ catalog_handler = CallbackQueryHandler(edit_cart, pattern="^" + str('remove-cart
 dispatcher.add_handler(catalog_handler)
 
 
+@connection_decorator
 def order(update: Update, context: CallbackContext):
     """Оформить заявку (переслать в канал менеджеров)"""
     call = update.callback_query
@@ -776,6 +799,7 @@ order_cart_handler = CallbackQueryHandler(order, pattern=str('order_'))
 dispatcher.add_handler(order_cart_handler)
 
 
+@connection_decorator
 def delete_cart(update: Update, context: CallbackContext):
     """Очистить корзину"""
     call = update.callback_query
@@ -794,6 +818,7 @@ delete_cart_handler = CallbackQueryHandler(delete_cart, pattern=str('delete-cart
 dispatcher.add_handler(delete_cart_handler)
 
 
+@connection_decorator
 def accept_delete_cart(update: Update, context: CallbackContext):
     """Подтвердить удаление корзины"""
 
@@ -809,6 +834,7 @@ accept_cart_handler = CallbackQueryHandler(accept_delete_cart, pattern=str('acce
 dispatcher.add_handler(accept_cart_handler)
 
 
+@connection_decorator
 def orders_history(update: Update, context: CallbackContext):
     """Вызов истории покупок (в статусе кроме исполненно или отменено) версия 1"""
     chat_id = update.effective_chat.id
@@ -884,7 +910,7 @@ dispatcher.add_handler(accept_cart_handler)
 
 
 # Информация
-
+@connection_decorator
 def profile_menu(update: Update, context: CallbackContext):
     """Меню информации"""
 
@@ -924,6 +950,7 @@ dispatcher.add_handler(CallbackQueryHandler(profile_menu, pattern=str('profile_r
 dispatcher.add_handler(CallbackQueryHandler(profile_menu, pattern=str('profile_roll-back_address')))
 
 
+@connection_decorator
 def message_edit_profile(update: Update, context: CallbackContext):
     """Профиль: Изменить имя"""
     call = update.callback_query
@@ -973,6 +1000,7 @@ dispatcher.add_handler(CallbackQueryHandler(message_edit_profile, pattern=str('e
 dispatcher.add_handler(CallbackQueryHandler(message_edit_profile, pattern=str('edit_address')))
 
 
+@connection_decorator
 def info_main_menu(update: Update, context: CallbackContext):
     """Меню информации"""
     menu = InlineKeyboardMarkup([[InlineKeyboardButton(text='Адреса магазинов', callback_data='info_address')],
@@ -1001,6 +1029,7 @@ info_query_handler = CallbackQueryHandler(info_main_menu, pattern=str('info_main
 dispatcher.add_handler(info_query_handler)
 
 
+@connection_decorator
 def info_address(update: Update, context: CallbackContext):
     """Информация об адресе"""
     if update.callback_query:
@@ -1021,6 +1050,7 @@ for handler in info_address_handlers:
     dispatcher.add_handler(handler)
 
 
+@connection_decorator
 def info_menu(update: Update, context: CallbackContext):
     """Информация о меню"""
 
@@ -1039,6 +1069,7 @@ info_menu_handler = CallbackQueryHandler(info_menu, pattern=str('info_menu'))
 dispatcher.add_handler(info_menu_handler)
 
 
+@connection_decorator
 def info_menu_catalog(update: Update, context: CallbackContext):
     """Информация о каталоге"""
 
@@ -1054,6 +1085,7 @@ info_menu_catalog_handler = CallbackQueryHandler(info_menu_catalog, pattern=str(
 dispatcher.add_handler(info_menu_catalog_handler)
 
 
+@connection_decorator
 def info_menu_cart(update: Update, context: CallbackContext):
     """Информация о корзине"""
 
@@ -1107,6 +1139,7 @@ info_menu_cart_handler = CallbackQueryHandler(info_menu_cart, pattern=str('info_
 dispatcher.add_handler(info_menu_cart_handler)
 
 
+@connection_decorator
 def info_menu_orders(update: Update, context: CallbackContext):
     """Информация о заказах"""
 
@@ -1130,6 +1163,7 @@ info_menu_orders_handler = CallbackQueryHandler(info_menu_orders, pattern=str('i
 dispatcher.add_handler(info_menu_orders_handler)
 
 
+@connection_decorator
 def info_payment_menu(update: Update, context: CallbackContext):
     """Меню информации об оплате"""
     menu = InlineKeyboardMarkup(
@@ -1146,6 +1180,7 @@ info_payment_menu_handler = CallbackQueryHandler(info_payment_menu, pattern=str(
 dispatcher.add_handler(info_payment_menu_handler)
 
 
+@connection_decorator
 def info_payment_qr(update: Update, context: CallbackContext):
     """Информация об оплате по qr"""
 
@@ -1185,6 +1220,7 @@ info_payment_qr_handler = CallbackQueryHandler(info_payment_qr, pattern=str('inf
 dispatcher.add_handler(info_payment_qr_handler)
 
 
+@connection_decorator
 def info_payment_card(update: Update, context: CallbackContext):
     """Информация об оплате по карте"""
 
@@ -1201,7 +1237,7 @@ dispatcher.add_handler(info_payment_card_handler)
 
 
 # АДМИНИСТРАТИВНЫЕ
-
+@connection_decorator
 def manager_remove_order(user_order: object) -> str or bool:
     try:
         updater.bot.delete_message(chat_id=ORDERS_CHAT_ID, message_id=int(user_order.manager_message_id))
@@ -1209,6 +1245,7 @@ def manager_remove_order(user_order: object) -> str or bool:
         raise err
 
 
+@connection_decorator
 def manager_edit_order(user_order: object) -> str:
     """Изменить сообщение в канале менеджеров"""
     text_products = ''
@@ -1234,6 +1271,7 @@ def manager_edit_order(user_order: object) -> str:
         return f'Неудалось изменить заявку в канале менеджеров по причине: {err}'
 
 
+@connection_decorator
 def ready_order_message(chat_id: int, order_id: int, status: str, deliver: bool, order_sum: int = None,
                         delivery_price: int = 0,
                         pay_type: int = 1, tracing_num: str = 'нет', payment_url: str = None, bot_action: bool = False):
@@ -1300,10 +1338,12 @@ def ready_order_message(chat_id: int, order_id: int, status: str, deliver: bool,
     return 'ok', f'Ваш заказ № {order_id} на сумму {order_sum} р. {message}\nотслеживать свои заявки можно перейдя "Меню" -> "Статусы заказов"'
 
 
+@connection_decorator
 def message_to_manager(message=str):
     updater.bot.send_message(chat_id=ORDERS_CHAT_ID, text=message)
 
 
+@connection_decorator
 def send_message_to_user(chat_id: int, message: str, disable_notification: bool = True) -> tuple:
     try:
         updater.bot.send_message(chat_id=chat_id,
@@ -1316,6 +1356,7 @@ def send_message_to_user(chat_id: int, message: str, disable_notification: bool 
 
 
 # Утилиты
+@connection_decorator
 def unknown(update: Update, context: CallbackContext):
     """Неизветсные команды"""
     context.bot.send_message(chat_id=update.effective_chat.id, text="Извините, я не знаю такой команды")
@@ -1325,6 +1366,7 @@ unknown_handler = MessageHandler(Filters.command, unknown)
 dispatcher.add_handler(unknown_handler)
 
 
+@connection_decorator
 def user_message(update: Update, context: CallbackContext):
     """Принять сообщение пользователя (телефон, адрес, имя, фамилию)"""
     chat_id = update.message.chat_id
@@ -1353,6 +1395,7 @@ get_user_message = MessageHandler(Filters.text, user_message)
 dispatcher.add_handler(get_user_message)
 
 
+@connection_decorator
 def remove_bot_message(update: Update, context: CallbackContext):
     """Закрыть сообщение бота"""
     call = update.callback_query
@@ -1364,6 +1407,7 @@ remove_message = CallbackQueryHandler(remove_bot_message, pattern=str('remove-me
 dispatcher.add_handler(remove_message)
 
 
+@connection_decorator
 def get_message_from_user(update: Update, context: CallbackContext):
     """ Получить сообщение от пользователя"""
     messages = UserMessage.objects.filter(checked=False)
