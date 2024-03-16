@@ -30,8 +30,7 @@ def connection_decorator(func):
     def inner(*args, **kwargs):
         close_old_connections()
         connection.ensure_connection()
-        func(*args, **kwargs)
-
+        return func(*args, **kwargs)
     return inner
 
 
