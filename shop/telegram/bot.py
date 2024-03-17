@@ -9,7 +9,7 @@ from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandle
 from telegram.error import TelegramError
 
 from django_telegram_bot.settings import BASE_DIR
-from shop.models import Category, Shop, Product
+from shop.models import Category, Shop, Product, BotSettings, Rests
 from shop.telegram.banking.banking import avangard_invoice
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
 from users.models import Profile, UserMessage, Carts, Orders, OrderStatus
@@ -21,17 +21,24 @@ logger = logging.getLogger(__name__)
 updater = Updater(token=TOKEN)
 dispatcher = updater.dispatcher
 
-ADMIN_TG = '@Ottuda_SPB_help'
-PRODUCTS_PAGINATION_NUM = 5
-BUTTONS_IN_ROW_CATEGORY = 2
-
 
 def connection_decorator(func):
     def inner(*args, **kwargs):
         close_old_connections()
         connection.ensure_connection()
         return func(*args, **kwargs)
+
     return inner
+
+
+bot_settings = BotSettings.objects.all()
+try:
+    bot_settings = bot_settings[0]
+    ADMIN_TG = bot_settings.tg_help
+    PRODUCTS_PAGINATION_NUM = bot_settings.products_pagination
+    BUTTONS_IN_ROW_CATEGORY = bot_settings.buttons_in_row
+except IndexError:
+    logger.error("Отсутствуют насройки для бота. Зайдите в админку и укажите настройки в 'Настройки бота'")
 
 
 # ДЛЯ ПОЛЬЗОВАТЕЛЕЙ
@@ -155,14 +162,20 @@ def catalog(update: Update, context: CallbackContext):
     else:
         categories = Category.objects.select_related('parent_category').filter(parent_category=None)
     if categories:
-        for index, category in enumerate(categories):
+        for category in categories:
             parent_category = category.parent_category
             parent_category_id = None
+
+            have_products = Rests.objects.filter(product__category=category, amount__gt=0)
+            have_child_category = Category.objects.filter(parent_category=category, hide=False)
+            if not have_child_category and not have_products:
+                continue
+
             if parent_category:
                 parent_category_id = parent_category.id
             button = (InlineKeyboardButton(text=category.command,
                                            callback_data=f'category_{category.id}_{parent_category_id}'))
-            if index % BUTTONS_IN_ROW_CATEGORY == 0:
+            if len(buttons[-1]) % BUTTONS_IN_ROW_CATEGORY == 0:
                 buttons.append([])
                 row += 1
             buttons[row].append(button)

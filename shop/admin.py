@@ -1,5 +1,10 @@
 from django.contrib import admin
-from .models import Category, Product, File, Rests, Shop, Image, RestsOdataLoad, DiscountGroup
+from .models import Category, Product, File, Rests, Shop, Image, RestsOdataLoad, DiscountGroup, BotSettings
+
+
+@admin.register(BotSettings)
+class BotSettingsAdmin(admin.ModelAdmin):
+    pass
 
 
 @admin.register(File)

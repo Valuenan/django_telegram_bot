@@ -10,6 +10,20 @@ SALE_TYPES = (
 )
 
 
+class BotSettings(models.Model):
+    bot_name = models.CharField(max_length=100, verbose_name='Имя бота')
+    tg_help = models.CharField(max_length=100, verbose_name='ТГ группа для поддержки пользователей')
+    products_pagination = models.IntegerField(verbose_name="Количество товаров на страницу")
+    buttons_in_row = models.IntegerField(verbose_name="Количество кнопок в строке (в меню)")
+
+    def __str__(self):
+        return self.bot_name
+
+    class Meta:
+        verbose_name = 'Настройка бота'
+        verbose_name_plural = 'Настройки бота'
+
+
 class File(models.Model):
     user = models.ForeignKey(User, on_delete=models.DO_NOTHING, verbose_name='Загруженно')
     file = models.FileField(upload_to='import/', verbose_name='Файл импорта')
