@@ -34,7 +34,6 @@ PAYMENT = (
 
 class Profile(models.Model):
     date = models.DateTimeField(verbose_name='Дата регистрации', auto_now_add=True)
-    user = models.OneToOneField(User, on_delete=models.DO_NOTHING, verbose_name='Пользователь', blank=True, null=True)
     discussion_status = models.CharField(max_length=50, verbose_name='Ожидаемое действие от пользователя',
                                          choices=DISCUSSION_STATUS, default='messaging')
     telegram_name = models.CharField(verbose_name='Ник пользователя в Телеграм', max_length=50, blank=True, null=True)
