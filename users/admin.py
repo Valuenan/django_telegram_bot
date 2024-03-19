@@ -32,6 +32,6 @@ class PaymentAdmin(admin.ModelAdmin):
 
 
 @admin.register(Orders)
-class ProductsAdmin(admin.ModelAdmin):
+class OrdersAdmin(admin.ModelAdmin):
     list_display = ['id', 'date', 'profile', 'admin_check', 'payed']
     search_fields = ['id', 'profile__telegram_name']

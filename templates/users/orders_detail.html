@@ -27,7 +27,7 @@ $(document).ready(function(){
         <h1>Заказ №{{ order.id }}</h1>
         <p>Дата: {{ order.date }}</p>
         <p>Ник в телеграм: {{ order.profile.telegram_name }}</p>
-        <p>ФИО: {{ order.profile.user.first_name }} {{ order.profile.user.last_name }}</p>
+        <p>ФИО: {{ order.profile.first_name }} {{ order.profile.last_name }}</p>
         <p>Номер телефона: {{ order.profile.phone }}</p>
         <p>Доставка: {% if order.deliver %}
                     да

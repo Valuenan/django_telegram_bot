@@ -49,7 +49,7 @@ class Profile(models.Model):
     delivery_street = models.CharField(max_length=200, verbose_name='Улица доставки', blank=True, null=True)
 
     def __str__(self):
-        return self.telegram_name
+        return f'{self.chat_id}'
 
     def __int__(self):
         return self.chat_id
