@@ -526,8 +526,8 @@ def get_offer_settings(update: Update, context: CallbackContext, settings_stage=
                 keyboard = None
                 text = 'Отправьте сообщение в чат с адресом доставки:'
             else:
-                text = f'Отправьте сообщение с адресом доставки, а затем нажмите кнопку в этом сообщении "Изменить адрес  📝" или  выберите последний адрес доставки'
-                buttons = [[InlineKeyboardButton(text='Изменить адрес 📝', callback_data='offer-stage_3_none')]]
+                text = f'Выберите последний адрес доставки или отправьте сообщение с новым адресом доставки'
+                buttons = []
                 if profile.delivery_street:
                     buttons.insert(0, [
                         InlineKeyboardButton(text=profile.delivery_street, callback_data=f'offer-stage_3_street')])
@@ -551,14 +551,14 @@ def get_offer_settings(update: Update, context: CallbackContext, settings_stage=
         elif settings_stage == '3':
             break_flag = False
             if answer == 'none':
-                buttons = [[InlineKeyboardButton(text='Изменить адрес 📝', callback_data='offer-stage_3_none')]]
+                buttons = []
                 keyboard = InlineKeyboardMarkup(buttons)
                 if profile.delivery_street:
                     buttons.insert(0, [
                         InlineKeyboardButton(text=profile.delivery_street, callback_data=f'offer-stage_3_street')])
                 context.bot.edit_message_text(chat_id=chat_id,
                                               message_id=message_id,
-                                              text=f'Нужно указать адрес. Для этого отправьте в чат сообщение с адресом а потом нажмите "Изменить адрес 📝"',
+                                              text=f'Нужно указать адрес. Для этого отправьте в чат сообщение адресом',
                                               reply_markup=keyboard)
                 break_flag = True
 
@@ -570,6 +570,8 @@ def get_offer_settings(update: Update, context: CallbackContext, settings_stage=
             profile.save()
 
             if not break_flag:
+                profile.discussion_status = 'messaging'
+                profile.save()
                 # Оплата: 2 - qr код, 1 - ввод карты
                 keyboard = InlineKeyboardMarkup(
                     [[InlineKeyboardButton(text='Через банковское приложение', callback_data=f'offer-stage_4_2')],
@@ -590,7 +592,6 @@ def get_offer_settings(update: Update, context: CallbackContext, settings_stage=
                                                   reply_markup=keyboard)
 
         elif settings_stage == '4':
-
             if profile.delivery:
                 text = f'Доставка по адресу {profile.delivery_street}'
             else:
@@ -1408,9 +1409,10 @@ def user_message(update: Update, context: CallbackContext):
         support_text = f'<b>Ответ службы поддержки:</b>\n{update.channel_post.text}'
         context.bot.send_message(chat_id=chat_id, text=support_text, parse_mode='HTML')
         user_profile = Profile.objects.get(chat_id=chat_id)
-        UserMessage.objects.create(user=user_profile, message=support_text, checked=True, manager_signature=author_signature)
+        UserMessage.objects.create(user=user_profile, message=support_text, checked=True,
+                                   manager_signature=author_signature)
         UserMessage.objects.filter(user=user_profile).update(checked=True)
-        
+
 
 get_user_message = MessageHandler(Filters.text, user_message)
 dispatcher.add_handler(get_user_message)
