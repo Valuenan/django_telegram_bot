@@ -12,7 +12,6 @@ def _send_message_to_user(form, user_chat_id, manager=None, everyone=False) -> t
         disable_notification = False
 
     try:
-        print(form)
         if form['message'] and not everyone:
             UserMessage.objects.create(user=user_chat_id, manager=manager, message=form['message'],
                                        checked=True)

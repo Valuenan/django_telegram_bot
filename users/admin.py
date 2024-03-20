@@ -11,7 +11,7 @@ class ProfileAdmin(admin.ModelAdmin):
 
 @admin.register(UserMessage)
 class UserMessageAdmin(admin.ModelAdmin):
-    list_display = ['user', 'manager', 'message', 'checked']
+    list_display = ['user', 'manager', 'manager_signature', 'message', 'checked']
     search_fields = ['from_user']
 
 

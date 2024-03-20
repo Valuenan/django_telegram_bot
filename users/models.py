@@ -66,6 +66,8 @@ class UserMessage(models.Model):
     manager = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name='Менеждер', blank=True, null=True)
     message = models.CharField(max_length=500, verbose_name='Сообщение')
     checked = models.BooleanField(verbose_name='Прочитано', default=False)
+    manager_signature = models.CharField(max_length=100, verbose_name='Подпись менеджера',
+                                        blank=True, null=True)
 
     def __str__(self):
         return self.user.__str__()

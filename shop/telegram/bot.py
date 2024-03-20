@@ -11,7 +11,7 @@ from telegram.error import TelegramError
 from django_telegram_bot.settings import BASE_DIR
 from shop.models import Category, Shop, Product, BotSettings, Rests
 from shop.telegram.banking.banking import avangard_invoice
-from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID
+from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID, SUPPORT_CHAT_ID
 from users.models import Profile, UserMessage, Carts, Orders, OrderStatus
 import shop.telegram.bot_texts as text
 
@@ -1359,7 +1359,7 @@ def message_to_manager(message=str):
 def send_message_to_user(chat_id: int, message: str, disable_notification: bool = True) -> tuple:
     try:
         updater.bot.send_message(chat_id=chat_id,
-                                 text=f'''{message}''',
+                                 text=f'''<b>Ответ службы поддержки:</b>\n{message}''',
                                  parse_mode='HTML',
                                  disable_notification=disable_notification)
         return 'ok', 'Сообщение отправлено'
@@ -1381,27 +1381,36 @@ dispatcher.add_handler(unknown_handler)
 @connection_decorator
 def user_message(update: Update, context: CallbackContext):
     """Принять сообщение пользователя (телефон, адрес, имя, фамилию)"""
-    chat_id = update.message.chat_id
-    user_profile = Profile.objects.get(chat_id=chat_id)
-    status = user_profile.discussion_status
+    if getattr(update, 'channel_post') is None:
+        chat_id = update.message.chat_id
+        user_profile = Profile.objects.get(chat_id=chat_id)
+        status = user_profile.discussion_status
 
-    if status == 'messaging':
-        get_message_from_user(update, context)
-    elif status in ['phone_main', 'phone_profile', 'phone']:
-        check_result = phone_check(update=update, context=context, phone=update.message.text, trace_back=status)
-        if check_result and status == 'phone':
-            cart(update, context, call_func=True)
-    elif status == 'first_name':
-        profile_update(update=update, context=context, first_name=update.message.text)
-    elif status == 'last_name':
-        profile_update(update=update, context=context, last_name=update.message.text)
-    elif status == 'address':
-        profile_update(update=update, context=context, address=update.message.text)
-    elif status == 'offer_address':
-        Profile.objects.filter(chat_id=chat_id).update(discussion_status='messaging',
-                                                       delivery_street=update.message.text)
-        get_offer_settings(update=update, context=context, settings_stage='3', answer='street')
-
+        if status == 'messaging':
+            get_message_from_user(update, context)
+        elif status in ['phone_main', 'phone_profile', 'phone']:
+            check_result = phone_check(update=update, context=context, phone=update.message.text, trace_back=status)
+            if check_result and status == 'phone':
+                cart(update, context, call_func=True)
+        elif status == 'first_name':
+            profile_update(update=update, context=context, first_name=update.message.text)
+        elif status == 'last_name':
+            profile_update(update=update, context=context, last_name=update.message.text)
+        elif status == 'address':
+            profile_update(update=update, context=context, address=update.message.text)
+        elif status == 'offer_address':
+            Profile.objects.filter(chat_id=chat_id).update(discussion_status='messaging',
+                                                           delivery_street=update.message.text)
+            get_offer_settings(update=update, context=context, settings_stage='3', answer='street')
+    else:
+        chat_id = update.channel_post.reply_to_message.forward_from.id
+        author_signature = update.channel_post.author_signature
+        support_text = f'<b>Ответ службы поддержки:</b>\n{update.channel_post.text}'
+        context.bot.send_message(chat_id=chat_id, text=support_text, parse_mode='HTML')
+        user_profile = Profile.objects.get(chat_id=chat_id)
+        UserMessage.objects.create(user=user_profile, message=support_text, checked=True, manager_signature=author_signature)
+        UserMessage.objects.filter(user=user_profile).update(checked=True)
+        
 
 get_user_message = MessageHandler(Filters.text, user_message)
 dispatcher.add_handler(get_user_message)
@@ -1426,6 +1435,13 @@ def get_message_from_user(update: Update, context: CallbackContext):
     if len(messages) < 2:
         user_profile = Profile.objects.get(chat_id=update.message.chat_id)
         UserMessage.objects.create(user=user_profile, message=update.message.text)
+        forwarded = update.message.forward(chat_id=SUPPORT_CHAT_ID)
+        if not forwarded.forward_from:
+            context.bot.send_message(
+                chat_id=SUPPORT_CHAT_ID,
+                reply_to_message_id=forwarded.message_id,
+                text=f'{update.message.from_user.id}\n{SUPPORT_CHAT_ID}'
+            )
         message = 'Мы получили ваше сообщение.В ближайшее время менеджер c вами свяжется...'
     else:
         message = 'Мы уже получили от вас сообщение, подождите пока менеджер вам ответит...'
