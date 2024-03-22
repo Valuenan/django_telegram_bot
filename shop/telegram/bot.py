@@ -848,9 +848,9 @@ dispatcher.add_handler(accept_cart_handler)
 
 
 @connection_decorator
-def orders_history(update: Update, context: CallbackContext):
+def orders_history(update: Update, context: CallbackContext, request_chat_id=None):
     """Вызов истории покупок (в статусе кроме исполненно или отменено) версия 1"""
-    chat_id = update.effective_chat.id
+    chat_id = request_chat_id or update.effective_chat.id
     orders = Orders.objects.prefetch_related('carts_set').filter(profile__chat_id=chat_id).exclude(
         status__in=[6, 7]).order_by('id')
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
@@ -900,17 +900,17 @@ def orders_history(update: Update, context: CallbackContext):
 {tracing_text}{text_products}{delivery_price_text}
 ИТОГО: {round(full_price + order.delivery_price, 2)} р.{discount_text}{payment_urls_text}'''
                 orders_text += f'\n {"_" * 20} \n'
-
+# chat_id обязательно update.effective_chat.id, при запросе из чата поддержки что бы отправлялось не клиенту а в поддержку
         if update.callback_query:
-            context.bot.edit_message_text(chat_id=chat_id,
+            context.bot.edit_message_text(chat_id=update.effective_chat.id,
                                           text=orders_text,
                                           reply_markup=keyboard, parse_mode='HTML',
                                           message_id=update.callback_query.message.message_id, )
         else:
-            message = context.bot.send_message(chat_id=chat_id,
+            message = context.bot.send_message(chat_id=update.effective_chat.id,
                                                text=orders_text,
                                                reply_markup=keyboard, parse_mode='HTML', disable_notification=True)
-    if not update.callback_query:
+    if not update.callback_query and request_chat_id is None:
         context.bot.delete_message(chat_id=chat_id,
                                    message_id=message.message_id - 1)
 
@@ -1404,14 +1404,25 @@ def user_message(update: Update, context: CallbackContext):
                                                            delivery_street=update.message.text)
             get_offer_settings(update=update, context=context, settings_stage='3', answer='street')
     else:
-        chat_id = update.channel_post.reply_to_message.forward_from.id
-        author_signature = update.channel_post.author_signature
-        support_text = f'<b>Ответ службы поддержки:</b>\n{update.channel_post.text}'
-        context.bot.send_message(chat_id=chat_id, text=support_text, parse_mode='HTML')
-        user_profile = Profile.objects.get(chat_id=chat_id)
-        UserMessage.objects.create(user=user_profile, message=support_text, checked=True,
-                                   manager_signature=author_signature)
-        UserMessage.objects.filter(user=user_profile).update(checked=True)
+        support_answer = update.channel_post.text
+        answer_to_message_id = update.channel_post.reply_to_message.message_id
+        user_chat_id = UserMessage.objects.values('user__chat_id').get(support_message_id=answer_to_message_id)[
+            'user__chat_id']
+        if support_answer[0] == '#':
+            try:
+                SUPPORT_FUNCTIONS[support_answer.strip()](update, context, request_chat_id=user_chat_id)
+            except KeyError:
+                context.bot.send_message(chat_id=SUPPORT_CHAT_ID,
+                                         text='Вы вызвали запрос, поставив "#" в начале предложения. Но по данному запросу нет дейсвий',
+                                         parse_mode='HTML')
+        else:
+            author_signature = update.channel_post.author_signature
+            support_text = f'<b>Ответ службы поддержки:</b>\n{support_answer}'
+            context.bot.send_message(chat_id=user_chat_id, text=support_text, parse_mode='HTML')
+            user_profile = Profile.objects.get(chat_id=user_chat_id)
+            UserMessage.objects.create(user=user_profile, message=support_text, checked=True,
+                                       manager_signature=author_signature)
+            UserMessage.objects.filter(user=user_profile).update(checked=True)
 
 
 get_user_message = MessageHandler(Filters.text, user_message)
@@ -1436,14 +1447,9 @@ def get_message_from_user(update: Update, context: CallbackContext):
     messages = UserMessage.objects.filter(checked=False)
     if len(messages) < 2:
         user_profile = Profile.objects.get(chat_id=update.message.chat_id)
-        UserMessage.objects.create(user=user_profile, message=update.message.text)
         forwarded = update.message.forward(chat_id=SUPPORT_CHAT_ID)
-        if not forwarded.forward_from:
-            context.bot.send_message(
-                chat_id=SUPPORT_CHAT_ID,
-                reply_to_message_id=forwarded.message_id,
-                text=f'{update.message.from_user.id}\n{SUPPORT_CHAT_ID}'
-            )
+        UserMessage.objects.create(user=user_profile, message=update.message.text,
+                                   support_message_id=forwarded.message_id)
         message = 'Мы получили ваше сообщение.В ближайшее время менеджер c вами свяжется...'
     else:
         message = 'Мы уже получили от вас сообщение, подождите пока менеджер вам ответит...'
@@ -1451,6 +1457,10 @@ def get_message_from_user(update: Update, context: CallbackContext):
 
 
 dispatcher.add_handler(MessageHandler(filters.Filters.text, get_message_from_user))
+
+SUPPORT_FUNCTIONS = {'#заказы': orders_history,
+                     '#заказ': orders_history}
+
 
 if __name__ == '__main__':
     updater.start_polling()
