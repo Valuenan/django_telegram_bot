@@ -854,9 +854,9 @@ def orders_history(update: Update, context: CallbackContext, request_chat_id=Non
     orders = Orders.objects.prefetch_related('carts_set').filter(profile__chat_id=chat_id).exclude(
         status__in=[6, 7]).order_by('id')
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
-
+# chat_id обязательно update.effective_chat.id, при запросе из чата поддержки что бы отправлялось не клиенту а в поддержку
     if not orders:
-        message = context.bot.send_message(chat_id=chat_id,
+        message = context.bot.send_message(chat_id=update.effective_chat.id,
                                            text='У вас нет заказов',
                                            reply_markup=keyboard, disable_notification=True)
     else:
