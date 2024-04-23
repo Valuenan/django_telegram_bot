@@ -546,8 +546,6 @@ def cart(update: Update, context: CallbackContext, call_func=False, call_delete_
                 context.bot.delete_message(chat_id=chat_id, message_id=profile.cart_message_id)
         except error.BadRequest:
             pass
-    carts_no = Carts.objects.filter(order__isnull=True)
-    logger.info(carts_no)
     sale_type = Shop.objects.values('sale_type').get(id=1)['sale_type']
     carts = Carts.objects.order_by('preorder').select_related('product', 'product__discount_group').filter(
         order__isnull=True, profile__chat_id=chat_id, soft_delete=False)
