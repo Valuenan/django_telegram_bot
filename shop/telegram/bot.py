@@ -150,6 +150,7 @@ def catalog(update: Update, context: CallbackContext):
     row = 0
     flag_prew_category = True
     prew_category_id = None
+    chat_id = update.effective_chat.id
     if update.callback_query:
         call = update.callback_query
         chosen_category = call.data.split('_')
@@ -161,6 +162,8 @@ def catalog(update: Update, context: CallbackContext):
             flag_prew_category = False
     else:
         categories = Category.objects.select_related('parent_category').filter(parent_category=None)
+
+    user_profile = Profile.objects.get(chat_id=chat_id)
     if categories:
         for category in categories:
             parent_category = category.parent_category
@@ -168,7 +171,7 @@ def catalog(update: Update, context: CallbackContext):
 
             have_products = Rests.objects.filter(product__category=category, amount__gt=0)
             have_child_category = Category.objects.filter(parent_category=category, hide=False)
-            if not have_child_category and not have_products:
+            if not have_child_category and not have_products and not user_profile.preorder:
                 continue
 
             if parent_category:
@@ -187,10 +190,12 @@ def catalog(update: Update, context: CallbackContext):
             buttons.append(
                 [InlineKeyboardButton(text='Назад', callback_data=f'category_{prew_category_id}_{prew_category_id}')])
         else:
-            text = 'Каталог'
+            get_pre_order = lambda user_profile: 'ВКЛЮЧЕН' if user_profile.preorder else 'ОТКЛЮЧЕН'
+            text = f'Каталог: <b>ПРЕДЗАКАЗ {get_pre_order(user_profile)}</b>'
         keyboard = InlineKeyboardMarkup([button for button in buttons])
         message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                           text=text, reply_markup=keyboard, disable_notification=True)
+                                           text=text, reply_markup=keyboard, disable_notification=True,
+                                           parse_mode='HTML')
         context.bot.delete_message(chat_id=update.effective_chat.id,
                                    message_id=message.message_id - 1)
     else:
@@ -212,20 +217,23 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
     pages = None
     call = update.callback_query
     sale_type = Shop.objects.values("sale_type").get(id=1)['sale_type']
+    chat_id = update.effective_chat.id
     if '#' in str(update.callback_query.data) and not chosen_category:
         chosen_category = update.callback_query.data.split('_')[1]
         chosen_category, page = chosen_category.split('#')
         page = int(page)
 
+    user_profile = Profile.objects.get(chat_id=chat_id)
     products = Product.objects.order_by('name').select_related('discount_group', 'image', 'category').filter(
-        category=chosen_category, rests__amount__gt=0)
+        category=chosen_category)
+    if user_profile.preorder is False:
+        products = products.filter(rests__amount__gt=0, price__gt=0)
     if products.count() > PRODUCTS_PAGINATION_NUM:
-        count_pages = (len(products) - 1) // PRODUCTS_PAGINATION_NUM
+        pages = (len(products) - 1) // PRODUCTS_PAGINATION_NUM
         start = page * PRODUCTS_PAGINATION_NUM
         end = start + PRODUCTS_PAGINATION_NUM
         pagination = True
         products = products[start: end]
-        pages = count_pages
 
     if products:
         context.bot.delete_message(chat_id=call.message.chat.id,
@@ -253,14 +261,19 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
                 product_photo = open(f'{BASE_DIR}/static/products/no-image.jpg', 'rb')
             rests = product.rests_set.values('amount').all()[0]['amount']
 
-            if sale_type != 'no_sale':
+            if sale_type == 'no_sale' or product.price == 0 or rests == 0:
+                product_info = f'''{product.name}  \n <b>Цена: {product.price} р.</b> \n <i>В наличии: {int(rests)} шт.</i>'''
+            else:
                 discount = getattr(product.discount_group, f'{sale_type}_value')
                 product_info = f'''{product.name}  \n <b>Цена: <s>{product.price}</s> {round(product.price * discount)}.00 р.</b>\n Скидка: {(1 - discount) * 100}% \n <i>В наличии: {int(rests)} шт.</i> '''
-            else:
-                product_info = f'''{product.name}  \n <b>Цена: {product.price} р.</b> \n <i>В наличии: {int(rests)} шт.</i>'''
 
-            buttons = ([InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add_{product.id}'),
-                        InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove_{product.id}')],)
+            add_button = lambda rests: InlineKeyboardButton(text='🟢 Добавить',
+                                                            callback_data=f'add_{product.id}') if rests > 0 else InlineKeyboardButton(
+                text='🟡 Предзаказать', callback_data=f'preorder_{product.id}')
+
+            buttons = ([add_button(int(rests)),
+                        InlineKeyboardButton(text='🔴 Убрать', callback_data=f'remove_{product.id}'),
+                        InlineKeyboardButton(text='🧡', callback_data=f'track_{product.id}')],)
             keyboard = InlineKeyboardMarkup([button for button in buttons])
             context.bot.send_photo(chat_id=update.effective_chat.id,
                                    photo=product_photo,
@@ -294,6 +307,25 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
 
 catalog_handler = CallbackQueryHandler(products_catalog, pattern="^" + str('product_'))
 dispatcher.add_handler(catalog_handler)
+
+
+@connection_decorator
+def add_to_track(update: Update, context: CallbackContext):
+    """Показать фото с составом и обратно"""
+    call = update.callback_query
+    chat_id = update.effective_chat.id
+    _, product_id = call.data.split('_')
+    profile = Profile.objects.only('track').get(chat_id=chat_id)
+    if profile.track.filter(id=product_id).exists():
+        profile.track.remove(product_id)
+        context.bot.answer_callback_query(callback_query_id=call.id, text=f'Товар не отслеживается')
+    else:
+        profile.track.add(product_id)
+        context.bot.answer_callback_query(callback_query_id=call.id, text=f'Товар добавлен в отслеживание')
+
+
+add_to_track_handler = CallbackQueryHandler(add_to_track, pattern="^" + str('track_'))
+dispatcher.add_handler(add_to_track_handler)
 
 
 @connection_decorator
@@ -335,10 +367,13 @@ def _cart_edit(chat_id, product_id, command):
                                                                order__isnull=True)
     product_info = Product.objects.only('name', 'price').get(id=product_id)
     product_rests = product_info.rests_set.values('amount').all()[0]['amount']
-    if not cart_info and command in ['add', 'add-cart']:
+    if not cart_info and command in ['add', 'add-cart', 'preorder']:
         profile = Profile.objects.get(chat_id=chat_id)
-        Carts.objects.create(profile=profile, product_id=product_id, amount=1, price=product_info.price)
+        new_cart = Carts.objects.create(profile=profile, product_id=product_id, amount=1, price=product_info.price)
         amount = 1
+        if command == 'preorder':
+            new_cart.preorder = True
+            new_cart.save()
     elif not cart_info and command == 'remove':
         amount = 0
     else:
@@ -346,7 +381,9 @@ def _cart_edit(chat_id, product_id, command):
         amount = cart_info.amount
         if command in ['add', 'add-cart']:
             if amount < product_rests:
-                amount += + 1
+                amount += 1
+        elif command in ['preorder']:
+            amount += 1
         elif command in ['remove', 'remove-cart']:
             amount -= 1
         else:
@@ -375,14 +412,118 @@ def edit(update: Update, context: CallbackContext):
 catalog_handler = CallbackQueryHandler(edit, pattern="^" + str('add_'))
 dispatcher.add_handler(catalog_handler)
 
+catalog_handler = CallbackQueryHandler(edit, pattern="^" + str('preorder_'))
+dispatcher.add_handler(catalog_handler)
+
 catalog_handler = CallbackQueryHandler(edit, pattern="^" + str('remove_'))
 dispatcher.add_handler(catalog_handler)
 
 
+def show_cart_(index: int, sale_type: object, cart_info: object, cart_discount: int, cart_price: int,
+               cart_message: str) -> (int, str):
+    if sale_type != 'no_sale':
+        discount = getattr(cart_info.product.discount_group, f'{sale_type}_value')
+        price_count = round(round(cart_info.price * discount), 2)
+        cart_discount += (cart_info.price - price_count) * cart_info.amount
+    else:
+        price_count = cart_info.price
+    cart_price += round(int(price_count) * cart_info.amount)
+    cart_message += f'{index + 1}. {cart_info.product.name} - {int(cart_info.amount)} шт. по {cart_info.price} р.\n'
+    return cart_price, cart_message, cart_discount
+
+
 @connection_decorator
-def cart(update: Update, context: CallbackContext, call_func=False):
+def show_favorite(update: Update, context: CallbackContext):
+    chat_id = update.effective_chat.id
+    products = Profile.objects.prefetch_related('track').get(chat_id=chat_id).track.all()
+    sale_type = Shop.objects.values("sale_type").get(id=1)['sale_type']
+    pagination = False
+    pages = None
+    page = 0
+    if update.callback_query:
+        call = update.callback_query
+        page = call.data.split('_')[1]
+        page = int(page)
+        pagination = True
+        context.bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+
+    if products.count() > PRODUCTS_PAGINATION_NUM:
+        pages = (len(products) - 1) // PRODUCTS_PAGINATION_NUM
+        start = page * PRODUCTS_PAGINATION_NUM
+        end = start + PRODUCTS_PAGINATION_NUM
+        pagination = True
+        products = products[start: end]
+
+    if products:
+        for product in products:
+            if product.image:
+                product_img = [product.image.name]
+            else:
+                product_img = ['no-image.jpg']
+
+            try:
+                img_reversed = product_img[0].replace('.', '@rev.')
+                open(f'{BASE_DIR}/static/products/{img_reversed}')
+                product_img.append(f'{img_reversed}')
+            except FileNotFoundError:
+                pass
+
+            if len(product_img) > 1:
+                compounds_url = f'{BASE_DIR}/static/products/{product_img[1]}'
+                buttons[0].append(InlineKeyboardButton(text='Состав', callback_data=f'roll_{compounds_url}'))
+
+            try:
+                product_photo = open(f'{BASE_DIR}/static/products/{product_img[0]}', 'rb')
+            except FileNotFoundError:
+                product_photo = open(f'{BASE_DIR}/static/products/no-image.jpg', 'rb')
+            rests = product.rests_set.values('amount').all()[0]['amount']
+
+            if product.price == 0 or rests == 0 or sale_type == 'no_sale':
+                product_info = f'''{product.name}  \n <b>Цена: {product.price} р.</b> \n <i>В наличии: {int(rests)} шт.</i>'''
+            else:
+                discount = getattr(product.discount_group, f'{sale_type}_value')
+                product_info = f'''{product.name}  \n <b>Цена: <s>{product.price}</s> {round(product.price * discount)}.00 р.</b>\n Скидка: {(1 - discount) * 100}% \n <i>В наличии: {int(rests)} шт.</i> '''
+
+            add_button = lambda rests: InlineKeyboardButton(text='🟢 Добавить',
+                                                            callback_data=f'add_{product.id}') if rests > 0 else InlineKeyboardButton(
+                text='🟡 Предзаказать', callback_data=f'preorder_{product.id}')
+
+            buttons = ([add_button(int(rests)),
+                        InlineKeyboardButton(text='🔴 Убрать', callback_data=f'remove_{product.id}'),
+                        InlineKeyboardButton(text='🧡', callback_data=f'track_{product.id}')],)
+            keyboard = InlineKeyboardMarkup([button for button in buttons])
+            context.bot.send_photo(chat_id=update.effective_chat.id,
+                                   photo=product_photo,
+                                   disable_notification=True)
+            context.bot.send_message(chat_id=update.effective_chat.id, text=product_info,
+                                     reply_markup=keyboard,
+                                     parse_mode='HTML', disable_notification=True)
+        if pagination and page < pages:
+            header_text = f'Страница <b>{page + 1}</b> из {pages + 1}'
+            keyboard = InlineKeyboardMarkup(
+                [[InlineKeyboardButton(text='Еще товары', callback_data=f'favorite_{page + 1}')]])
+            context.bot.send_message(chat_id=update.effective_chat.id,
+                                     text=header_text,
+                                     disable_notification=True,
+                                     reply_markup=keyboard, parse_mode='HTML')
+    else:
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
+        message = context.bot.send_message(chat_id=update.effective_chat.id, text=f'Пока что вы ничего не отслеживаете',
+                                           disable_notification=True, reply_markup=keyboard)
+        context.bot.delete_message(chat_id=update.effective_chat.id, message_id=message.message_id - 1)
+
+
+show_favorite_handler = CommandHandler('favorite', show_favorite)
+dispatcher.add_handler(show_favorite_handler)
+
+show_favorite_handler = CallbackQueryHandler(show_favorite, pattern="^" + str('favorite_'))
+dispatcher.add_handler(show_favorite_handler)
+
+
+@connection_decorator
+def cart(update: Update, context: CallbackContext, call_func=False, call_delete_old=False):
     """Показать корзину покупателя/ Отмена удаления корзины"""
-    profile = Profile.objects.only('cart_message_id').get(chat_id=update.effective_chat.id)
+    profile = Profile.objects.only('cart_message_id', 'preorder').get(chat_id=update.effective_chat.id)
     if update.callback_query:
         call = update.callback_query
         chat_id = call.from_user.id
@@ -392,6 +533,11 @@ def cart(update: Update, context: CallbackContext, call_func=False):
             for message_id in messages:
                 context.bot.delete_message(chat_id=call.message.chat_id,
                                            message_id=int(message_id))
+        if call_delete_old and profile.cart_message_id != 0:
+            try:
+                context.bot.delete_message(chat_id=chat_id, message_id=profile.cart_message_id)
+            except error.BadRequest:
+                pass
 
     else:
         chat_id = update.message.chat_id
@@ -400,36 +546,48 @@ def cart(update: Update, context: CallbackContext, call_func=False):
                 context.bot.delete_message(chat_id=chat_id, message_id=profile.cart_message_id)
         except error.BadRequest:
             pass
+    carts_no = Carts.objects.filter(order__isnull=True)
+    logger.info(carts_no)
     sale_type = Shop.objects.values('sale_type').get(id=1)['sale_type']
-    carts = Carts.objects.select_related('product', 'product__discount_group').filter(order__isnull=True,
-                                                                                      profile__chat_id=chat_id,
-                                                                                      soft_delete=False)
+    carts = Carts.objects.order_by('preorder').select_related('product', 'product__discount_group').filter(
+        order__isnull=True, profile__chat_id=chat_id, soft_delete=False)
     cart_price = 0
-    cart_message = ''
+
     cart_discount = 0
 
-    if len(carts) > 0:
-        for num, cart_info in enumerate(carts):
-            if sale_type != 'no_sale':
-                discount = getattr(cart_info.product.discount_group, f'{sale_type}_value')
-                price_count = round(round(cart_info.price * discount), 2)
-                cart_discount += (cart_info.price - price_count) * cart_info.amount
-            else:
-                price_count = cart_info.price
-            cart_price += round(int(price_count) * cart_info.amount)
-            cart_message += f'{num + 1}. {cart_info.product.name} - {int(cart_info.amount)} шт. по {cart_info.price} р.\n'
+    if profile.preorder:
+        preorder_carts = []
+        cart_message = '<u>Предзаказ включен</u>\n\n<b>В наличии:</b>\n'
+    else:
+        cart_message = '<u>Предзаказ отключен</u>\n\n<b>В наличии:</b>\n'
+
+    if len(carts) > 0 and (profile.preorder is False and carts.filter(preorder=False) or profile.preorder):
+        for index, cart_info in enumerate(carts):
+            if profile.preorder and cart_info.preorder:
+                preorder_carts.append(cart_info)
+                continue
+            if not profile.preorder and cart_info.preorder:
+                continue
+            cart_price, cart_message, cart_discount = show_cart_(index, sale_type, cart_info, cart_discount, cart_price, cart_message)
         else:
-            if sale_type == 'no_sale':
-                cart_message += f'Итого: {cart_price}.00 р.'
+
+            if sale_type == 'no_sale' and cart_price > 0:
+                cart_message += f'<b><i>Итого: {cart_price}.00 р.</i></b>\n'
+            elif cart_price > 0:
+                cart_message += f'Ваша скидка: {round(cart_discount, 2)} р.\n Итого co скидкой: {cart_price}.00 р.\n'
             else:
-                cart_message += f'Ваша скидка: {round(cart_discount, 2)} р.\n Итого co скидкой: {cart_price}.00 р.'
-        buttons = ([InlineKeyboardButton(text='Оформить заказ 📝', callback_data='offer-stage_1_none')],
+                cart_message += 'Пусто'
+            if profile.preorder and preorder_carts:
+                cart_message += '\n\n<b>Предзаказ: \n(цены прибилизительные и могут координально отличаться)</b>\n'
+                for index, cart_info in enumerate(preorder_carts):
+                    _, cart_message, _ = show_cart_(index, sale_type, cart_info, cart_discount, cart_price, cart_message)
+        buttons = ([InlineKeyboardButton(text='Оформить заказ 📝', callback_data='offer-stage_0_none')],
                    [InlineKeyboardButton(text='Очистить 🗑️', callback_data='delete-cart'),
                     InlineKeyboardButton(text='Редактировать 📋', callback_data='correct-cart')])
 
         keyboard = InlineKeyboardMarkup([button for button in buttons])
 
-        if update.callback_query:
+        if update.callback_query and not call_delete_old:
             chat_id = update.callback_query.message.chat_id
             message_id = update.callback_query.message.message_id
             try:
@@ -489,15 +647,45 @@ def get_offer_settings(update: Update, context: CallbackContext, settings_stage=
     else:
         message_id = call.message.message_id
         _, settings_stage, answer = call.data.split('_')
-
     user_orders = Orders.objects.filter(profile=profile, status__title='0')
+    carts_preorder = Carts.objects.filter(profile__chat_id=chat_id, preorder=True, order__isnull=True,
+                                          soft_delete=False)
+    carts_regular = Carts.objects.filter(profile__chat_id=chat_id, preorder=False, order__isnull=True,
+                                         soft_delete=False)
 
     if not profile.phone:
         profile.discussion_status = 'phone'
         profile.save()
         context.bot.send_message(chat_id=update.effective_chat.id,
                                  text='Для оформления заказа требуется ваш номер телефона, напишите его в чат. Формат (+7** или 8**)')
-    elif user_orders and answer == 'none' and settings_stage == '1':
+    else:
+        if profile.preorder and settings_stage == '0':
+            if carts_preorder and carts_regular:
+
+                buttons = [[InlineKeyboardButton(text=f'Заказать часть - предзаказ',
+                                                 callback_data='offer-stage_1_part-preorder'),
+                            InlineKeyboardButton(text=f'Заказать часть - в наличии',
+                                                 callback_data='offer-stage_1_part-order')],
+                           [InlineKeyboardButton(text=f'Разделить на 2 заказа',
+                                                 callback_data='offer-stage_1_split'),
+                            InlineKeyboardButton(text=f'Все товары в предзаказ',
+                                                 callback_data='offer-stage_1_preorder')]]
+
+                keyboard = InlineKeyboardMarkup(buttons)
+                context.bot.edit_message_text(chat_id=update.effective_chat.id,
+                                              message_id=message_id,
+                                              text=f'У вас в заказе есть товары в наличии и по предзаказу, хотите:',
+                                              reply_markup=keyboard)
+            elif carts_preorder:
+                settings_stage = '1'
+                answer = 'preorder'
+            elif carts_regular:
+                settings_stage = '1'
+                answer = 'part-order'
+        elif settings_stage == '0':
+            settings_stage = '1'
+            answer = 'part-order'
+    if user_orders and answer in ['none'] and settings_stage == '1':
         buttons = []
         for user_order in user_orders:
             buttons.append([InlineKeyboardButton(text=f'Добавить в заказ № {user_order.id}',
@@ -508,115 +696,117 @@ def get_offer_settings(update: Update, context: CallbackContext, settings_stage=
                                       message_id=message_id,
                                       text=f'У вас имеются заказы в обработке, хотите добавить в имеющийся или сделать новый заказ?',
                                       reply_markup=keyboard)
-    else:
-        if settings_stage == '1':
-            keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Да', callback_data='offer-stage_2_yes'),
-                                              InlineKeyboardButton(text='Нет', callback_data='offer-stage_2_no')]])
-            context.bot.edit_message_text(chat_id=chat_id,
-                                          message_id=message_id,
-                                          text=f'Вам доставить? 🚚 (доставка будет рассчитана после оформления заказа)',
-                                          reply_markup=keyboard)
-        elif settings_stage == '2' and answer == 'yes':
-            profile.discussion_status = 'offer_address'
-            profile.delivery = 1
+    elif settings_stage == '1':
+        if answer in ['split', 'part-order', 'part-preorder', 'preorder']:
+            profile.preorder_selector = answer
             profile.save()
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Да', callback_data='offer-stage_2_yes'),
+                                          InlineKeyboardButton(text='Нет', callback_data='offer-stage_2_no')]])
+        context.bot.edit_message_text(chat_id=chat_id,
+                                      message_id=message_id,
+                                      text=f'Вам доставить? 🚚 \n(доставка будет рассчитана после оформления заказа)',
+                                      reply_markup=keyboard)
+    elif settings_stage == '2' and answer == 'yes':
+        profile.discussion_status = 'offer_address'
+        profile.delivery = 1
+        profile.save()
 
-            if not profile.delivery_street:
-                profile.discussion_status = 'offer_address'
-                keyboard = None
-                text = 'Отправьте сообщение в чат с адресом доставки:'
-            else:
-                text = f'Выберите последний адрес доставки или отправьте сообщение с новым адресом доставки'
-                buttons = []
-                if profile.delivery_street:
-                    buttons.insert(0, [
-                        InlineKeyboardButton(text=profile.delivery_street, callback_data=f'offer-stage_3_street')])
-                keyboard = InlineKeyboardMarkup(buttons)
-            context.bot.edit_message_text(chat_id=chat_id,
-                                          message_id=message_id,
-                                          text=text,
-                                          reply_markup=keyboard)
-        elif settings_stage == '2' and answer == 'no':
-            profile.delivery = 0
-            profile.save()
+        if not profile.delivery_street:
+            profile.discussion_status = 'offer_address'
+            keyboard = None
+            text = 'Отправьте сообщение в чат с адресом доставки:'
+        else:
+            text = f'Выберите последний адрес доставки или отправьте сообщение с новым адресом доставки'
             buttons = []
-            shops = Shop.objects.all()
-            for shop in shops:
-                buttons.append(InlineKeyboardButton(text=shop.name, callback_data=f'offer-stage_3_{shop.id}'))
-            keyboard = InlineKeyboardMarkup([buttons])
+            if profile.delivery_street:
+                buttons.insert(0, [
+                    InlineKeyboardButton(text=profile.delivery_street, callback_data=f'offer-stage_3_street')])
+            keyboard = InlineKeyboardMarkup(buttons)
+        context.bot.edit_message_text(chat_id=chat_id,
+                                      message_id=message_id,
+                                      text=text,
+                                      reply_markup=keyboard)
+    elif settings_stage == '2' and answer == 'no':
+        profile.delivery = 0
+        profile.save()
+        buttons = []
+        shops = Shop.objects.all()
+        for shop in shops:
+            buttons.append(InlineKeyboardButton(text=shop.name, callback_data=f'offer-stage_3_{shop.id}'))
+        keyboard = InlineKeyboardMarkup([buttons])
+        context.bot.edit_message_text(chat_id=chat_id,
+                                      message_id=message_id,
+                                      text=f'Выберите предпочтительный магазин:',
+                                      reply_markup=keyboard)
+    elif settings_stage == '3':
+        break_flag = False
+        if answer == 'none':
+            buttons = []
+            keyboard = InlineKeyboardMarkup(buttons)
+            if profile.delivery_street:
+                buttons.insert(0, [
+                    InlineKeyboardButton(text=profile.delivery_street, callback_data=f'offer-stage_3_street')])
             context.bot.edit_message_text(chat_id=chat_id,
                                           message_id=message_id,
-                                          text=f'Выберите предпочтительный магазин:',
+                                          text=f'Нужно указать адрес. Для этого отправьте в чат сообщение адресом',
                                           reply_markup=keyboard)
-        elif settings_stage == '3':
-            break_flag = False
-            if answer == 'none':
-                buttons = []
-                keyboard = InlineKeyboardMarkup(buttons)
-                if profile.delivery_street:
-                    buttons.insert(0, [
-                        InlineKeyboardButton(text=profile.delivery_street, callback_data=f'offer-stage_3_street')])
+            break_flag = True
+
+        elif answer == 'street':
+            profile.delivery = 1
+        else:
+            profile.main_shop = Shop.objects.get(id=int(answer))
+            profile.delivery = 0
+        profile.save()
+
+        if not break_flag:
+            profile.discussion_status = 'messaging'
+            profile.save()
+            # Оплата: 2 - qr код, 1 - ввод карты
+            keyboard = InlineKeyboardMarkup(
+                [[InlineKeyboardButton(text='Через банковское приложение', callback_data=f'offer-stage_4_2')],
+                 [InlineKeyboardButton(text='Ввести реквизиты карты', callback_data=f'offer-stage_4_1')]])
+            if call_func:
+                message = context.bot.send_message(chat_id=chat_id,
+                                                   text=f'''Выберите вид оплаты:''',
+                                                   reply_markup=keyboard,
+                                                   disable_notification=True)
+                context.bot.delete_message(chat_id=update.effective_chat.id,
+                                           message_id=message.message_id - 2)
+                context.bot.delete_message(chat_id=update.effective_chat.id,
+                                           message_id=message.message_id - 1)
+            else:
                 context.bot.edit_message_text(chat_id=chat_id,
                                               message_id=message_id,
-                                              text=f'Нужно указать адрес. Для этого отправьте в чат сообщение адресом',
+                                              text=f'''Выберите вид оплаты:''',
                                               reply_markup=keyboard)
-                break_flag = True
 
-            elif answer == 'street':
-                profile.delivery = 1
-            else:
-                profile.main_shop = Shop.objects.get(id=int(answer))
-                profile.delivery = 0
-            profile.save()
+    elif settings_stage == '4':
+        if profile.delivery:
+            text = f'Доставка по адресу {profile.delivery_street}'
+        else:
+            text = f'Пункт выдачи - магазин {profile.main_shop} '
 
-            if not break_flag:
-                profile.discussion_status = 'messaging'
-                profile.save()
-                # Оплата: 2 - qr код, 1 - ввод карты
-                keyboard = InlineKeyboardMarkup(
-                    [[InlineKeyboardButton(text='Через банковское приложение', callback_data=f'offer-stage_4_2')],
-                     [InlineKeyboardButton(text='Ввести реквизиты карты', callback_data=f'offer-stage_4_1')]])
-                if call_func:
-                    message = context.bot.send_message(chat_id=chat_id,
-                                                       text=f'''Выберите вид оплаты:''',
-                                                       reply_markup=keyboard,
-                                                       disable_notification=True)
-                    context.bot.delete_message(chat_id=update.effective_chat.id,
-                                               message_id=message.message_id - 2)
-                    context.bot.delete_message(chat_id=update.effective_chat.id,
-                                               message_id=message.message_id - 1)
-                else:
-                    context.bot.edit_message_text(chat_id=chat_id,
-                                                  message_id=message_id,
-                                                  text=f'''Выберите вид оплаты:''',
-                                                  reply_markup=keyboard)
+        cart_price = 0
+        carts = Carts.objects.filter(order__isnull=True, profile__chat_id=chat_id, soft_delete=False)
+        sale_type = Shop.objects.values('sale_type').get(id=1)['sale_type']
 
-        elif settings_stage == '4':
-            if profile.delivery:
-                text = f'Доставка по адресу {profile.delivery_street}'
-            else:
-                text = f'Пункт выдачи - магазин {profile.main_shop} '
+        for cart in carts:
+            product_price = round(cart.product.price * cart.amount, 2)
+            if sale_type != 'no_sale':
+                discount = getattr(cart.product.discount_group, f'{sale_type}_value')
+                product_price = round(product_price * discount, 2)
+            cart_price += product_price
 
-            cart_price = 0
-            carts = Carts.objects.filter(order__isnull=True, profile__chat_id=chat_id, soft_delete=False)
-            sale_type = Shop.objects.values('sale_type').get(id=1)['sale_type']
+        keyboard = InlineKeyboardMarkup(
+            [[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}_{answer}')],
+             [InlineKeyboardButton(text='Редктировать 📝',
+                                   callback_data=f'offer-stage_0_none')]])
 
-            for cart in carts:
-                product_price = round(cart.product.price * cart.amount, 2)
-                if sale_type != 'no_sale':
-                    discount = getattr(cart.product.discount_group, f'{sale_type}_value')
-                    product_price = round(product_price * discount, 2)
-                cart_price += product_price
-
-            keyboard = InlineKeyboardMarkup(
-                [[InlineKeyboardButton(text='Заказать 🛍', callback_data=f'order_{cart_price}_{answer}')],
-                 [InlineKeyboardButton(text='Редктировать 📝',
-                                       callback_data=f'offer-stage_1_none')]])
-
-            context.bot.edit_message_text(chat_id=chat_id,
-                                          message_id=message_id,
-                                          text=f'{text}',
-                                          reply_markup=keyboard)
+        context.bot.edit_message_text(chat_id=chat_id,
+                                      message_id=message_id,
+                                      text=f'{text}',
+                                      reply_markup=keyboard)
 
 
 offer_settings = CallbackQueryHandler(get_offer_settings, pattern=str('offer-stage'))
@@ -774,38 +964,68 @@ def order(update: Update, context: CallbackContext):
     sale_type = Shop.objects.get(id=1).sale_type
     profile = Profile.objects.get(chat_id=chat_id)
     order_status = OrderStatus.objects.get(title='0')
-    user_order = Orders.objects.create(profile=profile, delivery_info=call.message.text, deliver=deliver,
-                                       order_price=cart_price, payment_id=int(payment_type), sale_type=sale_type,
-                                       status=order_status)
-    order_products = Carts.objects.filter(profile=profile, order__isnull=True)
+    order_products = Carts.objects.filter(profile=profile, order__isnull=True, preorder=False)
+    if profile.preorder is False or profile.preorder_selector in ['split', 'part-order']:
+        text_products, sum_message, full_discount, order_sum = '', '', 0, 0
+        user_order = Orders.objects.create(profile=profile, delivery_info=call.message.text, deliver=deliver,
+                                           order_price=cart_price, payment_id=int(payment_type), sale_type=sale_type,
+                                           status=order_status)
 
-    text_products, sum_message, full_discount, order_sum = '', '', 0, 0
-
-    for order_product in order_products:
+        for order_product in order_products:
+            if sale_type != 'no_sale':
+                discount = getattr(order_product.product.discount_group, f"{sale_type}_value")
+                new_price = round(order_product.product.price * discount)
+                full_discount += round((order_product.product.price - new_price) * order_product.amount, 2)
+                order_product.product.price = new_price
+            order_sum += round(order_product.product.price * order_product.amount, 2)
+            text_products += f'\n{order_product.product.name} - {order_product.amount} шт.'
         if sale_type != 'no_sale':
-            discount = getattr(order_product.product.discount_group, f"{sale_type}_value")
-            new_price = round(order_product.product.price * discount)
-            full_discount += round((order_product.product.price - new_price) * order_product.amount, 2)
-            order_product.product.price = new_price
-        order_sum += round(order_product.product.price * order_product.amount, 2)
-        text_products += f'\n{order_product.product.name} - {order_product.amount} шт.'
-    if sale_type != 'no_sale':
-        sum_message = f'Cкидка: {full_discount} р.\nИТОГО со скидкой: {order_sum} р.'
-    else:
-        sum_message = f'ИТОГО: {order_sum} р.'
+            sum_message = f'Cкидка: {full_discount} р.\nИТОГО со скидкой: {order_sum} р.'
+        else:
+            sum_message = f'ИТОГО: {order_sum} р.'
 
-    order_message = f'<b><u>Заказ №: {user_order.id}</u></b> \n{text_products} \n{call.message.text} \n<b>{sum_message}</b>'
-    context.bot.answer_callback_query(callback_query_id=call.id,
-                                      text=f'Ваш заказ принят')
-    message = context.bot.send_message(text=f'Клиент: {user} \n{order_message}', chat_id=ORDERS_CHAT_ID,
-                                       parse_mode='HTML')
-    context.bot.edit_message_text(
-        text=f'Ваш {order_message} \n\nОжидайте ссылку на оплату, после оплаты товары будут зарезервированы...',
-        chat_id=call.message.chat.id,
-        message_id=call.message.message_id, parse_mode='HTML')
-    order_products.update(order=user_order)
-    user_order.manager_message_id = message.message_id
-    user_order.save()
+        order_message = f'<b><u>Заказ №: {user_order.id}</u></b> \n{text_products} \n{call.message.text} \n<b>{sum_message}</b>'
+        context.bot.answer_callback_query(callback_query_id=call.id,
+                                          text=f'Ваш заказ принят')
+        message = context.bot.send_message(text=f'Клиент: {user} \n{order_message}', chat_id=ORDERS_CHAT_ID,
+                                           parse_mode='HTML')
+        context.bot.edit_message_text(
+            text=f'Ваш {order_message} \n\nОжидайте ссылку на оплату, после оплаты товары будут зарезервированы...',
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id, parse_mode='HTML')
+        order_products.update(order=user_order)
+        user_order.manager_message_id = message.message_id
+        user_order.save()
+
+    if profile.preorder and profile.preorder_selector in ['split', 'part-preorder', 'preorder']:
+        text_products = ''
+
+        if profile.preorder_selector == 'preorder':
+            preorder_products = Carts.objects.filter(profile=profile, order__isnull=True)
+        else:
+            preorder_products = Carts.objects.filter(profile=profile, order__isnull=True, preorder=True)
+        for preorder_product in preorder_products:
+            text_products += f'\n{preorder_product.product.name} - {preorder_product.amount} шт.'
+        order_status = OrderStatus.objects.get(title='7')
+        user_order = Orders.objects.create(profile=profile, delivery_info=call.message.text, deliver=deliver,
+                                           order_price=cart_price, payment_id=int(payment_type), sale_type=sale_type,
+                                           status=order_status)
+
+        order_message = f'<b><u>Заказ №: {user_order.id}</u></b> \n{text_products} \n{call.message.text} \n'
+        message = context.bot.send_message(text=f'Клиент: {user} \n{order_message}', chat_id=ORDERS_CHAT_ID,
+                                           parse_mode='HTML')
+        if profile.preorder_selector == 'split':
+            context.bot.send_message(
+                text=f'Ваш {order_message} \n\nОжидайте ссылку на оплату, после оплаты предзаказ станет активным и мы сообщим приблизительное время поступления...',
+                chat_id=call.message.chat.id, parse_mode='HTML')
+        else:
+            context.bot.edit_message_text(
+                text=f'Ваш {order_message} \n\nОжидайте ссылку на оплату, после оплаты предзаказ станет активным и мы сообщим приблизительное время поступления...',
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id, parse_mode='HTML')
+        preorder_products.update(order=user_order)
+        user_order.manager_message_id = message.message_id
+        user_order.save()
 
 
 order_cart_handler = CallbackQueryHandler(order, pattern=str('order_'))
@@ -854,13 +1074,12 @@ def orders_history(update: Update, context: CallbackContext, request_chat_id=Non
     orders = Orders.objects.prefetch_related('carts_set').filter(profile__chat_id=chat_id).exclude(
         status__in=[6, 7]).order_by('id')
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
-# chat_id обязательно update.effective_chat.id, при запросе из чата поддержки что бы отправлялось не клиенту а в поддержку
+    # chat_id обязательно update.effective_chat.id, при запросе из чата поддержки что бы отправлялось не клиенту а в поддержку
     if not orders:
         message = context.bot.send_message(chat_id=update.effective_chat.id,
                                            text='У вас нет заказов',
                                            reply_markup=keyboard, disable_notification=True)
     else:
-
         orders_text = ''
         for order in orders:
             payment_urls_text, text_products, tracing_text = '', '', ''
@@ -873,14 +1092,18 @@ def orders_history(update: Update, context: CallbackContext, request_chat_id=Non
                     calc_price = cart.price * cart.amount
                 product_price_sum += calc_price
                 full_price += cart.product.price * cart.amount
-                text_products += f'<i>{position}.</i> {cart.product.name} - {cart.amount} шт. по {cart.price} р.\n'
+                text_products += f'<i>{position}.</i> {cart.product.name} - {cart.amount} шт.'
+                if str(order.status) != 'Предзаказ':
+                    text_products += f' по {cart.price} р.'
+                text_products += '\n'
                 position += 1
             else:
                 if order.delivery_price > 0:
                     delivery_price_text = f'\nСтоимость доставки {order.delivery_price} р.'
                 else:
                     delivery_price_text = ''
-                if order.sale_type != 'no_sale' and full_price != product_price_sum:
+                if order.sale_type != 'no_sale' and full_price != product_price_sum and str(
+                        order.status) != 'Предзаказ':
                     discount_text = f'''\nВаша скидка {round(full_price - product_price_sum, 2)} р.
 <b>ИТОГО со скидкой: {round(product_price_sum + order.delivery_price, 2)} р.</b>'''
                 else:
@@ -895,12 +1118,11 @@ def orders_history(update: Update, context: CallbackContext, request_chat_id=Non
                     else:
                         tracing_text = '<b> Трек номер: нет </b>\n'
 
-                orders_text += f'''<b><u>Заказ № {order.id}</u></b>
-<u>Статус заказа: {order.status}</u>
-{tracing_text}{text_products}{delivery_price_text}
-ИТОГО: {round(full_price + order.delivery_price, 2)} р.{discount_text}{payment_urls_text}'''
+                orders_text += f'''<b><u>Заказ № {order.id}</u></b> \n <u>Статус заказа: {order.status}</u> \n{tracing_text}{text_products}{delivery_price_text}'''
+                if str(order.status) != 'Предзаказ':
+                    orders_text += f'ИТОГО: {round(full_price + order.delivery_price, 2)} р.{discount_text}{payment_urls_text}'
                 orders_text += f'\n {"_" * 20} \n'
-# chat_id обязательно update.effective_chat.id, при запросе из чата поддержки что бы отправлялось не клиенту а в поддержку
+        # chat_id обязательно update.effective_chat.id, при запросе из чата поддержки что бы отправлялось не клиенту а в поддержку
         if update.callback_query:
             context.bot.edit_message_text(chat_id=update.effective_chat.id,
                                           text=orders_text,
@@ -926,25 +1148,40 @@ dispatcher.add_handler(accept_cart_handler)
 @connection_decorator
 def profile_menu(update: Update, context: CallbackContext):
     """Меню информации"""
-
+    pre_order_status = {True: 'Включено', False: 'Отключено'}
     if update.callback_query:
         call = update.callback_query
+        data = call.data
         chat_id = call.message.chat_id
-        _, action, field = call.data.split('_')
+        if call.data != 'edit_pre_order':
+            _, action, field = call.data.split('_')
     else:
+        data = None
         chat_id = update.message.chat_id
     user_profile = Profile.objects.get(chat_id=chat_id)
+
     if user_profile.discussion_status != 'messaging':
         user_profile.discussion_status = 'messaging'
         user_profile.save()
+
+    if data == 'edit_pre_order':
+        status = lambda user_profile: False if user_profile.preorder else True
+        user_profile.preorder = status(user_profile)
+        user_profile.save()
+
+    get_pre_order = lambda user_profile: True if user_profile.preorder else False
+    pre_order_status = pre_order_status[get_pre_order(user_profile)]
 
     menu = InlineKeyboardMarkup([[InlineKeyboardButton(text='Изменить имя', callback_data='edit_firstname')],
                                  [InlineKeyboardButton(text='Изменить фамилию', callback_data='edit_lastname')],
                                  [InlineKeyboardButton(text='Изменить номер телефона', callback_data='edit_phone')],
                                  [InlineKeyboardButton(text='Изменить адрес доставки', callback_data='edit_address')],
+                                 [InlineKeyboardButton(
+                                     text=f'Показывать товары для предзаказа',
+                                     callback_data='edit_pre_order')],
                                  [InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
 
-    profile_message = f"Профиль: \n Имя: <b>{user_profile.first_name or 'нет'}</b> \n Фамилия: <b>{user_profile.last_name or 'нет'}</b> \n Телефон №: <b>{user_profile.phone or 'нет'}</b> \n Адрес доставки: <b>{user_profile.delivery_street or 'нет'}</b>"
+    profile_message = f"Профиль: \n Имя: <b>{user_profile.first_name or 'нет'}</b> \n Фамилия: <b>{user_profile.last_name or 'нет'}</b> \n Телефон №: <b>{user_profile.phone or 'нет'}</b> \n Адрес доставки: <b>{user_profile.delivery_street or 'нет'}</b> \n Показывать товары для предзаказа: <b>{pre_order_status}</b>"
     if update.callback_query:
         context.bot.edit_message_text(chat_id=update.effective_chat.id, text=profile_message, reply_markup=menu,
                                       parse_mode='HTML', message_id=update.callback_query.message.message_id)
@@ -953,6 +1190,8 @@ def profile_menu(update: Update, context: CallbackContext):
                                            parse_mode='HTML', disable_notification=True)
         context.bot.delete_message(chat_id=update.effective_chat.id,
                                    message_id=message.message_id - 1)
+    if data == 'edit_pre_order':
+        cart(update, context, call_func=True, call_delete_old=True)
 
 
 dispatcher.add_handler(CommandHandler('profile', profile_menu))
@@ -961,6 +1200,7 @@ dispatcher.add_handler(CallbackQueryHandler(profile_menu, pattern=str('profile_r
 dispatcher.add_handler(CallbackQueryHandler(profile_menu, pattern=str('profile_roll-back_lastname')))
 dispatcher.add_handler(CallbackQueryHandler(profile_menu, pattern=str('profile_roll-back_phone')))
 dispatcher.add_handler(CallbackQueryHandler(profile_menu, pattern=str('profile_roll-back_address')))
+dispatcher.add_handler(CallbackQueryHandler(profile_menu, pattern=str('edit_pre_order')))
 
 
 @connection_decorator
@@ -971,35 +1211,35 @@ def message_edit_profile(update: Update, context: CallbackContext):
     user_profile = Profile.objects.get(chat_id=chat_id)
     _, select = call.data.split('_')
 
-    if select == 'firstname':
-        field = 'имя'
-        new_field = 'новым именем'
-        restrictions = '* не более 20 символов'
-        user_profile.discussion_status = 'first_name'
-    elif select == 'lastname':
-        field = 'фамилия'
-        new_field = 'новой фамилией'
-        restrictions = '* не более 20 символов'
-        user_profile.discussion_status = 'last_name'
-    elif select == 'phone':
-        field = 'номер телефона'
-        new_field = 'новым номером'
-        restrictions = '* формат ввода +7** или 8**'
-        user_profile.discussion_status = 'phone_profile'
-    elif select == 'address':
-        field = 'фдрес доставки'
-        new_field = 'новым адресом'
-        restrictions = '* не более 200 символов'
-        user_profile.discussion_status = 'address'
-    else:
-        field = 'ПАРМЕТР НЕИЗВЕСТЕН'
-        new_field = 'ПАРМЕТР НЕИЗВЕСТЕН'
-        restrictions = 'ПАРМЕТР НЕИЗВЕСТЕН'
+    options = {'firstname': {'field': 'имя',
+                             'new_field': 'новым именем',
+                             'restrictions': '* не более 20 символов',
+                             'discussion_status': 'first_name'
+                             },
+               'lastname': {'field': 'фамилия',
+                            'new_field': 'новой фамилией',
+                            'restrictions': '* не более 20 символов',
+                            'discussion_status': 'last_name'
+                            },
+               'phone': {'field': 'номер телефона',
+                         'new_field': 'новым номером',
+                         'restrictions': '* формат ввода +7** или 8**',
+                         'discussion_status': 'phone_profile'
+                         },
+               'address': {'field': 'адрес доставки',
+                           'new_field': 'новым адресом',
+                           'restrictions': '* не более 200 символов',
+                           'discussion_status': 'address'
+                           },
+               }
+
+    option = options[select]
+    user_profile.discussion_status = option['discussion_status']
     user_profile.save()
 
-    text = f'''Редактируется <b>{field}</b>. Отправьте сообщение с {new_field}. Для отмены нажмите "Отменить"
+    text = f'''Редактируется <b>{option['field']}</b>. Отправьте сообщение с {option['new_field']}. Для отмены нажмите "Отменить"
 
-{restrictions}'''
+{option['restrictions']}'''
 
     menu = InlineKeyboardMarkup([[InlineKeyboardButton(text='Отменить', callback_data=f'profile_roll-back_{select}')]])
 
@@ -1460,7 +1700,6 @@ dispatcher.add_handler(MessageHandler(filters.Filters.text, get_message_from_use
 
 SUPPORT_FUNCTIONS = {'#заказы': orders_history,
                      '#заказ': orders_history}
-
 
 if __name__ == '__main__':
     updater.start_polling()

@@ -115,10 +115,11 @@ class Product(models.Model):
     def edit_rests(self, action, shop, old_amount, new_amount):
         rest = self.rests_set.filter(shop=shop)[0]
         if action == 'add':
-            rest.amount += old_amount
-            rest.save()
             odata = RestsOdataLoad.objects.filter(recorder=None, product_key=self.ref_key, amount=old_amount)
-            odata[0].delete()
+            if odata:
+                odata[0].delete()
+                rest.amount += old_amount
+                rest.save()
         elif action == 'remove':
             rest.amount -= new_amount
             rest.save()

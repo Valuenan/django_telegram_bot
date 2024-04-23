@@ -83,14 +83,6 @@
     </tr>
     <tr>
         <td><p style="font-size: 14px;">Временные утилиты для бота:</p></td>
-        <td>
-            <div style="margin: 15px 0 15px 0;">
-                <form action="{% url 'reconfigure_users_profile' %}" method="post">
-                    {% csrf_token %}
-                    <button type="submit">Перенос имени, фамили пользователя в профиль. Удаение User модели пользователя бота</button>
-                </form>
-            </div>
-        </td>
     </tr>
 </table>
 

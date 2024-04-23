@@ -1,16 +1,37 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    {% for user_message in user_messages %}
-        <table>
-            <tr>
-            {% if user_message.manager %}
-                <td></td><td>{{ user_message.date }} | {{ user_message.message }} <br> {{ user_message.manager }}</td>
-            {% else %}
-                <td>{{ user_message.date }} | {{ user_message.message }} <br> {{ user_message.user }}</td><td></td>
-            {% endif %}
-            </tr>
-        </table>
+
+    <details>
+        <summary>-> Показать старые сообщения <-</summary>
+        {% for user_message in user_old_messages %}
+
+                <table>
+
+                    <tr>
+                    {% if user_message.manager %}
+                        <td></td><td>{{ user_message.date }} | {{ user_message.message }} <br> {{ user_message.manager }}</td>
+                    {% else %}
+                        <td>{{ user_message.date }} | {{ user_message.message }} <br> {{ user_message.user }}</td>
+                    {% endif %}
+                    </tr>
+                </table>
+
+        {% endfor %}
+    </details>
+    {% for user_message in user_new_messages %}
+
+            <table>
+
+                <tr>
+                {% if user_message.manager %}
+                    <td></td><td>{{ user_message.date }} | {{ user_message.message }} <br> {{ user_message.manager }}</td>
+                {% else %}
+                    <td>{{ user_message.date }} | {{ user_message.message }} <br> {{ user_message.user }}</td>
+                {% endif %}
+                </tr>
+            </table>
+
     {% endfor %}
     <form class="form" action="{% url 'send_message' %}" method="post">
        {% csrf_token %}

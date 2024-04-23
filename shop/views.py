@@ -1,7 +1,8 @@
 import os
 import logging
 import pickle
-from decimal import Decimal
+from datetime import datetime
+
 import xlrd
 import redis
 from django.conf import settings
@@ -16,11 +17,10 @@ from django.views.generic import ListView, DetailView
 from django_telegram_bot.settings import BASE_DIR, REDIS_HOST
 
 from .forms import ImportGoodsForm
-from users.models import Orders, Profile, OrderStatus, UserMessage
-from .models import File, Product, Rests, Shop, Category
+from users.models import Orders, Profile, OrderStatus, UserMessage, Carts
+from .models import File, Product, Rests, Shop, Category, SALE_TYPES
 from .telegram.bot import ready_order_message, manager_edit_order, manager_remove_order
-from .telegram.odata.data_exchange import import_prices, import_rests, remove_duplicates, remove_no_ref_key, mark_sale, \
-    edit_users_profile
+from .telegram.odata.data_exchange import import_prices, import_rests, remove_duplicates, remove_no_ref_key, mark_sale
 from .tasks import load_images_task, load_category_task, load_products_task, send_everyone_task
 from .utilities import _send_message_to_user
 
@@ -35,6 +35,11 @@ load_task_tags = {"message_load-image": "Загрузка фотографий",
 def _add_messages(request, messages_info: list):
     for message_type, message in messages_info:
         messages.add_message(request, message_type, message)
+
+
+def remove_no_order_carts(activation_time):
+    if datetime.now().time() >= activation_time:
+        Carts.objects.filter(order__isnull=True).delete()
 
 
 class ImportCategory1CView(View):
@@ -102,6 +107,11 @@ class ImportRests1CView(View):
     def post(self, request):
         result_messages = import_rests()
         _add_messages(request, result_messages)
+        products_no_rests = Product.objects.filter(rests__isnull=True)
+        shop = Shop.objects.get(id=1)
+        for product in products_no_rests:
+            Rests.objects.create(product=product, shop=shop, amount=0)
+
         return render(request, 'admin/admin_import_from_1c.html')
 
 
@@ -155,18 +165,6 @@ class RemoveNoRefKey(View):
 
     def post(self, request):
         result_messages = remove_no_ref_key()
-        _add_messages(request, result_messages)
-        return render(request, 'admin/admin_import_from_1c.html')
-
-
-class ReconfigureUsersProfile(View):
-
-    @staticmethod
-    def get(request):
-        return render(request, 'admin/admin_import_from_1c.html')
-
-    def post(self, request):
-        result_messages = edit_users_profile()
         _add_messages(request, result_messages)
         return render(request, 'admin/admin_import_from_1c.html')
 
@@ -454,7 +452,8 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         context['products'] = context['order'].carts_set.all()
         context['order_sum'] = context['order'].delivery_price
         context['full_discount'] = 0
-
+        context['status_reduction_fields'] = ["0", "7"]
+        context['sale_types'] = SALE_TYPES
         for cart in context['products']:
             if context['order'].sale_type != 'no_sale':
                 discount = getattr(cart.product.discount_group, f"{context['order'].sale_type}_value")
@@ -463,10 +462,19 @@ class OrderDetail(LoginRequiredMixin, DetailView):
                 cart.product.price = new_price
             context['order_sum'] += round(cart.product.price * cart.amount, 2)
 
+        exclude_statuses = []
         if context['object'].deliver:
-            context['order_statuses'] = OrderStatus.objects.exclude(id='5')
+            exclude_statuses.append('5')
         else:
-            context['order_statuses'] = OrderStatus.objects.exclude(id='4')
+            exclude_statuses.extend(['3', '4'])
+        if context['products'][0].preorder:
+            exclude_statuses.append('1')
+            context['order_statuses'] = list(OrderStatus.objects.exclude(id__in=exclude_statuses))
+            context['order_statuses'].insert(0, context['order_statuses'].pop(-1))
+        else:
+            exclude_statuses.append('8')
+            context['order_statuses'] = OrderStatus.objects.exclude(id__in=exclude_statuses)
+
         context['shops'] = Shop.objects.all().order_by('-id')
         context['new_message'] = UserMessage.objects.filter(checked=False)
         context['add_products'] = Rests.objects.exclude(amount=0).select_related('product').only('product')
@@ -478,6 +486,9 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         _, new_status, shop = form.pop('csrfmiddlewaretoken'), form.pop('new_status')[0], int(form.pop('shop')[0])
         order = Orders.objects.get(id=pk)
 
+        if 'new_sale_type' in form:
+            order.sale_type = form.pop('new_sale_type')[0]
+            order.save()
         if 'delivery_price' in form:
             delivery_price = int(form.pop('delivery_price')[0])
             order.delivery_price = delivery_price
@@ -509,18 +520,23 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         order.admin_check = request.user
         old_status = order.status.title
         rests_action = order.update_order_status(new_status)
-
         order_sum = delivery_price
         carts = order.carts_set.filter(soft_delete=False)
         if order.sale_type != 'no_sale':
             for cart in carts:
                 discount = getattr(cart.product.discount_group, f"{order.sale_type}_value")
                 order_sum += round(cart.product.price * discount) * int(cart.amount)
+                if new_status == '7' or old_status == '7':
+                    cart.price = cart.product.price
+                    cart.save()
         else:
             for cart in carts:
                 order_sum += round(cart.product.price * cart.amount, 2)
+                if new_status == '7' or old_status == '7':
+                    cart.price = cart.product.price
+                    cart.save()
 
-        if new_status == '0':
+        if new_status in ['0', '7']:
             if old_status != '6':
                 order.update_order_quantity(form, rests_action, shop)
             result = manager_edit_order(order)
@@ -535,10 +551,10 @@ class OrderDetail(LoginRequiredMixin, DetailView):
                 message = f'Неудалось удалить сообщение из канала по причине: {err}'
                 messages.add_message(request, messages.ERROR, message)
         elif new_status in ['1', '3', '4', '6'] and old_status != new_status:
-            if new_status == '1' and old_status == '0':
+            if new_status == '1' and old_status in ['0', '7']:
                 order.update_order_quantity(form, rests_action, shop)
             if new_status == '6':
-                if old_status != '0':
+                if old_status != ['0', '7']:
                     order.update_order_quantity(form, rests_action, shop)
                 try:
                     manager_remove_order(order)
@@ -605,11 +621,13 @@ class UsersMessagesDetail(LoginRequiredMixin, View):
 
     def get(self, request, pk):
         user = Profile.objects.get(chat_id=pk)
-        user_messages = UserMessage.objects.filter(user=user)
+        user_old_messages = self.model.objects.filter(user=user, checked=True)
+        user_new_messages = self.model.objects.filter(user=user, checked=False)
         new_message = self.model.objects.filter(checked=False)
         user_orders = Orders.objects.filter(profile=user, status__in=[1, 2, 3, 4, 5]).values('id')
         return render(request, 'users/messages_detail.html',
-                      context={'user_messages': user_messages, 'new_message': new_message, 'pk': pk,
+                      context={'user_old_messages': user_old_messages, 'user_new_messages': user_new_messages,
+                               'new_message': new_message, 'pk': pk,
                                'user_orders': user_orders})
 
 

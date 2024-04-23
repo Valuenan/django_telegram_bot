@@ -23,12 +23,20 @@ ORDER_STATUS = (
     ('3', 'Доставка'),
     ('4', 'Ожидает в пункте выдачи'),
     ('5', 'Получен'),
-    ('6', 'Отменен')
+    ('6', 'Отменен'),
+    ('7', 'Предзаказ')
 )
 PAYMENT = (
     ('0', 'Карта'),
     ('1', 'QR код'),
     ('2', 'Перевод'),
+)
+
+PREORDER_SELECTOR = (
+    ('split', 'Разделить'),
+    ('part-order', 'Только в наличии'),
+    ('part-preorder', 'Только в предзаказ'),
+    ('preorder', 'Все в предзаказ')
 )
 
 
@@ -47,6 +55,10 @@ class Profile(models.Model):
     main_shop = models.ForeignKey(Shop, on_delete=models.DO_NOTHING, verbose_name='Магазин доставки', null=True,
                                   blank=True)
     delivery_street = models.CharField(max_length=200, verbose_name='Улица доставки', blank=True, null=True)
+    preorder = models.BooleanField(verbose_name='Показывать товары для предзаказа', default=True)
+    preorder_selector = models.CharField(max_length=50, verbose_name='Выбор пользовтеля по корзине с предзаказом',
+                                         choices=PREORDER_SELECTOR, default='Разделить')
+    track = models.ManyToManyField(Product, verbose_name='Отсеживаемые товары', blank=True)
 
     def __str__(self):
         return f'{self.chat_id}'
@@ -68,7 +80,7 @@ class UserMessage(models.Model):
     checked = models.BooleanField(verbose_name='Прочитано', default=False)
     support_message_id = models.IntegerField(verbose_name='Номер сообщения в канале поддержки', blank=True, null=True)
     manager_signature = models.CharField(max_length=100, verbose_name='Подпись менеджера',
-                                        blank=True, null=True)
+                                         blank=True, null=True)
 
     def __str__(self):
         return self.user.__str__()
@@ -106,11 +118,13 @@ class Payment(models.Model):
 
 
 class Carts(models.Model):
+    date = models.DateTimeField(verbose_name='Дата, время сообщениея', auto_now_add=True)
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, verbose_name='Пользователь')
     product = models.ForeignKey(Product, on_delete=models.DO_NOTHING, verbose_name='Товары')
     amount = models.DecimalField(max_digits=6, decimal_places=3, verbose_name='Количество', default=0)
     price = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Цена')
     order = models.ForeignKey('Orders', on_delete=models.DO_NOTHING, verbose_name='Заказ', blank=True, null=True)
+    preorder = models.BooleanField(verbose_name='Предзаказ', default=False)
     soft_delete = models.BooleanField(verbose_name='Удалить', default=False)
 
     def __str__(self):
@@ -191,9 +205,9 @@ class Orders(models.Model):
         """Обновляет статус возвращаем действие для склада"""
         rests_action = 'pass'
         if self.status.title != new_status:
-            if new_status in ["0", "6"]:
+            if new_status in ["0", "6", "7"]:
                 rests_action = 'add'
-            elif self.status.title == "0":
+            elif self.status.title in ["0", "7"]:
                 rests_action = 'remove'
             self.status = OrderStatus.objects.filter(title=new_status)[0]
             self.save()

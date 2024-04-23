@@ -35,87 +35,101 @@ $(document).ready(function(){
                     нет
                 {% endif %}
         </p>
-        <p>Адрес: {{ order.delivery_info }} | Изменить адрес: <input type="text" name="delivery_info" value="{{ order.delivery_info }}"></p>
+        <div>Адрес: {{ order.delivery_info }} | Изменить адрес: <input type="text" name="delivery_info" value="{{ order.delivery_info }}"></div>
 
-            <p>Статус:
-                <select name="new_status">
-                    {% for status in order_statuses %}
-                        <option
-                                {% if status == order.status %} selected {% endif %}
-                                value="{{ status.title }}">{{ status }}</option>
-                    {% endfor %}
-                </select>
-            </p>
-            </p>Магазин списания/возврата:
-                <select name="shop">
-                    {% for shop in shops %}
-                        <option
-                                {% if shop == order.profile.main_shop %} selected {% endif %}
+        <div>Статус:
+            <select name="new_status">
+                {% for status in order_statuses %}
+                    <option
+                            {% if status == order.status %} selected {% endif %}
+                            value="{{ status.title }}">{{ status }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>Магазин списания/возврата:
+            <select name="shop">
+                {% for shop in shops %}
+                    <option
+                            {% if shop == order.profile.main_shop %} selected {% endif %}
 
-                                value="{{ shop.id }}">{{ shop }}</option>
-                    {% endfor %}
-                </select>
-            <table border="1px">
-                <tr>
-                    <td>Название</td>
-                    <td>Количество</td>
-                    {% for shop in shops %}
-                        <td {% if order.profile.main_shop == shop %} bgcolor="green" {% endif %}> {{ shop }}</td>
-                    {% endfor %}
-                    <td>Стоимость за шт.</td>
-                    <td><b>Сумма без скидки</b></td>
-                </tr>
-                {% for product in products %}
-                <tr>
-                    <td {% if product.soft_delete %} bgcolor="red" {% endif %}>
-                        {{ product.product.name }} </td>
-                    <td> <input
-                            {% if order.status.title != "0" %} disabled {% endif %}
-                                name="{{ product.id }}" id="contactparent" value="{% formatted_float product.amount %} "></td>
-                    {% for rest in product.product.rests_set.all %}
-                        <td {% if product.amount > rest.amount %} bgcolor="yellow" {% endif %}>
-                            {% formatted_float rest.amount %} шт.</td>
-                    {% endfor %}
-
+                            value="{{ shop.id }}">{{ shop }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>Скидка:
+            <select name="new_sale_type" {% if order.status.title not in status_reduction_fields  %} disabled {% endif %}>
+                {% for sale_type, sale_name in sale_types %}
+                <option
+                        {% if sale_type == order.sale_type %} selected {% endif %}
+                        value="{{ sale_type }}">{{ sale_name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <table border="1px">
+            <tr>
+                <td>Название</td>
+                <td>Количество</td>
+                {% for shop in shops %}
+                    <td {% if order.profile.main_shop == shop %} bgcolor="green" {% endif %}> {{ shop }}</td>
+                {% endfor %}
+                <td>Стоимость за шт.</td>
+                <td><b>Сумма без скидки</b></td>
+            </tr>
+            {% for product in products %}
+            <tr>
+                <td {% if product.soft_delete %} bgcolor="red" {% endif %}>
+                    {{ product.product.name }} </td>
+                <td> <input
+                        {% if order.status.title not in status_reduction_fields  %} disabled {% endif %}
+                            name="{{ product.id }}" id="contactparent" value="{% formatted_float product.amount %} "></td>
+                {% for rest in product.product.rests_set.all %}
+                    <td {% if product.amount > rest.amount %} bgcolor="yellow" {% endif %}>
+                        {% formatted_float rest.amount %} шт.</td>
+                {% endfor %}
+                {% if product.preorder %}
+                    <td> {% formatted_float product.product.price %} р.</td>
+                    <td> <b>{% get_sum product.amount product.product.price %} р.</b></td>
+                {% else %}
                     <td> {% formatted_float product.price %} р.</td>
                     <td> <b>{% get_sum product.amount product.price %} р.</b></td>
-
+                {% endif %}
+            </tr>
+            {% endfor %}
+            {% if order.status.title in status_reduction_fields %}
+                <tr>
+                    <td>
+                        <select class="js-chosen" name="add_product" placeholder="Добавить товар">
+                            <option value=""></option>
+                            {% for add_product in add_products %}
+                                <option value="{{ add_product.product.id }}">{{ add_product }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td>
+                        <input name="add_num" type="number">
+                    </td>
                 </tr>
-                {% endfor %}
-                {% if order.status.title == "0" %}
-                    <tr>
-                        <td>
-                            <select class="js-chosen" name="add_product" placeholder="Добавить товар">
-                                <option value=""></option>
-                                {% for add_product in add_products %}
-                                    <option value="{{ add_product.product.id }}">{{ add_product }}</option>
-                                {% endfor %}
-                            </select>
-                        </td>
-                        <td>
-                            <input name="add_num" type="number">
-                        </td>
-                    </tr>
+            {% endif %}
+            {% if order.deliver %}
+                <tr>
+                    <td colspan="2">
+                    Стоимость доставки
+                    <input {% if order.status.title != "0" and order.delivery_price != 0 %} disabled {% endif %}
+                        type="number" name="delivery_price" value="{{ order.delivery_price }}">
+                    </td>
+                </tr>
+                {% if order.status.title != "0" %}
+                <tr>
+                    <td colspan="2">
+                    Трек номер
+                    <input type="text" name="tracing_num" value="{{ order.tracing_num }}">
+                    </td>
+                </tr>
                 {% endif %}
-                {% if order.deliver %}
-                    <tr>
-                        <td colspan="2">
-                        Стоимость доставки
-                        <input {% if order.status.title != "0" and order.delivery_price != 0 %} disabled {% endif %}
-                            type="number" name="delivery_price" value="{{ order.delivery_price }}">
-                        </td>
-                    </tr>
-                    {% if order.status.title != "0" %}
-                    <tr>
-                        <td colspan="2">
-                        Трек номер
-                        <input type="text" name="tracing_num" value="{{ order.tracing_num }}">
-                        </td>
-                    </tr>
-                    {% endif %}
-                {% endif %}
-            </table>
-            <button type="submit">Записать</button>
+            {% endif %}
+        </table>
+        <button type="submit">Записать</button>
         </form>
         {% if order.sale_type != 'no_sale' %}
             <p>Скидка: {{ full_discount }} р.</p>

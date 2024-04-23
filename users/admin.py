@@ -17,7 +17,7 @@ class UserMessageAdmin(admin.ModelAdmin):
 
 @admin.register(Carts)
 class CartsAdmin(admin.ModelAdmin):
-    list_display = ['profile', 'product', 'order', 'soft_delete']
+    list_display = ['date', 'profile', 'product', 'order', 'soft_delete']
     search_fields = ['profile__telegram_name']
 
 
