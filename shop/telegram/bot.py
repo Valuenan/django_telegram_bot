@@ -367,13 +367,13 @@ def _cart_edit(chat_id, product_id, command):
                                                                order__isnull=True)
     product_info = Product.objects.only('name', 'price').get(id=product_id)
     product_rests = product_info.rests_set.values('amount').all()[0]['amount']
-    if not cart_info and command in ['add', 'add-cart', 'preorder']:
+    if not cart_info and command in ['add', 'add-cart', 'preorder', 'preorder-cart']:
         profile = Profile.objects.get(chat_id=chat_id)
-        new_cart = Carts.objects.create(profile=profile, product_id=product_id, amount=1, price=product_info.price)
+        cart_info = Carts.objects.create(profile=profile, product_id=product_id, amount=1, price=product_info.price)
         amount = 1
-        if command == 'preorder':
-            new_cart.preorder = True
-            new_cart.save()
+        if command in ['preorder', 'preorder-cart']:
+            cart_info.preorder = True
+            cart_info.save()
     elif not cart_info and command == 'remove':
         amount = 0
     else:
@@ -382,7 +382,7 @@ def _cart_edit(chat_id, product_id, command):
         if command in ['add', 'add-cart']:
             if amount < product_rests:
                 amount += 1
-        elif command in ['preorder']:
+        elif command in ['preorder', 'preorder-cart']:
             amount += 1
         elif command in ['remove', 'remove-cart']:
             amount -= 1
@@ -393,7 +393,8 @@ def _cart_edit(chat_id, product_id, command):
         else:
             cart_info.amount = amount
             cart_info.save()
-    return product_info.name, amount, product_rests
+
+    return product_info.name, amount, product_rests, cart_info
 
 
 @connection_decorator
@@ -403,7 +404,7 @@ def edit(update: Update, context: CallbackContext):
     call = update.callback_query
     chat_id = call.from_user.id
     command, product_id = call.data.split('_')
-    product_name, amount, product_rests = _cart_edit(chat_id, product_id, command)
+    product_name, amount, product_rests, _ = _cart_edit(chat_id, product_id, command)
 
     context.bot.answer_callback_query(callback_query_id=call.id,
                                       text=f'В корзине {product_name[:20]}... {amount} шт.')
@@ -533,7 +534,7 @@ def cart(update: Update, context: CallbackContext, call_func=False, call_delete_
             for message_id in messages:
                 context.bot.delete_message(chat_id=call.message.chat_id,
                                            message_id=int(message_id))
-        if call_delete_old and profile.cart_message_id != 0:
+        if 'return-to-cart_' in call.data or (call_delete_old and profile.cart_message_id != 0):
             try:
                 context.bot.delete_message(chat_id=chat_id, message_id=profile.cart_message_id)
             except error.BadRequest:
@@ -566,7 +567,8 @@ def cart(update: Update, context: CallbackContext, call_func=False, call_delete_
                 continue
             if not profile.preorder and cart_info.preorder:
                 continue
-            cart_price, cart_message, cart_discount = show_cart_(index, sale_type, cart_info, cart_discount, cart_price, cart_message)
+            cart_price, cart_message, cart_discount = show_cart_(index, sale_type, cart_info, cart_discount, cart_price,
+                                                                 cart_message)
         else:
 
             if sale_type == 'no_sale' and cart_price > 0:
@@ -578,7 +580,8 @@ def cart(update: Update, context: CallbackContext, call_func=False, call_delete_
             if profile.preorder and preorder_carts:
                 cart_message += '\n\n<b>Предзаказ: \n(цены прибилизительные и могут координально отличаться)</b>\n'
                 for index, cart_info in enumerate(preorder_carts):
-                    _, cart_message, _ = show_cart_(index, sale_type, cart_info, cart_discount, cart_price, cart_message)
+                    _, cart_message, _ = show_cart_(index, sale_type, cart_info, cart_discount, cart_price,
+                                                    cart_message)
         buttons = ([InlineKeyboardButton(text='Оформить заказ 📝', callback_data='offer-stage_0_none')],
                    [InlineKeyboardButton(text='Очистить 🗑️', callback_data='delete-cart'),
                     InlineKeyboardButton(text='Редактировать 📋', callback_data='correct-cart')])
@@ -865,9 +868,8 @@ def start_edit(update: Update, context: CallbackContext):
     """Список товаров для редактирования и выход из редактирования"""
     messages_ids = ''
     chat_id = update.callback_query.message.chat_id
-    cart_info = Carts.objects.prefetch_related('product').only('amount').filter(profile__chat_id=chat_id,
-                                                                                soft_delete=False,
-                                                                                order__isnull=True)
+    cart_info = Carts.objects.order_by('preorder').prefetch_related('product').only('amount', 'preorder').\
+        filter(profile__chat_id=chat_id, soft_delete=False, order__isnull=True)
     message_id = update.callback_query.message.message_id
     context.bot.delete_message(chat_id=chat_id,
                                message_id=message_id)
@@ -875,14 +877,18 @@ def start_edit(update: Update, context: CallbackContext):
         for cart in cart_info:
             product_info = cart.product
             product_rests = product_info.rests_set.values('amount').all()[0]['amount']
+            if cart.preorder:
+                add_button = InlineKeyboardButton(text='🟡 Предзаказать', callback_data=f'preorder-cart_{product_info.id}')
+            else:
+                add_button = InlineKeyboardButton(text='🟢 Добавить', callback_data=f'add-cart_{product_info.id}')
 
             if cart.amount == product_rests:
                 keyboard_edit = InlineKeyboardMarkup(
-                    [[InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove-cart_{product_info.id}')]])
+                    [[InlineKeyboardButton(text='🔴 Убрать', callback_data=f'remove-cart_{product_info.id}')]])
 
             else:
-                buttons = ([InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add-cart_{product_info.id}'),
-                            InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove-cart_{product_info.id}')],)
+                buttons = ([add_button,
+                            InlineKeyboardButton(text='🔴 Убрать', callback_data=f'remove-cart_{product_info.id}')],)
                 keyboard_edit = InlineKeyboardMarkup([button for button in buttons])
 
             message = f'{product_info.name} - {int(cart.amount)} шт.\n'
@@ -912,12 +918,16 @@ def edit_cart(update: Update, context: CallbackContext):
     chat_id = call.message.chat_id
     message_id = call.message.message_id
     command, product_id = call.data.split('_')
-    product_name, amount, product_rests = _cart_edit(chat_id, product_id, command)
+    product_name, amount, product_rests, cart_info = _cart_edit(chat_id, product_id, command)
+    if cart_info.preorder:
+        add_button = InlineKeyboardButton(text='🟡 Предзаказать', callback_data=f'preorder-cart_{product_id}')
+    else:
+        add_button = InlineKeyboardButton(text='🟢 Добавить', callback_data=f'add-cart_{product_id}')
 
     message = f'{product_name} - {amount} шт.'
     if amount == 0:
         keyboard_edit = InlineKeyboardMarkup(
-            [[InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add-cart_{product_id}')]])
+            [[add_button]])
         context.bot.edit_message_text(chat_id=chat_id,
                                       message_id=message_id,
                                       text=message,
@@ -930,7 +940,7 @@ def edit_cart(update: Update, context: CallbackContext):
                                       text=message,
                                       reply_markup=keyboard_edit)
     else:
-        buttons = ([InlineKeyboardButton(text='Добавить  🟢', callback_data=f'add-cart_{product_id}'),
+        buttons = ([add_button,
                     InlineKeyboardButton(text='Убрать 🔴', callback_data=f'remove-cart_{product_id}')],)
         keyboard_edit = InlineKeyboardMarkup([button for button in buttons])
         try:
@@ -943,6 +953,9 @@ def edit_cart(update: Update, context: CallbackContext):
 
 
 edit_cart_handler = CallbackQueryHandler(edit_cart, pattern="^" + str('add-cart_'))
+dispatcher.add_handler(edit_cart_handler)
+
+edit_cart_handler = CallbackQueryHandler(edit_cart, pattern="^" + str('preorder-cart_'))
 dispatcher.add_handler(edit_cart_handler)
 
 catalog_handler = CallbackQueryHandler(edit_cart, pattern="^" + str('remove-cart_'))
