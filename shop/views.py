@@ -19,7 +19,7 @@ from django_telegram_bot.settings import BASE_DIR, REDIS_HOST
 from .forms import ImportGoodsForm
 from users.models import Orders, Profile, OrderStatus, UserMessage, Carts
 from .models import File, Product, Rests, Shop, Category, SALE_TYPES
-from .telegram.bot import ready_order_message, manager_edit_order, manager_remove_order
+from .telegram.bot import ready_order_message, manager_edit_order, manager_remove_order, send_message_to_user
 from .telegram.odata.data_exchange import import_prices, import_rests, remove_duplicates, remove_no_ref_key, mark_sale
 from .tasks import load_images_task, load_category_task, load_products_task, send_everyone_task
 from .utilities import _send_message_to_user
@@ -488,7 +488,12 @@ class OrderDetail(LoginRequiredMixin, DetailView):
 
         if 'new_sale_type' in form:
             order.sale_type = form.pop('new_sale_type')[0]
+            if order.sale_type != 'no_sale':
+                send_message_to_user(chat_id=order.profile.chat_id,
+                                     message=f'Вам была предоставленна скидка по заказу №{order.id}',
+                                     disable_notification=False, support=False)
             order.save()
+
         if 'delivery_price' in form:
             delivery_price = int(form.pop('delivery_price')[0])
             order.delivery_price = delivery_price
