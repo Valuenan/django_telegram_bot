@@ -868,7 +868,7 @@ def start_edit(update: Update, context: CallbackContext):
     """Список товаров для редактирования и выход из редактирования"""
     messages_ids = ''
     chat_id = update.callback_query.message.chat_id
-    cart_info = Carts.objects.order_by('preorder').prefetch_related('product').only('amount', 'preorder').\
+    cart_info = Carts.objects.order_by('preorder').prefetch_related('product').only('amount', 'preorder'). \
         filter(profile__chat_id=chat_id, soft_delete=False, order__isnull=True)
     message_id = update.callback_query.message.message_id
     context.bot.delete_message(chat_id=chat_id,
@@ -878,7 +878,8 @@ def start_edit(update: Update, context: CallbackContext):
             product_info = cart.product
             product_rests = product_info.rests_set.values('amount').all()[0]['amount']
             if cart.preorder:
-                add_button = InlineKeyboardButton(text='🟡 Предзаказать', callback_data=f'preorder-cart_{product_info.id}')
+                add_button = InlineKeyboardButton(text='🟡 Предзаказать',
+                                                  callback_data=f'preorder-cart_{product_info.id}')
             else:
                 add_button = InlineKeyboardButton(text='🟢 Добавить', callback_data=f'add-cart_{product_info.id}')
 
@@ -1273,7 +1274,12 @@ def info_main_menu(update: Update, context: CallbackContext):
                                  [InlineKeyboardButton(text='Меню: «Корзина / Оформление заказа»',
                                                        callback_data='info_cart')],
                                  [InlineKeyboardButton(text='Меню:  «Статусы заказов»', callback_data='info_orders')],
+                                 [InlineKeyboardButton(text='Меню:  «Избранное»', callback_data='info_favorite_menu')],
                                  [InlineKeyboardButton(text='Об оплате', callback_data='info_payment_menu')],
+                                 [InlineKeyboardButton(text='Вкл/откл функции предзаказа',
+                                                       callback_data='info_switch_preorder')],
+                                 [InlineKeyboardButton(text='Оформление заказа с товарами по предзаказу',
+                                                       callback_data='info_preorder_cart')],
                                  [InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
     text = "Выберите раздел справочной информации:"
     if update.callback_query:
@@ -1291,6 +1297,51 @@ dispatcher.add_handler(info_handler)
 
 info_query_handler = CallbackQueryHandler(info_main_menu, pattern=str('info_main_menu'))
 dispatcher.add_handler(info_query_handler)
+
+
+@connection_decorator
+def info_switch_preorder(update: Update, context: CallbackContext):
+    """Информация об включении режима предзаказа"""
+    if update.callback_query:
+        context.bot.edit_message_text(chat_id=update.effective_chat.id, text=text.text_preorder, parse_mode='HTML',
+                                      message_id=update.callback_query.message.message_id)
+    else:
+        context.bot.send_message(chat_id=update.effective_chat.id, text=text.text_preorder, parse_mode='HTML',
+                                 disable_notification=True)
+    img_1 = open(f'{BASE_DIR}/static/img/bot_info/6dc518ac4b.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_1,
+                           disable_notification=True)
+    img_2 = open(f'{BASE_DIR}/static/img/bot_info/4dc1980a8b.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_2,
+                           disable_notification=True)
+
+
+info_switch_preorder_handlers = [CommandHandler('info_switch_preorder', info_switch_preorder),
+                                 CallbackQueryHandler(info_switch_preorder, pattern=str('info_switch_preorder'))]
+for handler in info_switch_preorder_handlers:
+    dispatcher.add_handler(handler)
+
+
+@connection_decorator
+def info_preorder_cart(update: Update, context: CallbackContext):
+    """Информация об включении режима предзаказа"""
+    if update.callback_query:
+        context.bot.edit_message_text(chat_id=update.effective_chat.id, text=text.text_cart_preorder,
+                                      message_id=update.callback_query.message.message_id)
+    else:
+        context.bot.send_message(chat_id=update.effective_chat.id, text=text.text_cart_preorder, disable_notification=True)
+    img_1 = open(f'{BASE_DIR}/static/img/bot_info/2e89385d34.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_1,
+                           disable_notification=True)
+
+
+info_preorder_cart_handlers = [CommandHandler('info_preorder_cart', info_preorder_cart),
+                               CallbackQueryHandler(info_preorder_cart, pattern=str('info_preorder_cart'))]
+for handler in info_preorder_cart_handlers:
+    dispatcher.add_handler(handler)
 
 
 @connection_decorator
@@ -1425,6 +1476,32 @@ def info_menu_orders(update: Update, context: CallbackContext):
 
 info_menu_orders_handler = CallbackQueryHandler(info_menu_orders, pattern=str('info_orders'))
 dispatcher.add_handler(info_menu_orders_handler)
+
+
+@connection_decorator
+def info_favorite(update: Update, context: CallbackContext):
+    """Информация о каталоге избранного"""
+    if update.callback_query:
+        context.bot.edit_message_text(chat_id=update.effective_chat.id, text=text.text_favorite_1, parse_mode='HTML',
+                                      message_id=update.callback_query.message.message_id)
+    else:
+        context.bot.send_message(chat_id=update.effective_chat.id, text=text.text_favorite_1, parse_mode='HTML',
+                                 disable_notification=True)
+    img_1 = open(f'{BASE_DIR}/static/img/bot_info/7e98e6b416.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_1,
+                           disable_notification=True)
+    context.bot.send_message(chat_id=update.effective_chat.id, text=text.text_favorite_2, disable_notification=True)
+    img_2 = open(f'{BASE_DIR}/static/img/bot_info/320add2b59.jpg', 'rb')
+    context.bot.send_photo(chat_id=update.effective_chat.id,
+                           photo=img_2,
+                           disable_notification=True)
+
+
+info_favorite_handlers = [CommandHandler('info_favorite', info_favorite),
+                          CallbackQueryHandler(info_favorite, pattern=str('info_favorite_menu'))]
+for handler in info_favorite_handlers:
+    dispatcher.add_handler(handler)
 
 
 @connection_decorator
