@@ -467,7 +467,7 @@ class OrderDetail(LoginRequiredMixin, DetailView):
             exclude_statuses.append('5')
         else:
             exclude_statuses.extend(['3', '4'])
-        if context['products'][0].preorder:
+        if context['products'].filter(preorder=True):
             exclude_statuses.append('1')
             context['order_statuses'] = list(OrderStatus.objects.exclude(id__in=exclude_statuses))
             context['order_statuses'].insert(0, context['order_statuses'].pop(-1))
@@ -493,8 +493,6 @@ class OrderDetail(LoginRequiredMixin, DetailView):
                                      disable_notification=False)
             order.sale_type = new_sale
             order.save()
-
-
 
         if 'delivery_price' in form:
             delivery_price = int(form.pop('delivery_price')[0])
