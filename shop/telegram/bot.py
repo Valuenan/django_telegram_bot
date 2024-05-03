@@ -1028,11 +1028,11 @@ def order(update: Update, context: CallbackContext):
                                            parse_mode='HTML')
         if profile.preorder_selector == 'split':
             context.bot.send_message(
-                text=f'Ваш {order_message} \n\nОжидайте ссылку на оплату, после оплаты предзаказ станет активным и мы сообщим приблизительное время поступления...',
+                text=f'Ваш {order_message} \n\nЗаказ принят, ожидйте поступления товара в магазин, после поступления мы направим вам ссылку на оплату.',
                 chat_id=call.message.chat.id, parse_mode='HTML')
         else:
             context.bot.edit_message_text(
-                text=f'Ваш {order_message} \n\nОжидайте ссылку на оплату, после оплаты предзаказ станет активным и мы сообщим приблизительное время поступления...',
+                text=f'Ваш {order_message} \n\nЗаказ принят, ожидйте поступления товара в магазин, после поступления мы направим вам ссылку на оплату.',
                 chat_id=call.message.chat.id,
                 message_id=call.message.message_id, parse_mode='HTML')
         preorder_products.update(order=user_order)
