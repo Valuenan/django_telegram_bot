@@ -485,14 +485,16 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         form = request.POST.copy()
         _, new_status, shop = form.pop('csrfmiddlewaretoken'), form.pop('new_status')[0], int(form.pop('shop')[0])
         order = Orders.objects.get(id=pk)
-
-        if 'new_sale_type' in form:
-            order.sale_type = form.pop('new_sale_type')[0]
-            if order.sale_type != 'no_sale':
+        new_sale = form.pop('new_sale_type')[0]
+        if new_sale and order.sale_type != new_sale:
+            if new_sale != 'no_sale':
                 send_message_to_user(chat_id=order.profile.chat_id,
                                      message=f'Вам была предоставленна скидка по заказу №{order.id}',
-                                     disable_notification=False, support=False)
+                                     disable_notification=False)
+            order.sale_type = new_sale
             order.save()
+
+
 
         if 'delivery_price' in form:
             delivery_price = int(form.pop('delivery_price')[0])
