@@ -30,16 +30,9 @@ PORT = int(os.environ.get('PORT', WEBHOOK_PORT))
 @csrf_exempt
 def webhook(request):
     if request.method == 'POST':
-        url = str(request.url)
-        index = url.rfind('/')
-        token = url[index + 1:]
-        if token == TOKEN:
-            update = Update.de_json(json.loads(request.body), bot)
-            dispatcher.process_update(update)
+        update = Update.de_json(json.loads(request.body), bot)
+        dispatcher.process_update(update)
 
-            return HttpResponse(request.body, status=200)
-        else:
-            return HttpResponse(status=401)
     return HttpResponse(request.body, status=200)
 
 
