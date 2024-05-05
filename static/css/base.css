@@ -1044,3 +1044,21 @@ table#change-history tbody th {
 .popup #header {
     padding: 10px 20px;
 }
+
+/* MY STYLES */
+
+div.bot_status_not_running {
+        display: inline-block;
+        background: #f57b00;
+    }
+
+div.bot_status_error {
+        color: #ffffff;
+        display: inline-block;
+        background: #b00000;
+    }
+
+div.bot_status_ok {
+        display: inline-block;
+        background: #73ee00;
+    }

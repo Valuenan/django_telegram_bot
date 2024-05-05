@@ -2,9 +2,10 @@
 {% load static shop_tags %}
 
 {% block extrahead %}
-<meta http-equiv="refresh" content="60">{% endblock %}
+<meta http-equiv="refresh" content="120">{% endblock %}
 {% block content %}
 {% if request.user.is_superuser %}
+<div class="{{ bot_status_class }}">Статус бота: {{ bot_status_text }}</div>
 <p>Пользователей {{ count_users }}, указали номер телефона {{ count_users_phone }}</p>
 {% endif %}
 {% if new_message %}

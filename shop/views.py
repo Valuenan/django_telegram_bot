@@ -3,6 +3,7 @@ import logging
 import pickle
 from datetime import datetime
 
+import requests
 import xlrd
 import redis
 from django.conf import settings
@@ -22,6 +23,7 @@ from .models import File, Product, Rests, Shop, Category, SALE_TYPES
 from .telegram.bot import ready_order_message, manager_edit_order, manager_remove_order, send_message_to_user
 from .telegram.odata.data_exchange import import_prices, import_rests, remove_duplicates, remove_no_ref_key, mark_sale
 from .tasks import load_images_task, load_category_task, load_products_task, send_everyone_task
+from .telegram.settings import TOKEN
 from .utilities import _send_message_to_user
 
 logger = logging.getLogger(__name__)
@@ -377,6 +379,18 @@ class OrdersList(LoginRequiredMixin, ListView):
         filter_date_month = self.request.GET.get('filter_date_month')
         filter_status = self.request.GET.get('filter_status')
         users = Profile.objects.values('phone')
+
+        bot_status_json = requests.get(f'https://api.telegram.org/bot{TOKEN}/getWebhookInfo').json()
+        if not bot_status_json['result']['url']:
+            context['bot_status_class'] = 'bot_status_not_running'
+            context['bot_status_text'] = 'не запущен'
+        elif bot_status_json['result']['last_error_message']:
+            context['bot_status_class'] = 'bot_status_error'
+            context['bot_status_text'] = 'ошибка'
+        else:
+            context['bot_status_class'] = 'bot_status_ok'
+            context['bot_status_text'] = 'работает'
+
         context['count_users'] = users.count()
         context['count_users_phone'] = users.exclude(phone=None).count()
         context['new_message'] = UserMessage.objects.filter(checked=False)
