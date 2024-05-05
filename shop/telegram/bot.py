@@ -15,7 +15,7 @@ from telegram.error import TelegramError
 from django_telegram_bot.settings import BASE_DIR
 from shop.models import Category, Shop, Product, BotSettings, Rests
 from shop.telegram.banking.banking import avangard_invoice
-from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID, SUPPORT_CHAT_ID, WEBHOOK_PORT, WEBHOOK, WEBHOOK_URL
+from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID, SUPPORT_CHAT_ID, WEBHOOK_PORT
 from users.models import Profile, UserMessage, Carts, Orders, OrderStatus
 import shop.telegram.bot_texts as text
 
@@ -1810,16 +1810,3 @@ dispatcher.add_handler(MessageHandler(filters.Filters.text, get_message_from_use
 
 SUPPORT_FUNCTIONS = {'#заказы': orders_history,
                      '#заказ': orders_history}
-
-
-if __name__ == '__main__':
-    if WEBHOOK:
-        updater.start_webhook(
-            listen='127.0.0.1',
-            port=PORT,
-            webhook_url=WEBHOOK_URL
-        )
-        updater.idle()
-
-    else:
-        updater.start_polling()
