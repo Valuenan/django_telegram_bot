@@ -381,10 +381,10 @@ class OrdersList(LoginRequiredMixin, ListView):
         users = Profile.objects.values('phone')
 
         bot_status_json = requests.get(f'https://api.telegram.org/bot{TOKEN}/getWebhookInfo').json()
-        # if not bot_status_json['result']['url']:
-        #     context['bot_status_class'] = 'bot_status_not_running'
-        #     context['bot_status_text'] = 'не запущен'
-        if 'last_error_message' in bot_status_json['result']:
+        if not bot_status_json['result']['url']:
+            context['bot_status_class'] = 'bot_status_not_running'
+            context['bot_status_text'] = 'не запущен'
+        elif 'last_error_message' in bot_status_json['result']:
             context['bot_status_class'] = 'bot_status_error'
             context['bot_status_text'] = 'ошибка'
         else:
