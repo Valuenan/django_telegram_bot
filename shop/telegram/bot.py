@@ -1,9 +1,13 @@
 import logging
 import math
 import re
+import json
+import os
 
+from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
 from django.db import close_old_connections, connection
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, error
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, error, Bot
 from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, \
     filters
 from telegram.error import TelegramError
@@ -11,15 +15,32 @@ from telegram.error import TelegramError
 from django_telegram_bot.settings import BASE_DIR
 from shop.models import Category, Shop, Product, BotSettings, Rests
 from shop.telegram.banking.banking import avangard_invoice
-from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID, SUPPORT_CHAT_ID
+from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID, SUPPORT_CHAT_ID, WEBHOOK_PORT, WEBHOOK, WEBHOOK_URL
 from users.models import Profile, UserMessage, Carts, Orders, OrderStatus
 import shop.telegram.bot_texts as text
 
 LOG_FILENAME = 'bot_log.txt'
 logger = logging.getLogger(__name__)
-
+bot = Bot(token=TOKEN)
 updater = Updater(token=TOKEN)
 dispatcher = updater.dispatcher
+PORT = int(os.environ.get('PORT', WEBHOOK_PORT))
+
+
+@csrf_exempt
+def webhook(request):
+    if request.method == 'POST':
+        url = str(request.url)
+        index = url.rfind('/')
+        token = url[index + 1:]
+        if token == TOKEN:
+            update = Update.de_json(json.loads(request.body), bot)
+            dispatcher.process_update(update)
+
+            return HttpResponse(request.body, status=200)
+        else:
+            return HttpResponse(status=401)
+    return HttpResponse(request.body, status=200)
 
 
 def connection_decorator(func):
@@ -1331,7 +1352,8 @@ def info_preorder_cart(update: Update, context: CallbackContext):
         context.bot.edit_message_text(chat_id=update.effective_chat.id, text=text.text_cart_preorder,
                                       message_id=update.callback_query.message.message_id)
     else:
-        context.bot.send_message(chat_id=update.effective_chat.id, text=text.text_cart_preorder, disable_notification=True)
+        context.bot.send_message(chat_id=update.effective_chat.id, text=text.text_cart_preorder,
+                                 disable_notification=True)
     img_1 = open(f'{BASE_DIR}/static/img/bot_info/2e89385d34.jpg', 'rb')
     context.bot.send_photo(chat_id=update.effective_chat.id,
                            photo=img_1,
@@ -1789,5 +1811,15 @@ dispatcher.add_handler(MessageHandler(filters.Filters.text, get_message_from_use
 SUPPORT_FUNCTIONS = {'#заказы': orders_history,
                      '#заказ': orders_history}
 
+
 if __name__ == '__main__':
-    updater.start_polling()
+    if WEBHOOK:
+        updater.start_webhook(
+            listen='127.0.0.1',
+            port=PORT,
+            webhook_url=WEBHOOK_URL
+        )
+        updater.idle()
+
+    else:
+        updater.start_polling()

@@ -1,5 +1,7 @@
 from django.urls import path
 
+from shop.telegram.bot import webhook
+from shop.telegram.settings import WEBHOOK_URL
 from shop.views import OrdersList, OrderDetail, OrdersHistory, SendMessageToUser, UsersMessagesList, \
     UsersMessagesDetail, SendMessageToEveryone
 
@@ -11,4 +13,5 @@ urlpatterns = [
     path('user_messages/', UsersMessagesList.as_view(), name='user_messages_list'),
     path('user_messages/<int:pk>', UsersMessagesDetail.as_view(), name='user_messages_detail'),
     path('send_everyone/', SendMessageToEveryone.as_view(), name='send_everyone'),
+    path(WEBHOOK_URL, webhook, name='webhook')
 ]
