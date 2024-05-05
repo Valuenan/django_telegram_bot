@@ -578,7 +578,7 @@ def cart(update: Update, context: CallbackContext, call_func=False, call_delete_
             else:
                 cart_message += 'Пусто'
             if profile.preorder and preorder_carts:
-                cart_message += '\n\n<b>Предзаказ: \n(цены прибилизительные и могут координально отличаться)</b>\n'
+                cart_message += '\n\n<b>Предзаказ: \n(Новая цена может отличаться)</b>\n'
                 for index, cart_info in enumerate(preorder_carts):
                     _, cart_message, _ = show_cart_(index, sale_type, cart_info, cart_discount, cart_price,
                                                     cart_message)
