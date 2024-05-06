@@ -283,10 +283,9 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
 
             add_button = lambda rests: InlineKeyboardButton(text='🟢 Добавить',
                                                             callback_data=f'add_{product.id}') if rests > 0 else InlineKeyboardButton(
-                text='🟡 Предзаказать', callback_data=f'preorder_{product.id}')
+                text='🟡 Заказать', callback_data=f'preorder_{product.id}')
 
             buttons = ([add_button(int(rests)),
-                        InlineKeyboardButton(text='🔴 Убрать', callback_data=f'remove_{product.id}'),
                         InlineKeyboardButton(text='🧡', callback_data=f'track_{product.id}')],)
             keyboard = InlineKeyboardMarkup([button for button in buttons])
             context.bot.send_photo(chat_id=update.effective_chat.id,
@@ -332,10 +331,10 @@ def add_to_track(update: Update, context: CallbackContext):
     profile = Profile.objects.only('track').get(chat_id=chat_id)
     if profile.track.filter(id=product_id).exists():
         profile.track.remove(product_id)
-        context.bot.answer_callback_query(callback_query_id=call.id, text=f'Товар не отслеживается')
+        context.bot.answer_callback_query(callback_query_id=call.id, text=f'Товар убран из избранного')
     else:
         profile.track.add(product_id)
-        context.bot.answer_callback_query(callback_query_id=call.id, text=f'Товар добавлен в отслеживание')
+        context.bot.answer_callback_query(callback_query_id=call.id, text=f'Товар добавлен в избранное')
 
 
 add_to_track_handler = CallbackQueryHandler(add_to_track, pattern="^" + str('track_'))
@@ -501,7 +500,7 @@ def show_favorite(update: Update, context: CallbackContext):
 
             add_button = lambda rests: InlineKeyboardButton(text='🟢 Добавить',
                                                             callback_data=f'add_{product.id}') if rests > 0 else InlineKeyboardButton(
-                text='🟡 Предзаказать', callback_data=f'preorder_{product.id}')
+                text='🟡 Заказать', callback_data=f'preorder_{product.id}')
 
             buttons = ([add_button(int(rests)),
                         InlineKeyboardButton(text='🔴 Убрать', callback_data=f'remove_{product.id}'),
@@ -678,12 +677,12 @@ def get_offer_settings(update: Update, context: CallbackContext, settings_stage=
             if carts_preorder and carts_regular:
 
                 buttons = [[InlineKeyboardButton(text=f'Заказать часть - предзаказ',
-                                                 callback_data='offer-stage_1_part-preorder'),
-                            InlineKeyboardButton(text=f'Заказать часть - в наличии',
+                                                 callback_data='offer-stage_1_part-preorder')],
+                           [InlineKeyboardButton(text=f'Заказать часть - в наличии',
                                                  callback_data='offer-stage_1_part-order')],
                            [InlineKeyboardButton(text=f'Разделить на 2 заказа',
-                                                 callback_data='offer-stage_1_split'),
-                            InlineKeyboardButton(text=f'Все товары в предзаказ',
+                                                 callback_data='offer-stage_1_split')],
+                           [InlineKeyboardButton(text=f'Все товары в предзаказ',
                                                  callback_data='offer-stage_1_preorder')]]
 
                 keyboard = InlineKeyboardMarkup(buttons)
@@ -892,7 +891,7 @@ def start_edit(update: Update, context: CallbackContext):
             product_info = cart.product
             product_rests = product_info.rests_set.values('amount').all()[0]['amount']
             if cart.preorder:
-                add_button = InlineKeyboardButton(text='🟡 Предзаказать',
+                add_button = InlineKeyboardButton(text='🟡 Заказать',
                                                   callback_data=f'preorder-cart_{product_info.id}')
             else:
                 add_button = InlineKeyboardButton(text='🟢 Добавить', callback_data=f'add-cart_{product_info.id}')
@@ -935,7 +934,7 @@ def edit_cart(update: Update, context: CallbackContext):
     command, product_id = call.data.split('_')
     product_name, amount, product_rests, cart_info = _cart_edit(chat_id, product_id, command)
     if cart_info.preorder:
-        add_button = InlineKeyboardButton(text='🟡 Предзаказать', callback_data=f'preorder-cart_{product_id}')
+        add_button = InlineKeyboardButton(text='🟡 Заказать', callback_data=f'preorder-cart_{product_id}')
     else:
         add_button = InlineKeyboardButton(text='🟢 Добавить', callback_data=f'add-cart_{product_id}')
 
