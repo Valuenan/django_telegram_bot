@@ -276,7 +276,7 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
             rests = product.rests_set.values('amount').all()[0]['amount']
 
             if sale_type == 'no_sale' or product.price == 0 or rests == 0:
-                product_info = f'''{product.name}  \n <b>Цена: {product.price} р.</b> \n <i>В наличии: {int(rests)} шт.</i>'''
+                product_info = f'''{product.name}  \n <b>Цена: {'неизвестна' or product.price + ' р.'}</b> \n <i>В наличии: {int(rests)} шт.</i>'''
             else:
                 discount = getattr(product.discount_group, f'{sale_type}_value')
                 product_info = f'''{product.name}  \n <b>Цена: <s>{product.price}</s> {round(product.price * discount)}.00 р.</b>\n Скидка: {(1 - discount) * 100}% \n <i>В наличии: {int(rests)} шт.</i> '''
@@ -482,10 +482,6 @@ def show_favorite(update: Update, context: CallbackContext):
             except FileNotFoundError:
                 pass
 
-            if len(product_img) > 1:
-                compounds_url = f'{BASE_DIR}/static/products/{product_img[1]}'
-                buttons[0].append(InlineKeyboardButton(text='Состав', callback_data=f'roll_{compounds_url}'))
-
             try:
                 product_photo = open(f'{BASE_DIR}/static/products/{product_img[0]}', 'rb')
             except FileNotFoundError:
@@ -493,7 +489,7 @@ def show_favorite(update: Update, context: CallbackContext):
             rests = product.rests_set.values('amount').all()[0]['amount']
 
             if product.price == 0 or rests == 0 or sale_type == 'no_sale':
-                product_info = f'''{product.name}  \n <b>Цена: {product.price} р.</b> \n <i>В наличии: {int(rests)} шт.</i>'''
+                product_info = f'''{product.name}  \n <b>Цена: {'неизвестна' or product.price + ' р.'} </b> \n <i>В наличии: {int(rests)} шт.</i>'''
             else:
                 discount = getattr(product.discount_group, f'{sale_type}_value')
                 product_info = f'''{product.name}  \n <b>Цена: <s>{product.price}</s> {round(product.price * discount)}.00 р.</b>\n Скидка: {(1 - discount) * 100}% \n <i>В наличии: {int(rests)} шт.</i> '''
@@ -503,7 +499,6 @@ def show_favorite(update: Update, context: CallbackContext):
                 text='🟡 Заказать', callback_data=f'preorder_{product.id}')
 
             buttons = ([add_button(int(rests)),
-                        InlineKeyboardButton(text='🔴 Убрать', callback_data=f'remove_{product.id}'),
                         InlineKeyboardButton(text='🧡', callback_data=f'track_{product.id}')],)
             keyboard = InlineKeyboardMarkup([button for button in buttons])
             context.bot.send_photo(chat_id=update.effective_chat.id,
