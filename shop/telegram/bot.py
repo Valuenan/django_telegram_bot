@@ -276,7 +276,11 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
             rests = product.rests_set.values('amount').all()[0]['amount']
 
             if sale_type == 'no_sale' or product.price == 0 or rests == 0:
-                product_info = f'''{product.name}  \n <b>Цена: {'неизвестна' or product.price + ' р.'}</b> \n <i>В наличии: {int(rests)} шт.</i>'''
+                if product.price == 0:
+                    text_price = 'неизвестна'
+                else:
+                    text_price = str(product.price) + ' р.'
+                product_info = f'''{product.name}  \n <b>Цена: {text_price}</b> \n <i>В наличии: {int(rests)} шт.</i>'''
             else:
                 discount = getattr(product.discount_group, f'{sale_type}_value')
                 product_info = f'''{product.name}  \n <b>Цена: <s>{product.price}</s> {round(product.price * discount)}.00 р.</b>\n Скидка: {(1 - discount) * 100}% \n <i>В наличии: {int(rests)} шт.</i> '''
@@ -489,7 +493,11 @@ def show_favorite(update: Update, context: CallbackContext):
             rests = product.rests_set.values('amount').all()[0]['amount']
 
             if product.price == 0 or rests == 0 or sale_type == 'no_sale':
-                product_info = f'''{product.name}  \n <b>Цена: {'неизвестна' or product.price + ' р.'} </b> \n <i>В наличии: {int(rests)} шт.</i>'''
+                if product.price == 0:
+                    text_price = 'неизвестна'
+                else:
+                    text_price = str(product.price) + ' р.'
+                product_info = f'''{product.name}  \n <b>Цена: {text_price} </b> \n <i>В наличии: {int(rests)} шт.</i>'''
             else:
                 discount = getattr(product.discount_group, f'{sale_type}_value')
                 product_info = f'''{product.name}  \n <b>Цена: <s>{product.price}</s> {round(product.price * discount)}.00 р.</b>\n Скидка: {(1 - discount) * 100}% \n <i>В наличии: {int(rests)} шт.</i> '''
