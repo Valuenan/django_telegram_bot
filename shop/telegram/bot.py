@@ -232,6 +232,8 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
     call = update.callback_query
     sale_type = Shop.objects.values("sale_type").get(id=1)['sale_type']
     chat_id = update.effective_chat.id
+    discount = 1
+
     if '#' in str(update.callback_query.data) and not chosen_category:
         chosen_category = update.callback_query.data.split('_')[1]
         chosen_category, page = chosen_category.split('#')
@@ -275,14 +277,17 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
                 product_photo = open(f'{BASE_DIR}/static/products/no-image.jpg', 'rb')
             rests = product.rests_set.values('amount').all()[0]['amount']
 
-            if sale_type == 'no_sale' or product.price == 0 or rests == 0:
+            if sale_type != 'no_sale':
+                discount = getattr(product.discount_group, f'{sale_type}_value')
+
+            if discount == 1 or product.price == 0 or rests == 0:
                 if product.price == 0:
                     text_price = 'неизвестна'
                 else:
                     text_price = str(product.price) + ' р.'
                 product_info = f'''{product.name}  \n <b>Цена: {text_price}</b> \n <i>В наличии: {int(rests)} шт.</i>'''
             else:
-                discount = getattr(product.discount_group, f'{sale_type}_value')
+
                 product_info = f'''{product.name}  \n <b>Цена: <s>{product.price}</s> {round(product.price * discount)}.00 р.</b>\n Скидка: {(1 - discount) * 100}% \n <i>В наличии: {int(rests)} шт.</i> '''
 
             add_button = lambda rests: InlineKeyboardButton(text='🟢 Добавить',
