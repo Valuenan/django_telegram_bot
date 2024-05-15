@@ -18,140 +18,138 @@ $(document).ready(function(){
 {% endblock %}
 
 {% block content %}
-{% if new_message %}
-    <div><audio hidden autoplay controls src="{% static 'audio/zvonok-kak-v-kolokolchik.mp3' %}"></audio></div>
-{% endif %}
-    <a href="/">Вернуться к заказам</a>
-    <form action="" method="post" class="mt-4" id="formReview">
-        {% csrf_token %}
-        <h1>Заказ №{{ order.id }}</h1>
-        <p>Дата: {{ order.date }}</p>
-        <p>Ник в телеграм: {{ order.profile.telegram_name }}</p>
-        <p>ФИО: {{ order.profile.first_name }} {{ order.profile.last_name }}</p>
-        <p>Номер телефона: {{ order.profile.phone }}</p>
-        <p>Доставка: {% if order.deliver %}
-                    да
-                {% else %}
-                    нет
-                {% endif %}
-        </p>
-        <div>Адрес: {{ order.delivery_info }} | Изменить адрес: <input type="text" name="delivery_info" value="{{ order.delivery_info }}"></div>
 
-        <div>Статус:
-            <select name="new_status">
-                {% for status in order_statuses %}
-                    <option
-                            {% if status == order.status %} selected {% endif %}
-                            value="{{ status.title }}">{{ status }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>Магазин списания/возврата:
-            <select name="shop">
-                {% for shop in shops %}
-                    <option
-                            {% if shop == order.profile.main_shop %} selected {% endif %}
+<a href="/">Вернуться к заказам</a>
+<form action="" method="post" class="mt-4" id="formReview">
+    {% csrf_token %}
+    <h1>Заказ №{{ order.id }}</h1>
+    <p>Дата: {{ order.date }}</p>
+    <p>Ник в телеграм: {{ order.profile.telegram_name }}</p>
+    <p>ФИО: {{ order.profile.first_name }} {{ order.profile.last_name }}</p>
+    <p>Номер телефона: {{ order.profile.phone }}</p>
+    <p>Доставка: {% if order.deliver %}
+                да
+            {% else %}
+                нет
+            {% endif %}
+    </p>
+    <div>Адрес: {{ order.delivery_info }} | Изменить адрес: <input type="text" name="delivery_info" value="{{ order.delivery_info }}"></div>
 
-                            value="{{ shop.id }}">{{ shop }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>Скидка:
-            <select name="new_sale_type" {% if order.status.title not in status_reduction_fields  %} disabled {% endif %}>
-                {% for sale_type, sale_name in sale_types %}
+    <div>Статус:
+        <select name="new_status">
+            {% for status in order_statuses %}
                 <option
-                        {% if sale_type == order.sale_type %} selected {% endif %}
-                        value="{{ sale_type }}">{{ sale_name }}
-                </option>
-                {% endfor %}
-            </select>
-        </div>
-        <table border="1px">
-            <tr>
-                <td>Название</td>
-                <td>Количество</td>
-                {% for shop in shops %}
-                    <td {% if order.profile.main_shop == shop %} bgcolor="green" {% endif %}> {{ shop }}</td>
-                {% endfor %}
-                <td>Стоимость за шт.</td>
-                <td><b>Сумма без скидки</b></td>
-            </tr>
-            {% for product in products %}
-            <tr>
-                <td {% if product.soft_delete %} bgcolor="red" {% endif %}>
-                    {{ product.product.name }} </td>
-                <td> <input
-                        {% if order.status.title not in status_reduction_fields  %} disabled {% endif %}
-                            name="{{ product.id }}" id="contactparent" value="{% formatted_float product.amount %} "></td>
-                {% for rest in product.product.rests_set.all %}
-                    <td {% if product.amount > rest.amount %} bgcolor="yellow" {% endif %}>
-                        {% formatted_float rest.amount %} шт.</td>
-                {% endfor %}
-                {% if product.preorder %}
-                    <td> {% formatted_float product.product.price %} р.</td>
-                    <td> <b>{% get_sum product.amount product.product.price %} р.</b></td>
-                {% else %}
-                    <td> {% formatted_float product.price %} р.</td>
-                    <td> <b>{% get_sum product.amount product.price %} р.</b></td>
-                {% endif %}
-            </tr>
+                        {% if status == order.status %} selected {% endif %}
+                        value="{{ status.title }}">{{ status }}</option>
             {% endfor %}
-            {% if order.status.title in status_reduction_fields %}
-                <tr>
-                    <td>
-                        <select class="js-chosen" name="add_product" placeholder="Добавить товар">
-                            <option value=""></option>
-                            {% for add_product in add_products %}
-                                <option value="{{ add_product.product.id }}">{{ add_product }}</option>
-                            {% endfor %}
-                        </select>
-                    </td>
-                    <td>
-                        <input name="add_num" type="number">
-                    </td>
-                </tr>
-            {% endif %}
-            {% if order.deliver %}
-                <tr>
-                    <td colspan="2">
-                    Стоимость доставки
-                    <input {% if order.status.title != "0" and order.delivery_price != 0 %} disabled {% endif %}
-                        type="number" name="delivery_price" value="{{ order.delivery_price }}">
-                    </td>
-                </tr>
-                {% if order.status.title != "0" %}
-                <tr>
-                    <td colspan="2">
-                    Трек номер
-                    <input type="text" name="tracing_num" value="{{ order.tracing_num }}">
-                    </td>
-                </tr>
-                {% endif %}
-            {% endif %}
-        </table>
-        <button type="submit">Записать</button>
-        </form>
-        {% if order.sale_type != 'no_sale' %}
-            <p>Скидка: {{ full_discount }} р.</p>
-            <p>Сумма со скидкой: {{ order_sum }} р.</p>
-        {% else %}
-            <p>Сумма: {{ order_sum }} р.</p>
-        {% endif %}
+        </select>
+    </div>
+    <div>Магазин списания/возврата:
+        <select name="shop">
+            {% for shop in shops %}
+                <option
+                        {% if shop == order.profile.main_shop %} selected {% endif %}
 
-        <p> {% if not order.admin_check %}
-            Обработанна: -
-        {% else %}
-            Обработанна: {{ order.admin_check.first_name }} {{ order.admin_check.last_name }}
+                        value="{{ shop.id }}">{{ shop }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div>Скидка:
+        <select name="new_sale_type" {% if order.status.title not in status_reduction_fields  %} disabled {% endif %}>
+            {% for sale_type, sale_name in sale_types %}
+            <option
+                    {% if sale_type == order.sale_type %} selected {% endif %}
+                    value="{{ sale_type }}">{{ sale_name }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    <table border="1px">
+        <tr>
+            <td>Название</td>
+            <td>Количество</td>
+            {% for shop in shops %}
+                <td {% if order.profile.main_shop == shop %} bgcolor="green" {% endif %}> {{ shop }}</td>
+            {% endfor %}
+            <td>Стоимость за шт.</td>
+            <td><b>Сумма без скидки</b></td>
+        </tr>
+        {% for product in products %}
+        <tr>
+            <td {% if product.soft_delete %} bgcolor="red" {% endif %}>
+                {{ product.product.name }} </td>
+            <td> <input
+                    {% if order.status.title not in status_reduction_fields  %} disabled {% endif %}
+                        name="{{ product.id }}" id="contactparent" value="{% formatted_float product.amount %} "></td>
+            {% for rest in product.product.rests_set.all %}
+                <td {% if product.amount > rest.amount %} bgcolor="yellow" {% endif %}>
+                    {% formatted_float rest.amount %} шт.</td>
+            {% endfor %}
+            {% if product.preorder %}
+                <td> {% formatted_float product.product.price %} р.</td>
+                <td> <b>{% get_sum product.amount product.product.price %} р.</b></td>
+            {% else %}
+                <td> {% formatted_float product.price %} р.</td>
+                <td> <b>{% get_sum product.amount product.price %} р.</b></td>
+            {% endif %}
+        </tr>
+        {% endfor %}
+        {% if order.status.title in status_reduction_fields %}
+            <tr>
+                <td>
+                    <select class="js-chosen" name="add_product" placeholder="Добавить товар">
+                        <option value=""></option>
+                        {% for add_product in add_products %}
+                            <option value="{{ add_product.product.id }}">{{ add_product }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td>
+                    <input name="add_num" type="number">
+                </td>
+            </tr>
         {% endif %}
-        </p>
-    <br>
-    <h2>Общение с пользователем</h2>
-    <a href="{% url 'user_messages_detail' order.profile.chat_id %}">Перейти к сообщениям пользователя</a>
-    <form class="form" action="{% url 'send_message' %}" method="post">
-       {% csrf_token %}
-        <input hidden type="text" name="chat_id" value="{{ order.profile.chat_id }}">
-        <p>Сообщение: <textarea name="message"></textarea></p>
-        <p>Тихое уведомление: <input name="disable_notification" type="checkbox" checked></p>
-        <button type="submit">Отправить</button>
+        {% if order.deliver %}
+            <tr>
+                <td colspan="2">
+                Стоимость доставки
+                <input {% if order.status.title != "0" and order.delivery_price != 0 %} disabled {% endif %}
+                    type="number" name="delivery_price" value="{{ order.delivery_price }}">
+                </td>
+            </tr>
+            {% if order.status.title != "0" %}
+            <tr>
+                <td colspan="2">
+                Трек номер
+                <input type="text" name="tracing_num" value="{{ order.tracing_num }}">
+                </td>
+            </tr>
+            {% endif %}
+        {% endif %}
+    </table>
+    <button type="submit">Записать</button>
     </form>
+    {% if order.sale_type != 'no_sale' %}
+        <p>Скидка: {{ full_discount }} р.</p>
+        <p>Сумма со скидкой: {{ order_sum }} р.</p>
+    {% else %}
+        <p>Сумма: {{ order_sum }} р.</p>
+    {% endif %}
+
+    <p> {% if not order.admin_check %}
+        Обработанна: -
+    {% else %}
+        Обработанна: {{ order.admin_check.first_name }} {{ order.admin_check.last_name }}
+    {% endif %}
+    </p>
+<br>
+<h2>Общение с пользователем</h2>
+<a href="{% url 'user_messages_detail' order.profile.chat_id %}">Перейти к сообщениям пользователя</a>
+<form class="form" action="{% url 'send_message' %}" method="post">
+   {% csrf_token %}
+    <input hidden type="text" name="chat_id" value="{{ order.profile.chat_id }}">
+    <p>Сообщение: <textarea name="message"></textarea></p>
+    <p>Тихое уведомление: <input name="disable_notification" type="checkbox" checked></p>
+    <button type="submit">Отправить</button>
+</form>
 {% endblock %}
