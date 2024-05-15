@@ -25,6 +25,7 @@ bot = Bot(token=TOKEN)
 updater = Updater(token=TOKEN)
 dispatcher = updater.dispatcher
 PORT = int(os.environ.get('PORT', WEBHOOK_PORT))
+MAX_LEN_MESSAGE = 3800
 
 
 @csrf_exempt
@@ -1156,18 +1157,42 @@ def orders_history(update: Update, context: CallbackContext, request_chat_id=Non
                     orders_text += f'ИТОГО: {round(full_price + order.delivery_price, 2)} р.{discount_text}{payment_urls_text}'
                 orders_text += f'\n {"_" * 20} \n'
         # chat_id обязательно update.effective_chat.id, при запросе из чата поддержки что бы отправлялось не клиенту а в поддержку
-        if update.callback_query:
-            context.bot.edit_message_text(chat_id=update.effective_chat.id,
-                                          text=orders_text,
-                                          reply_markup=keyboard, parse_mode='HTML',
-                                          message_id=update.callback_query.message.message_id, )
+
+        if len(orders_text) > MAX_LEN_MESSAGE:
+            split_long_text = orders_text[MAX_LEN_MESSAGE:].split('\n', 1)
+            long_text_parts = [orders_text[:MAX_LEN_MESSAGE] + split_long_text[0]]
+            while len(split_long_text[1]) > MAX_LEN_MESSAGE:
+                orders_text = split_long_text[1]
+                split_long_text = orders_text[MAX_LEN_MESSAGE:].split('\n', 1)
+                long_text_parts.append(orders_text[:MAX_LEN_MESSAGE] + split_long_text[0])
+            else:
+                long_text_parts.append(split_long_text[1])
+
+            for index, text_message in enumerate(long_text_parts):
+                if update.callback_query and index == 0:
+                    context.bot.edit_message_text(chat_id=update.effective_chat.id,
+                                                  text=text_message,
+                                                  reply_markup=keyboard, parse_mode='HTML',
+                                                  message_id=update.callback_query.message.message_id, )
+                else:
+                    context.bot.send_message(chat_id=update.effective_chat.id,
+                                             text=text_message,
+                                             reply_markup=keyboard, parse_mode='HTML',
+                                             disable_notification=True)
         else:
-            message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                               text=orders_text,
-                                               reply_markup=keyboard, parse_mode='HTML', disable_notification=True)
-    if not update.callback_query and request_chat_id is None:
-        context.bot.delete_message(chat_id=chat_id,
-                                   message_id=message.message_id - 1)
+
+            if update.callback_query:
+                context.bot.edit_message_text(chat_id=update.effective_chat.id,
+                                              text=orders_text,
+                                              reply_markup=keyboard, parse_mode='HTML',
+                                              message_id=update.callback_query.message.message_id, )
+            else:
+                message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                                   text=orders_text,
+                                                   reply_markup=keyboard, parse_mode='HTML', disable_notification=True)
+            if not update.callback_query and request_chat_id is None:
+                context.bot.delete_message(chat_id=chat_id,
+                                           message_id=message.message_id - 1)
 
 
 orders_history_handler = CommandHandler('orders', orders_history)
