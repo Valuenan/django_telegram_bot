@@ -99,12 +99,8 @@ def import_products() -> dict:
             result['created'] += 1
         else:
             exist_product = exist_product[0]
-            if product.parent_key != '00000000-0000-0000-0000-000000000000':
-                new_category = Category.objects.filter(ref_key=product.parent_key)
-                if not new_category:
-                    result['skipped'] += 1
-                    continue
-            else:
+            new_category = Category.objects.filter(ref_key=product.parent_key)
+            if not new_category:
                 new_category = [None]
 
             if exist_product.category != new_category[
