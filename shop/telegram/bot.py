@@ -171,12 +171,13 @@ def catalog(update: Update, context: CallbackContext):
         chosen_category = call.data.split('_')
         if chosen_category[1] != 'None':
             this_category = Category.objects.select_related('parent_category').get(id=int(chosen_category[1]))
-            categories = Category.objects.select_related('parent_category').filter(parent_category=this_category)
+            categories = Category.objects.select_related('parent_category').filter(parent_category=this_category,
+                                                                                   hide=False)
         else:
-            categories = Category.objects.select_related('parent_category').filter(parent_category=None)
+            categories = Category.objects.select_related('parent_category').filter(parent_category=None, hide=False)
             flag_prew_category = False
     else:
-        categories = Category.objects.select_related('parent_category').filter(parent_category=None)
+        categories = Category.objects.select_related('parent_category').filter(parent_category=None, hide=False)
 
     user_profile = Profile.objects.get(chat_id=chat_id)
     if categories:
