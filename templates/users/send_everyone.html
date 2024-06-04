@@ -9,11 +9,22 @@
         <title>Отправить сообщение ВСЕМ</title>
     </head>
     <body>
+    <script type="text/javascript">
+        function countChar() {
+            var count_char = document.getElementById("count_char");
+            var count_char_textarea = document.getElementById("count_char_textarea");
+            count_char.value = 500 - count_char_textarea.value.length;
+        }
+    </script>
     <a href="/">Вернуться к заказам</a>
     <form action="" method="post" class="mt-4" id="formReview">
         {% csrf_token %}
         <h1>!Внимание сообщение будет отправленно ВСЕМ пользователям!</h1>
-        <p>Сообщение: <textarea name="message"></textarea></p>
+        <div id="count_char_block">
+            <p>Осталось символов:<input type="text" id="count_char" value="500" readonly="readonly" /></p>
+            <p>Сообщение: <textarea name="message" id="count_char_textarea" style="width: 600px;height: 300px;"
+                onchange="countChar()" onkeyup="countChar()" ></textarea></p>
+        </div>
         <p>Тихое уведомление: <input name="disable_notification" type="checkbox" checked></p>
         <button type="submit">Записать</button>
     </form>
