@@ -93,7 +93,7 @@ def import_products() -> dict:
                 category = [None]
             if category:
                 Product.objects.create(category=category[0], ref_key=product.ref_key, name=product.name.strip(),
-                                       price=0, search=product.search)
+                                       price=0, search=product.search, description=product.description)
             else:
                 continue
             result['created'] += 1
@@ -102,13 +102,15 @@ def import_products() -> dict:
             new_category = Category.objects.filter(ref_key=product.parent_key)
             if not new_category:
                 new_category = [None]
-
+            if product.description:
+                print(product.description)
             if exist_product.category != new_category[
-                0] or exist_product.ref_key != product.ref_key or exist_product.name != product.name.strip() or exist_product.search != product.search:
+                0] or exist_product.ref_key != product.ref_key or exist_product.name != product.name.strip() or exist_product.search != product.search or exist_product.description != product.description:
                 exist_product.category = new_category[0]
                 exist_product.ref_key = product.ref_key
                 exist_product.name = product.name.strip()
                 exist_product.search = product.search
+                exist_product.description = product.description
                 exist_product.save()
                 result['updated'] += 1
     return result
@@ -457,7 +459,8 @@ def edit_users_profile() -> list:
             if profile:
                 profile.update(user=None, first_name=user.first_name, last_name=user.last_name)
             else:
-                Profile.objects.create(user=None, first_name=user.first_name, last_name=user.last_name, chat_id=user.username)
+                Profile.objects.create(user=None, first_name=user.first_name, last_name=user.last_name,
+                                       chat_id=user.username)
             user.delete()
         except Exception as err:
             user_name = str(user.username)

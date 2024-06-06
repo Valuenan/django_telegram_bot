@@ -289,15 +289,20 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
                     text_price = str(product.price) + ' р.'
                 product_info = f'''{product.name}  \n <b>Цена: {text_price}</b> \n <i>В наличии: {int(rests)} шт.</i>'''
             else:
-
                 product_info = f'''{product.name}  \n <b>Цена: <s>{product.price}</s> {round(product.price * discount)}.00 р.</b>\n Скидка: {(1 - discount) * 100}% \n <i>В наличии: {int(rests)} шт.</i> '''
 
-            add_button = lambda rests: InlineKeyboardButton(text='🟢 Добавить',
-                                                            callback_data=f'add_{product.id}') if rests > 0 else InlineKeyboardButton(
-                text='🟡 Заказать', callback_data=f'preorder_{product.id}')
+            if int(rests) > 0:
+                add_button = InlineKeyboardButton(text='🟢 Добавить', callback_data=f'add_{product.id}')
+            else:
+                add_button = InlineKeyboardButton(text='🟡 Заказать', callback_data=f'preorder_{product.id}')
 
-            buttons = ([add_button(int(rests)),
-                        InlineKeyboardButton(text='🧡', callback_data=f'track_{product.id}')],)
+            if product.description != '':
+                description_button = [InlineKeyboardButton(text='📄 Описание', callback_data=f'description_{product.id}')]
+            else:
+                description_button = []
+
+            buttons = (
+                [add_button, InlineKeyboardButton(text='🧡', callback_data=f'track_{product.id}')], description_button)
             keyboard = InlineKeyboardMarkup([button for button in buttons])
             context.bot.send_photo(chat_id=update.effective_chat.id,
                                    photo=product_photo,
@@ -350,6 +355,58 @@ def add_to_track(update: Update, context: CallbackContext):
 
 add_to_track_handler = CallbackQueryHandler(add_to_track, pattern="^" + str('track_'))
 dispatcher.add_handler(add_to_track_handler)
+
+
+@connection_decorator
+def product_description(update: Update, context: CallbackContext):
+    """Показать описание товара"""
+    call = update.callback_query
+
+    side, product_id = call.data.split('_')
+
+    product = Product.objects.get(id=product_id)
+
+    rests = product.rests_set.values('amount').all()[0]['amount']
+
+    if side == 'description':
+        description_button = InlineKeyboardButton(text='🏷️ Ценник', callback_data=f'product-info_{product.id}')
+        product_info = product.description
+    else:
+        description_button = InlineKeyboardButton(text='📄 Описание', callback_data=f'description_{product.id}')
+        sale_type = Shop.objects.values("sale_type").get(id=1)['sale_type']
+        if sale_type != 'no_sale':
+            discount = getattr(product.discount_group, f'{sale_type}_value')
+
+        if discount == 1 or product.price == 0 or rests == 0:
+            if product.price == 0:
+                text_price = 'неизвестна'
+            else:
+                text_price = str(product.price) + ' р.'
+            product_info = f'''{product.name}  \n <b>Цена: {text_price}</b> \n <i>В наличии: {int(rests)} шт.</i>'''
+        else:
+
+            product_info = f'''{product.name}  \n <b>Цена: <s>{product.price}</s> {round(product.price * discount)}.00 р.</b>\n Скидка: {(1 - discount) * 100}% \n <i>В наличии: {int(rests)} шт.</i> '''
+
+    if int(rests) > 0:
+        add_button = InlineKeyboardButton(text='🟢 Добавить', callback_data=f'add_{product.id}')
+    else:
+        add_button = InlineKeyboardButton(text='🟡 Заказать', callback_data=f'preorder_{product.id}')
+
+    buttons = ([add_button, InlineKeyboardButton(text='🧡', callback_data=f'track_{product.id}')], [description_button])
+    keyboard = InlineKeyboardMarkup([button for button in buttons])
+
+    try:
+        context.bot.edit_message_text(text=product_info, chat_id=call.message.chat.id,
+                                      message_id=call.message.message_id, reply_markup=keyboard, parse_mode='HTML')
+    except:
+        context.bot.send_message(call.message.chat.id, "Описания не оказалось 😨", disable_notification=True)
+
+
+product_description_handler = CallbackQueryHandler(product_description, pattern="^" + str('description_'))
+dispatcher.add_handler(product_description_handler)
+
+product_description_handler = CallbackQueryHandler(product_description, pattern="^" + str('product-info_'))
+dispatcher.add_handler(product_description_handler)
 
 
 @connection_decorator
@@ -509,19 +566,28 @@ def show_favorite(update: Update, context: CallbackContext):
                 discount = getattr(product.discount_group, f'{sale_type}_value')
                 product_info = f'''{product.name}  \n <b>Цена: <s>{product.price}</s> {round(product.price * discount)}.00 р.</b>\n Скидка: {(1 - discount) * 100}% \n <i>В наличии: {int(rests)} шт.</i> '''
 
-            add_button = lambda rests: InlineKeyboardButton(text='🟢 Добавить',
-                                                            callback_data=f'add_{product.id}') if rests > 0 else InlineKeyboardButton(
-                text='🟡 Заказать', callback_data=f'preorder_{product.id}')
+            if int(rests) > 0:
+                add_button = InlineKeyboardButton(text='🟢 Добавить', callback_data=f'add_{product.id}')
+            else:
+                add_button = InlineKeyboardButton(text='🟡 Заказать', callback_data=f'preorder_{product.id}')
 
-            buttons = ([add_button(int(rests)),
-                        InlineKeyboardButton(text='🧡', callback_data=f'track_{product.id}')],)
+            if product.description != '':
+                description_button = [InlineKeyboardButton(text='📄 Описание', callback_data=f'description_{product.id}')]
+            else:
+                description_button = []
+
+            buttons = (
+                [add_button, InlineKeyboardButton(text='🧡', callback_data=f'track_{product.id}')], description_button)
             keyboard = InlineKeyboardMarkup([button for button in buttons])
+
             context.bot.send_photo(chat_id=update.effective_chat.id,
                                    photo=product_photo,
                                    disable_notification=True)
+            logger.info(f'{update.effective_chat.id=} \n {product_info=} \n {keyboard=}')
             context.bot.send_message(chat_id=update.effective_chat.id, text=product_info,
                                      reply_markup=keyboard,
                                      parse_mode='HTML', disable_notification=True)
+
         if pagination and page < pages:
             header_text = f'Страница <b>{page + 1}</b> из {pages + 1}'
             keyboard = InlineKeyboardMarkup(

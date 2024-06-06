@@ -108,6 +108,7 @@ class Product(models.Model):
     search = models.IntegerField(verbose_name='Номер для поиска', null=True, blank=True)
     discount_group = models.ForeignKey(DiscountGroup, on_delete=models.SET_NULL, verbose_name='Категория скидки',
                                        null=True, blank=True)
+    description = models.TextField(verbose_name='Описание', default='', null=True, blank=True)
 
     def __str__(self):
         return self.name

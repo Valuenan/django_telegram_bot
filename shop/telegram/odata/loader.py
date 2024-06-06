@@ -31,6 +31,7 @@ class CatalogProduct(BaseModel):
     name: str = Field(alias='НаименованиеПолное')
     search: int = Field(alias='КодДляПоиска')
     img_key: str = Field(alias='ФайлКартинки_Key')
+    description: str = Field(alias='Описание')
 
 
 class ProductPrice(BaseModel):
@@ -63,7 +64,8 @@ def _deserializer(model: object, value: dict) -> list:
         json_data = json.dumps(value)
         data = [model.model_validate_json(json_data)]
     except ValidationError as err:
-        print("Exeption", err.json())
+        # print("Exeption", err.json())
+        pass
     else:
         return data
 
@@ -72,8 +74,8 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
                    **kwargs) -> dict or None:
     http.client.HTTPConnection.debuglevel = 0
 
-    logging.basicConfig(filename='oadtalog')
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.basicConfig(filename='odata_log')
+    logging.getLogger().setLevel(logging.ERROR)
     # requests_log = logging.getLogger("requests.packages.urllib3")
     # requests_log.setLevel(logging.DEBUG)
     # requests_log.propagate = True
@@ -94,7 +96,7 @@ def create_request(login: str, password: str, model: object, server_url: str, ba
         if model == CatalogProduct:
             format_ = 'json'
             content = 'Catalog_Номенклатура/'
-            select = 'DeletionMark,Parent_Key,Ref_Key,НаименованиеПолное,КодДляПоиска,ФайлКартинки_Key'
+            select = 'DeletionMark,Parent_Key,Ref_Key,НаименованиеПолное,КодДляПоиска,ФайлКартинки_Key,Описание'
             raw_filter = "not IsFolder and not DeletionMark"
             filter_ = quote(raw_filter)
             order_by = ''
