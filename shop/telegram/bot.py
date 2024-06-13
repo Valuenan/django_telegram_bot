@@ -367,7 +367,7 @@ def product_description(update: Update, context: CallbackContext):
     product = Product.objects.get(id=product_id)
 
     rests = product.rests_set.values('amount').all()[0]['amount']
-
+    discount = 1
     if side == 'description':
         description_button = InlineKeyboardButton(text='🏷️ Ценник', callback_data=f'product-info_{product.id}')
         product_info = product.description
