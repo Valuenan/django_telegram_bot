@@ -6,7 +6,7 @@ import os
 
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.db import close_old_connections, connection
+from django.db import close_old_connections, connection, utils
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, error, Bot
 from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, \
     filters
@@ -71,6 +71,9 @@ def main_keyboard(update: Update, context: CallbackContext):
                                    chat_id=chat_id, discussion_status='phone_main')
             no_phone_message = f'\n\nДобро пожаловать {user.first_name}, для оформления заказов нужно указать номер телефона. Отправьте в чат номер телефона (формат +7** или 8**).'
             message_text = text.start_message_new + no_phone_message
+        except utils.OperationalError:
+            Profile.objects.create(first_name='', last_name='', telegram_name=user.username,
+                                   chat_id=chat_id, discussion_status='phone_main')
         except Exception as err:
             message_text = f'''Извините {user.first_name} произошла ошибка, попробуйте еще раз нажать 👉 /start.
         Если ошибка повторяется, обратитесь за помощью в канал {ADMIN_TG}'''
