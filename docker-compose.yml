@@ -2,10 +2,10 @@ version: '3'
 
 services:
   mysql:
-    image: mysql:5.7
-    command: --character-set-server=utf8 --collation-server=utf8_general_ci
+    image: mysql:8
+    command: --character-set-server=UTF8MB4 --collation-server=UTF8MB4_general_ci
     ports:
-      - '3307:3307'
+      - 3307:3307
     environment:
       MYSQL_DATABASE: 'v92pro2z_finshop'
       MYSQL_USER: 'v92pro2z_finshop'
@@ -17,39 +17,57 @@ services:
   redis:
     image: redis
     restart: always
-    container_name: 'app_redis'
+    container_name: app_redis
     command: redis-server
     ports:
-      - '6379:6379'
+      - 6379:6379
 
-  web:
+  backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     restart: always
-    container_name: 'django_telegram_bot'
-    command: 'python manage.py runserver 0.0.0.0:8000'
+    container_name: backend
     environment:
       - DATABASE_HOST=mysql
     env_file:
-      - ./django_telegram_bot/.env
+      - ./backend/django_telegram_bot/.env
     volumes:
-        - .:/django_telegram_bot
+      - ./backend:/app
     ports:
-      - '8000:8000'
+      - 8000:8000
     depends_on:
       - mysql
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: always
+    container_name: frontend
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - 5173:5173
+    depends_on:
+      - backend
+
+
   celery:
-      build: .
-      container_name: 'celery'
+      build:
+        context: ./backend
+        dockerfile: Dockerfile
+      container_name: celery
       command: celery -A django_telegram_bot worker -l info
       volumes:
-        - .:/django_telegram_bot
+        - .:/backend/django_telegram_bot
       links:
         - redis
       depends_on:
-        - web
+        - backend
         - redis
 
 volumes:

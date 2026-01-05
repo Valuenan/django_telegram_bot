@@ -14,8 +14,8 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.conf.urls import url, static
-from django.urls import path, include
+from django.conf.urls import static
+from django.urls import path, include, re_path
 from django_telegram_bot import settings
 from shop.views import ImportGoodsView, Login, Logout, ImportCategory1CView, ImportProducts1CView, RemoveDuplicates, \
     RemoveNoRefKey, ImportImages1CView, ImportPrices1CView, ImportRests1CView, ProductsCheckList, MarkProductsSale, \
@@ -56,8 +56,8 @@ if settings.DEBUG:
 
 else:
     urlpatterns += [
-        url(f'^{settings.MEDIA_URL.lstrip("/")}(?P<path>.*)$',
+        re_path(f'^{settings.MEDIA_URL.lstrip("/")}(?P<path>.*)$',
             mediaserve, {'document_root': settings.MEDIA_ROOT}),
-        url(f'^{settings.STATIC_URL.lstrip("/")}(?P<path>.*)$',
+        re_path(f'^{settings.STATIC_URL.lstrip("/")}(?P<path>.*)$',
             mediaserve, {'document_root': settings.STATIC_ROOT}),
     ]
