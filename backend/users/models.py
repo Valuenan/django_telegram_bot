@@ -121,9 +121,9 @@ class Carts(models.Model):
     date = models.DateTimeField(verbose_name='Дата, время сообщениея', auto_now_add=True)
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, verbose_name='Пользователь')
     product = models.ForeignKey(Product, on_delete=models.DO_NOTHING, verbose_name='Товары')
-    amount = models.DecimalField(max_digits=6, decimal_places=3, verbose_name='Количество', default=0)
+    amount = models.IntegerField(verbose_name='Количество', default=0)
     price = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Цена')
-    order = models.ForeignKey('Orders', on_delete=models.DO_NOTHING, verbose_name='Заказ', blank=True, null=True)
+    order = models.ForeignKey('Orders', related_name='carts', on_delete=models.DO_NOTHING, verbose_name='Заказ', blank=True, null=True)
     preorder = models.BooleanField(verbose_name='Предзаказ', default=False)
     soft_delete = models.BooleanField(verbose_name='Удалить', default=False)
 
@@ -149,6 +149,7 @@ class Orders(models.Model):
     payment = models.ForeignKey(Payment, on_delete=models.DO_NOTHING, verbose_name='Вид оплаты', blank=True, null=True)
     payment_url = models.URLField(verbose_name='Ссылка на оплату Авангард', blank=True, null=True)
     extra_payment_url = models.URLField(verbose_name='Дополнительная ссылка на оплату Авангард', blank=True, null=True)
+    qr_img = models.CharField(max_length=100, verbose_name='QR код для оплаты', blank=True, null=True)
     payed = models.BooleanField(verbose_name='Оплачены товары', default=False)
     payed_delivery = models.BooleanField(verbose_name='Оплачена доставка', default=False)
     tracing_num = models.CharField(max_length=30, verbose_name='Трек номер', null=True, blank=True)
@@ -171,14 +172,14 @@ class Orders(models.Model):
         add_product = Product.objects.get(id=product_id)
         Carts.objects.create(profile=self.profile, product=add_product, amount=add_amount, price=add_product.price,
                              order=self)
-        order_carts = self.carts_set.all()
+        order_carts = self.carts.all()
         self.order_price = self.update_order_sum(order_carts)
         self.save()
 
     def update_order_quantity(self, form: dict, rests_action: str, shop: int):
         """Обновляет количество товара и спысываем со склада"""
         """Приимаем на вход словарь где ключ - ид товара, значение - количество"""
-        order_carts = self.carts_set.all()
+        order_carts = self.carts.all()
 
         if rests_action == 'add' and not form:
             for item in order_carts.values():

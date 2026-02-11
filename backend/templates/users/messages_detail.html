@@ -52,7 +52,7 @@
     </form>
     <div><p>Заказы пользователя:</p>
     {% for order_id in user_orders %}
-        <p><a href="/order/{{ order_id.id }}">Заказ № {{ order_id.id }}</a></p>
+        <p><a href="manager/order/{{ order_id.id }}">Заказ № {{ order_id.id }}</a></p>
     {% endfor %}
     </div>
 {% endblock %}

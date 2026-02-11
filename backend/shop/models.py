@@ -24,6 +24,26 @@ class BotSettings(models.Model):
         verbose_name_plural = 'Настройки бота'
 
 
+class BotMainMessage(models.Model):
+    title = models.CharField(max_length=200, null=True, blank=True, verbose_name="Заголовок (для админки)")
+    text = models.TextField(verbose_name="Текст сообщения", null=True, blank=True)
+
+    image = models.ImageField(upload_to='bot_messages/', null=True, blank=True, verbose_name="Изображение")
+    is_active = models.BooleanField(default=True, verbose_name="Отображать")
+    priority = models.IntegerField(default=0, verbose_name="Приоритет (сортировка)")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Сообщение на главной"
+        verbose_name_plural = "Сообщения на главной"
+        ordering = ['-priority', '-created_at']
+
+    def __str__(self):
+        return str(self.created_at)
+
+
 class File(models.Model):
     user = models.ForeignKey(User, on_delete=models.DO_NOTHING, verbose_name='Загруженно')
     file = models.FileField(upload_to='import/', verbose_name='Файл импорта')
@@ -56,9 +76,20 @@ class Category(models.Model):
     command = models.CharField(max_length=100, verbose_name='Название категории')
     ref_key = models.CharField(max_length=36, verbose_name='Ссылка в базе 1с', unique=True, null=True, blank=True)
     id = models.IntegerField(unique=True, primary_key=True, db_index=True, verbose_name="ИД группы")
-    parent_category = models.ForeignKey('self', on_delete=models.CASCADE, verbose_name='Родительсая категоря',
-                                        null=True, blank=True)
+    parent_category = models.ForeignKey('self', related_name='children', on_delete=models.CASCADE,
+                                        verbose_name='Родительсая категоря', null=True, blank=True)
     hide = models.BooleanField(verbose_name='Скрыть категорию', default=False)
+
+    def get_breadcrumb_names(self):
+        res = []
+        curr = self
+        while curr:
+            res.append({
+                'command': curr.command,
+                'id': curr.id
+            })
+            curr = curr.parent_category
+        return res[::-1]
 
     def __str__(self):
         return f'{self.id}.{self.command}'
@@ -100,7 +131,8 @@ class DiscountGroup(models.Model):
 
 
 class Product(models.Model):
-    category = models.ForeignKey(Category, on_delete=models.CASCADE, verbose_name='Категория', null=True, blank=True)
+    category = models.ForeignKey(Category, related_name="products", on_delete=models.CASCADE, verbose_name='Категория',
+                                 null=True, blank=True)
     ref_key = models.CharField(max_length=36, verbose_name='Ссылка в базе 1с', unique=True, null=True, blank=True)
     name = models.CharField(max_length=100, verbose_name='Название')
     image = models.ForeignKey(Image, on_delete=models.CASCADE, verbose_name='Изображение товара', null=True, blank=True)

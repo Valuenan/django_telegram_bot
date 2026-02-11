@@ -462,8 +462,8 @@ class OrderDetail(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super(OrderDetail, self).get_context_data(**kwargs)
-        self.model = self.model.objects.prefetch_related('carts_set').all()
-        context['products'] = context['order'].carts_set.all()
+        self.model = self.model.objects.prefetch_related('carts').all()
+        context['products'] = context['order'].carts.all()
         context['order_sum'] = context['order'].delivery_price
         context['full_discount'] = 0
         context['status_reduction_fields'] = ["0", "7"]
@@ -541,7 +541,7 @@ class OrderDetail(LoginRequiredMixin, DetailView):
         old_status = order.status.title
         rests_action = order.update_order_status(new_status)
         order_sum = delivery_price
-        carts = order.carts_set.filter(soft_delete=False)
+        carts = order.carts.filter(soft_delete=False)
         if order.sale_type != 'no_sale':
             for cart in carts:
                 discount = getattr(cart.product.discount_group, f"{order.sale_type}_value")
@@ -596,12 +596,12 @@ class OrderDetail(LoginRequiredMixin, DetailView):
                 message = f'Ошибка: {result}'
                 messages.add_message(request, messages.ERROR, message)
                 order.update_order_status(old_status)
-                return redirect(f'/order/{pk}')
+                return redirect(f'/manager/order/{pk}')
 
         else:
             message = 'Данные схранены'
         messages.add_message(request, messages.INFO, message)
-        return redirect(f'/order/{pk}')
+        return redirect(f'/manager/order/{pk}')
 
 
 class SendMessageToUser(LoginRequiredMixin, View):

@@ -1175,7 +1175,7 @@ dispatcher.add_handler(accept_cart_handler)
 def orders_history(update: Update, context: CallbackContext, request_chat_id=None):
     """Вызов истории покупок (в статусе кроме исполненно или отменено) версия 1"""
     chat_id = request_chat_id or update.effective_chat.id
-    orders = Orders.objects.prefetch_related('carts_set').filter(profile__chat_id=chat_id).exclude(
+    orders = Orders.objects.prefetch_related('carts').filter(profile__chat_id=chat_id).exclude(
         status__in=[6, 7]).order_by('id')
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='Закрыть', callback_data='remove-message')]])
     # chat_id обязательно update.effective_chat.id, при запросе из чата поддержки что бы отправлялось не клиенту а в поддержку
@@ -1188,7 +1188,7 @@ def orders_history(update: Update, context: CallbackContext, request_chat_id=Non
         for order in orders:
             payment_urls_text, text_products, tracing_text = '', '', ''
             full_price, product_price_sum, position = 0, 0, 1
-            for cart in order.carts_set.filter(soft_delete=False):
+            for cart in order.carts.filter(soft_delete=False):
                 if order.sale_type != 'no_sale':
                     discount = getattr(cart.product.discount_group, f'{order.sale_type}_value')
                     calc_price = round(cart.price * discount) * cart.amount
@@ -1708,7 +1708,7 @@ def manager_edit_order(user_order: object) -> str:
     """Изменить сообщение в канале менеджеров"""
     text_products = ''
     order_sum = 0
-    carts = user_order.carts_set.filter(soft_delete=False).select_related('product')
+    carts = user_order.carts.filter(soft_delete=False).select_related('product')
     sale_type = user_order.sale_type
     fix = ''
 

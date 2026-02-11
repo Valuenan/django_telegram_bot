@@ -1,8 +1,10 @@
 import datetime
-
+import html
 from bs4 import BeautifulSoup
 import logging
 import http.client
+import requests
+from urllib.parse import urljoin
 
 from shop.telegram import settings
 from shop.telegram.http_adapter import get_legacy_session
@@ -89,6 +91,78 @@ def avangard_invoice(title: str, price: int, customer: str, shop_order_num: int,
 
     session.close()
     return order_num, payment_link
+
+
+def avangard_get_pay_link(payment_url: str) -> dict:
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    })
+
+    # 1. Заходим на страницу, чтобы получить куки и ViewState
+    # Важно: requests сам пройдет редирект с /l?t=... на /pay.xhtml
+    first_resp = session.get(payment_url)
+    current_url = first_resp.url
+    soup = BeautifulSoup(first_resp.text, 'html.parser')
+
+    # Извлекаем ViewState
+    view_state = soup.find('input', {'name': 'javax.faces.ViewState'})['value']
+
+    # Извлекаем Action формы (он может содержать jsessionid)
+    form_action = soup.find('form', id='FORM')['action']
+    post_url = urljoin(current_url, form_action)
+
+    # 2. Формируем Payload строго по вашему списку
+    # ВАЖНО: значения должны быть строками
+    payload = {
+        'javax.faces.partial.ajax': 'true',
+        'javax.faces.source': 'FORM:j_idt509',
+        'javax.faces.partial.execute': '@all',
+        'javax.faces.partial.render': '@all',
+        'FORM:j_idt509': 'FORM:j_idt509',
+        'FORM': 'FORM',
+        'FORM:lang_selector': 'RU',
+        'FORM:j_idt452:j_idt462_active': '1',  # Индекс вкладки оплаты
+        'FORM:CARDHOLDER_NAME': 'TEST',  # Лучше латиницей как на карте
+        'FORM:EMAIL_INP': 'test@test.ru',
+        'FORM:TERMS_ACCEPTED': 'on',
+        'javax.faces.ViewState': view_state
+    }
+
+    # 3. Заголовки, без которых PrimeFaces вернет просто HTML вместо XML-редиректа
+    headers = {
+        'Faces-Request': 'partial/ajax',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'Referer': current_url,
+        'Accept': 'application/xml, text/xml, */*; q=0.01'
+    }
+
+    # 4. Отправляем POST
+    response = session.post(post_url, data=payload, headers=headers)
+
+    # 5. Обработка XML-ответа
+    if 'xml' in response.headers.get('Content-Type', ''):
+        xml_soup = BeautifulSoup(response.text, 'xml')
+        print(xml_soup)
+        update_content = xml_soup.find('update').text
+        # 2. Декодируем &lt; в < и т.д.
+        clean_html = html.unescape(update_content)
+
+        # 3. Парсим "очищенный" HTML
+        inner_soup = BeautifulSoup(clean_html, 'html.parser')
+
+        # 4. Извлекаем данные
+        qr_link_tag = inner_soup.find('a', class_='qrHref')
+        qr_img_tag = inner_soup.find('img', src=lambda x: x and x.startswith('data:image'))
+        if qr_link_tag and qr_img_tag:
+            qr_link_tag = qr_link_tag['href'].replace('&amp;', '&')
+            qr_img_tag = qr_img_tag['src']
+            if qr_link_tag and qr_img_tag:
+                print(qr_link_tag)
+                print(qr_img_tag)
+                return {'qr_link': qr_link_tag, 'qr_img': qr_img_tag}
+    return {'qr_link': None, 'qr_img': None}
 
 
 def avangard_check(orders: dict):

@@ -19,7 +19,7 @@ $(document).ready(function(){
 
 {% block content %}
 
-<a href="/">Вернуться к заказам</a>
+<a href="/manager">Вернуться к заказам</a>
 <form action="" method="post" class="mt-4" id="formReview">
     {% csrf_token %}
     <h1>Заказ №{{ order.id }}</h1>

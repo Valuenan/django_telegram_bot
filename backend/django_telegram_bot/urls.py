@@ -17,15 +17,16 @@ from django.contrib import admin
 from django.conf.urls import static
 from django.urls import path, include, re_path
 from django_telegram_bot import settings
-from shop.views import ImportGoodsView, Login, Logout, ImportCategory1CView, ImportProducts1CView, RemoveDuplicates, \
+from shop.views import ImportGoodsView, ImportCategory1CView, ImportProducts1CView, RemoveDuplicates, \
     RemoveNoRefKey, ImportImages1CView, ImportPrices1CView, ImportRests1CView, ProductsCheckList, MarkProductsSale, \
     PhotoCheckList
 from django.views.static import serve as mediaserve
 
+from shop.telegram.bot import webhook
+from shop.telegram.settings import TOKEN
 
 urlpatterns = [
-    path('login/', Login.as_view(), name='login'),
-    path('logout/', Logout.as_view(), name='logout'),
+    path(TOKEN + '/', webhook, name='webhook'),
     path('admin/import_goods/', ImportGoodsView.as_view(), name='admin_import_goods'),
 
     path('admin/load_from_1c', ImportCategory1CView.as_view(), name='load_from_1c'),
@@ -41,7 +42,9 @@ urlpatterns = [
     path('admin/photo_checklist', PhotoCheckList.as_view(), name='photo_checklist'),
 
     path('admin/', admin.site.urls, name='admin'),
-    path('', include('shop.urls')),
+    path('manager/', include('shop.urls')),
+    path('', include('users.urls')),
+    path('api/', include('api.urls')),
     path('__debug__/', include('debug_toolbar.urls')),
 ]
 
