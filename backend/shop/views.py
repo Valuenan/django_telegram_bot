@@ -21,8 +21,9 @@ from .forms import ImportGoodsForm
 from users.models import Orders, Profile, OrderStatus, UserMessage, Carts
 from .models import File, Product, Rests, Shop, Category, SALE_TYPES
 from .telegram.bot import ready_order_message, manager_edit_order, manager_remove_order, send_message_to_user
-from .telegram.odata.data_exchange import import_prices, import_rests, remove_duplicates, remove_no_ref_key, mark_sale
-from .tasks import load_images_task, load_category_task, load_products_task, send_everyone_task
+from .telegram.odata.data_exchange import remove_duplicates, remove_no_ref_key, mark_sale
+from .tasks import load_images_task, load_category_task, load_products_task, load_prices_task, send_everyone_task, \
+    load_rests_task
 from .telegram.settings import TOKEN
 from .utilities import _send_message_to_user
 
@@ -30,6 +31,8 @@ logger = logging.getLogger(__name__)
 
 load_task_tags = {"message_load-image": "Загрузка фотографий",
                   "message_load-category": "Загрузка категорий",
+                  "message_load-prices": "Загрузка цен",
+                  "message_load-rests": "Загрузка остатков",
                   "message_load-products": "Загрузка номенклатуры",
                   "message_send-everyone": "Отправка сообщений"}
 
@@ -91,13 +94,13 @@ class ImportPrices1CView(View):
         return render(request, 'admin/admin_import_from_1c.html')
 
     def post(self, request):
+        messages.add_message(request, messages.INFO, 'Загрузка цен...')
         form = request.POST.copy()
         load_all = False
         if 'load_all' in form.keys():
             load_all = True
-        result_messages = import_prices(load_all=load_all)
-        _add_messages(request, result_messages)
-        return render(request, 'admin/admin_import_from_1c.html')
+        load_prices_task.delay(load_all)
+        return redirect('load_from_1c')
 
 
 class ImportRests1CView(View):
@@ -107,14 +110,9 @@ class ImportRests1CView(View):
         return render(request, 'admin/admin_import_from_1c.html')
 
     def post(self, request):
-        result_messages = import_rests()
-        _add_messages(request, result_messages)
-        products_no_rests = Product.objects.filter(rests__isnull=True)
-        shop = Shop.objects.get(id=1)
-        for product in products_no_rests:
-            Rests.objects.create(product=product, shop=shop, amount=0)
-
-        return render(request, 'admin/admin_import_from_1c.html')
+        messages.add_message(request, messages.INFO, 'Загрузка остатков...')
+        load_rests_task.delay()
+        return redirect('load_from_1c')
 
 
 class ImportImages1CView(View):

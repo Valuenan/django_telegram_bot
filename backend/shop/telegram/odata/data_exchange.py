@@ -116,7 +116,7 @@ def import_products() -> dict:
     return result
 
 
-def import_prices(year: datetime = None, month: datetime = None, load_all: bool = False) -> list:
+def import_prices(year: int = None, month: int = None, load_all: bool = False) -> dict:
     """
     Загрузить цены из 1с
     ! Oбязательно должны быть переданы оба параметра иначе загружаться данные на текущий месяц !
@@ -125,20 +125,15 @@ def import_prices(year: datetime = None, month: datetime = None, load_all: bool 
     :param load_all: загрузить все цены (если True параметры передаваемые в year и month игнорируются)
     :return: сообщения о результатах обмена
     """
-    result_messages = []
     update = 0
     skip = 0
     if not year or not month:
         now = datetime.now()
         year = now.year
         month = now.month
-    try:
-        data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=ProductPrice,
-                              server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/',
-                              guid='9eae0ae2-50d8-11e6-b065-91bcc12f28ea', load_all=load_all, year=year, month=month)
-    except requests.exceptions.ConnectionError:
-        result_messages.append((messages.ERROR, 'Сервер 1с не отвечает'))
-        return result_messages
+    data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'], model=ProductPrice,
+                          server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/',
+                          guid='9eae0ae2-50d8-11e6-b065-91bcc12f28ea', load_all=load_all, year=year, month=month)
     for price in data:
         exist_product = Product.objects.filter(ref_key=price.product_key)
         if not exist_product:
@@ -149,13 +144,11 @@ def import_prices(year: datetime = None, month: datetime = None, load_all: bool 
             exist_product = exist_product[0]
             exist_product.price = price.price
             exist_product.save()
-    result_messages.append(
-        (messages.INFO, f'Цены были обновлены у {update} товаров, не удалось обновить цены у {skip} товаров'))
-    return result_messages
+    result = {'created': 0, 'updated': update, 'skipped': skip}
+    return result
 
 
-def import_rests(year: datetime = None, month: datetime = None, day: datetime = None) -> list:
-    result_messages = []
+def import_rests(year: datetime = None, month: datetime = None, day: datetime = None) -> dict:
     create = 0
     update = 0
     conflict = 0
@@ -173,14 +166,10 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
         year = load_date.year
         month = load_date.month
         day = load_date.day
-        try:
-            data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'],
-                                  model=ProductAmount,
-                                  server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/', year=year,
-                                  month=month, day=day)
-        except requests.exceptions.ConnectionError:
-            result_messages.append((messages.ERROR, 'Сервер 1с не отвечает'))
-            return result_messages
+        data = create_request(login=CREDENTIALS_1C['login'], password=CREDENTIALS_1C['password'],
+                              model=ProductAmount,
+                              server_url='clgl.1cbit.ru:10443/', base='470319099582-ut/', year=year,
+                              month=month, day=day)
         for rest in data:
             exist_rest = RestsOdataLoad.objects.filter(recorder=rest.recorder, product_key=rest.product_key,
                                                        line_number=rest.line_number)
@@ -207,23 +196,17 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
                         if db_rest.amount >= 0:
                             db_rest.save()
                         else:
-                            product = Product.objects.filter(ref_key=rest.product_key)[0]
-                            result_messages.append((messages.ERROR,
-                                                    f'Ошибка: Не достаточно товара {product.name} для списания, конечный остаток {db_rest.amount}'))
                             conflict += 1
                             continue
                     else:
                         product = Product.objects.filter(ref_key=rest.product_key)
                         if not product:
-                            result_messages.append((messages.ERROR,
-                                                    f'Ошибка: Отсутсвует товар {rest.product_key}. Сначала загрузите товары. Товар был пропущен'))
+                            conflict += 1
                             continue
                         if rest.record_type == 'Receipt':
                             shop = Shop.objects.all()[0]
                             Rests.objects.create(shop=shop, product=product[0], amount=rest.change_quantity)
                         else:
-                            result_messages.append((messages.ERROR,
-                                                    f'Ошибка: Попытка списания товара {product[0].name} без остатков'))
                             conflict += 1
                             continue
                 RestsOdataLoad.objects.create(active=rest.active, date_time=rest.date_time, recorder=rest.recorder,
@@ -237,8 +220,7 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
                 else:
                     product = Product.objects.filter(ref_key=rest.product_key)
                     if not product:
-                        result_messages.append((messages.ERROR,
-                                                f'Ошибка: Отсутсвует товар {rest.product_key}. Сначала загрузите товары. Товар был пропущен'))
+                        conflict += 1
                         continue
                     db_rest = Rests.objects.filter(product__ref_key=rest.product_key)[0]
                     if rest.record_type == 'Receipt':
@@ -248,8 +230,6 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
                     if db_rest.amount >= 0:
                         db_rest.save()
                     else:
-                        result_messages.append((messages.ERROR,
-                                                f'Ошибка: Не достаточно товара {product[0].name} для отмены получения'))
                         conflict += 1
                         continue
                     exist_rest.active = rest.active
@@ -258,9 +238,8 @@ def import_rests(year: datetime = None, month: datetime = None, day: datetime = 
         if load_date.month == up_to_date.month and load_date.day == up_to_date.day:
             break
         load_date += timedelta(days=1)
-    result_messages.append((messages.INFO,
-                            f'Были обновлены остатки {update} товаров, создано {create} остатков, конфликтов {conflict}'))
-    return result_messages
+    result = {'created': create, 'updated': update, 'skipped': conflict}
+    return result
 
 
 def import_images(product: Product, update: bool):

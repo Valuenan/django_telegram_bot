@@ -5,8 +5,9 @@ import pickle
 
 from django_telegram_bot.celery import app
 from django_telegram_bot.settings import REDIS_HOST
-from shop.models import Product
-from shop.telegram.odata.data_exchange import import_images, import_category, import_products, mark_sale
+from shop.models import Product, Rests, Shop
+from shop.telegram.odata.data_exchange import import_images, import_category, import_products, import_prices, \
+    import_rests, mark_sale
 from shop.utilities import _send_message_to_user
 
 
@@ -45,6 +46,30 @@ def load_products_task():
     r = redis.Redis(host=f'{REDIS_HOST[0]}', db=1)
     dict_bytes = pickle.dumps(import_result)
     r.mset({'message_load-products': dict_bytes})
+
+
+@app.task
+def load_prices_task(load_all: bool = False):
+    time_start = datetime.datetime.now().strftime('%d-%m-%Y %H:%M')
+    import_result = import_prices(load_all=load_all)
+    import_result['time'] = time_start
+    r = redis.Redis(host=f'{REDIS_HOST[0]}', db=1)
+    dict_bytes = pickle.dumps(import_result)
+    r.mset({'message_load-prices': dict_bytes})
+
+
+@app.task
+def load_rests_task():
+    time_start = datetime.datetime.now().strftime('%d-%m-%Y %H:%M')
+    import_result = import_rests()
+    products_no_rests = Product.objects.filter(rests__isnull=True)
+    shop = Shop.objects.get(id=1)
+    for product in products_no_rests:
+        Rests.objects.create(product=product, shop=shop, amount=0)
+    import_result['time'] = time_start
+    r = redis.Redis(host=f'{REDIS_HOST[0]}', db=1)
+    dict_bytes = pickle.dumps(import_result)
+    r.mset({'message_load-rests': dict_bytes})
 
 
 @app.task
