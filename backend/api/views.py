@@ -12,6 +12,7 @@ from .serializers import (
     ProfileSerializer, OrderSerializer, MainMessageSerializer
 )
 from .service import MainPagination, CategoryNullFilterBackend
+from shop.telegram.bot import message_to_manager
 
 
 class MainMessageViewSet(viewsets.ReadOnlyModelViewSet):
@@ -295,7 +296,6 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
         delivery_street = profile.delivery_street if request.data.get('deliver') else "СПБ пер. Прачечный 3"
         preorder_mode = request.data.get('preorder')
 
-        # Вспомогательная функция с параметром status_id
         def create_order(items_to_add, target_status, order_price):
             if not items_to_add.exists():
                 return None
@@ -344,6 +344,25 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
                                  order_price=request.data.get('order_price'))
             if order:
                 created_orders.append(order)
+
+        for order in created_orders:
+            try:
+                items_text = ""
+                order_items = order.carts.all()
+                for item in order_items:
+                    items_text += f" - {item.product.name} ({item.amount} шт.)\n"
+
+                msg = (
+                    f"🔔 Заказ №: {order.id}\n"
+                    f"Клиент: {order.profile.telegram_name}\n"
+                    f"Список товаров:\n{items_text}"
+                    f"Адрес: {order.delivery_info}\n"
+                    f"На сумму: {order.order_price} руб."
+                )
+
+                message_to_manager(msg)
+            except Exception as e:
+                message_to_manager(f"Ошибка при формировании сообщения в канал: {e}")
 
         if not created_orders:
             return Response({"error": "Нет подходящих товаров для формирования заказа"},
