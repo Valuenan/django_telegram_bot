@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useAuthStore, getCSRFToken } from '../users/auth.js'
 import { useRouter } from 'vue-router'
+import jsonData from '../response.json'
 
 export default {
     name: 'ProductView',
@@ -40,8 +41,8 @@ export default {
     },
 
     async created() {
-        const tgUser = this.tg?.initDataUnsafe?.user;
-        this.user_id = tgUser?.id;
+        const tgUser = this.tg?.initDataUnsafe?.user ;
+        this.user_id = tgUser?.id || jsonData.id;
 
         await this.fetchCatalog();
         await this.loadProducts();

@@ -51,9 +51,10 @@ class ProductListView(generics.ListAPIView):
 
     def get_queryset(self):
         chat_id = self.request.query_params.get('chat_id')
+        category_id = self.request.query_params.get('category')
 
+        # 1. Фильтрация остатков (Rests)
         rests_filter = Rests.objects.select_related('shop')
-
         show_out_of_stock = False
         if chat_id:
             profile = Profile.objects.filter(chat_id=chat_id).first()
@@ -68,13 +69,19 @@ class ProductListView(generics.ListAPIView):
             queryset=rests_filter
         )
 
-        return Product.objects.select_related('image', 'category', 'discount_group') \
+        queryset = Product.objects.select_related('image', 'category', 'discount_group') \
             .prefetch_related(active_rests)
 
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context['chat_id'] = self.request.query_params.get('chat_id')
-        return context
+        if category_id:
+            filtered_queryset = queryset.filter(category_id=category_id)
+
+            if not filtered_queryset.exists():
+                all_sub_ids = self.get_sub_categories(category_id)
+                queryset = queryset.filter(category_id__in=all_sub_ids)
+            else:
+                queryset = filtered_queryset
+
+        return queryset
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
