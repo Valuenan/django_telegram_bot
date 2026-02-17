@@ -233,7 +233,7 @@ export default {
                                                     <div class="hero-show-off-variant_productHero_showOff_wrapper__d5b_E">
                                                         <div class="hero-show-off-variant_productHero_showOff_sneaker_brand_title__s7U3f">
                                                             <h1 class="hero-show-off-variant_productHero_showOff_sneaker_title__fLzsC"
-                                                                style="-webkit-text-stroke: 1px black">
+                                                                style="-webkit-text-stroke: 0.1px black">
                                                                 {{ product?.name }}</h1>
                                                         </div>
                                                     </div>
@@ -332,7 +332,9 @@ export default {
                                                     background: (product?.rests?.length === 0 && !user_data?.preorder) ? '#de0e18 !important' :
                                                                 (product?.rests?.length === 0 && user_data?.preorder) ? '#eb9c00 !important' : '' }"
                                                  href="">
-                                                <span>{{ this.quantity === 0 ? 'Цена:' : 'Сумма:' }}&nbsp;</span>
+                                                <span style="display: inline-block; transform: translateZ(0); will-change: contents;">
+                                                    {{ quantity === 0 ? 'Цена:' : 'Сумма:' }}
+                                                </span>
                                                 <div>
                                                     <div v-if="product?.rests?.length > 0">
                                                         <!-- Основная цена (зачеркивается, если есть активная скидка) -->

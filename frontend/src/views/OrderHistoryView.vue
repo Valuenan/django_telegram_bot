@@ -126,7 +126,7 @@ export default {
                                         </svg>
                                         пред.
                                     </button>
-                                    <div class="button_button__FUDeW" style="height:20px; width:auto">Заказ № {{
+                                    <div v-if="totalCount > 0" class="button_button__FUDeW" style="height:20px; width:auto">Заказ № {{
                                         order_num }}
                                     </div>
                                     <button @click="fetchOrders(nextPageUrl)" v-if="nextPageUrl"

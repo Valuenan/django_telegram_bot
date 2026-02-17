@@ -53,7 +53,7 @@
                              class="tab-bar-screen_tab_bar_item__fPG6j"
                              :class="{ 'tab-bar-screen_active__pBXjN': $route.path.startsWith('/cart') }"
                 >
-                    <div lass="tab-bar-screen_icon__xrTCK">
+                    <div class="tab-bar-screen_icon__xrTCK">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
                              viewBox="0 0 24 24"
                              fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"

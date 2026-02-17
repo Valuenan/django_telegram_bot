@@ -108,10 +108,10 @@ CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = ["http://localhost:8000",
                         'http://localhost:5173',
-                        'https://8jbt6p-31-134-138-189.ru.tuna.am']
+                        'https://005ttj-45-12-75-69.ru.tuna.am']
 CSRF_TRUSTED_ORIGINS = ["http://localhost:8000",
                         'http://localhost:5173',
-                        'https://8jbt6p-31-134-138-189.ru.tuna.am']
+                        'https://005ttj-45-12-75-69.ru.tuna.am']
 
 CORS_ALLOW_HEADERS = [
     "authorization",
