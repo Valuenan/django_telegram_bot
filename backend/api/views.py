@@ -13,6 +13,17 @@ from .serializers import (
 )
 from .service import MainPagination, CategoryNullFilterBackend
 from shop.telegram.bot import message_to_manager
+from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+
+
+@ensure_csrf_cookie
+def set_csrf_token(request):
+    """
+    Эндпоинт для установки CSRF-куки на клиенте.
+    Декоратор @ensure_csrf_cookie принудительно отправляет заголовок Set-Cookie.
+    """
+    return JsonResponse({'details': 'CSRF cookie set'}, status=200)
 
 
 class MainMessageViewSet(viewsets.ReadOnlyModelViewSet):
@@ -40,27 +51,30 @@ class ProductListView(generics.ListAPIView):
 
     def get_queryset(self):
         chat_id = self.request.query_params.get('chat_id')
-        category_id = self.request.query_params.get('category')
 
-        prefetch_profiles = Prefetch(
-            'profile_set',
-            queryset=Profile.objects.filter(chat_id=chat_id) if chat_id else Profile.objects.none()
-        )
+        rests_filter = Rests.objects.select_related('shop')
+
+        show_out_of_stock = False
+        if chat_id:
+            profile = Profile.objects.filter(chat_id=chat_id).first()
+            if profile and profile.preorder:
+                show_out_of_stock = True
+
+        if not show_out_of_stock:
+            rests_filter = rests_filter.filter(amount__gt=0)
 
         active_rests = Prefetch(
             'rests_set',
-            queryset=Rests.objects.filter(amount__gt=0).select_related('shop')
+            queryset=rests_filter
         )
 
-        queryset = Product.objects.select_related('image', 'category', 'discount_group') \
-            .prefetch_related(active_rests, prefetch_profiles) \
-            .filter(price__gt=0, rests__amount__gt=0)
+        return Product.objects.select_related('image', 'category', 'discount_group') \
+            .prefetch_related(active_rests)
 
-        if category_id:
-            all_cat_ids = self.get_sub_categories(category_id)
-            queryset = queryset.filter(category_id__in=all_cat_ids)
-
-        return queryset.distinct().order_by('id')
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['chat_id'] = self.request.query_params.get('chat_id')
+        return context
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -89,22 +103,44 @@ class ProductDetailView(generics.RetrieveAPIView):
 
 class CategoryListView(generics.ListAPIView):
     '''Вывод списка родительских категорий'''
-    queryset = Category.objects.filter(
-        hide=False,
-        parent_category__isnull=True
-    ).prefetch_related(
-        'children',
-        'products__rests_set'
-    )
     serializer_class = CategorySerializer
     permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     pagination_class = MainPagination
     ordering = ['id']
 
-    def list(self, request, *args, **kwargs):
-        cache_key = 'categories_tree_data'
-        cached_data = cache.get(cache_key)
+    def get_queryset(self):
+        chat_id = self.request.query_params.get('chat_id')
 
+        # Проверяем флаг preorder у профиля
+        is_preorder = False
+        if chat_id:
+            is_preorder = Profile.objects.filter(chat_id=chat_id, preorder=True).exists()
+
+        # Настраиваем фильтр остатков
+        rests_qs = Rests.objects.all()
+        if not is_preorder:
+            rests_qs = rests_qs.filter(amount__gt=0)
+
+        # Собираем итоговый QuerySet
+        return Category.objects.filter(
+            hide=False,
+            parent_category__isnull=True
+        ).prefetch_related(
+            'children',
+            Prefetch('products__rests_set', queryset=rests_qs)
+        )
+
+    def list(self, request, *args, **kwargs):
+        chat_id = request.query_params.get('chat_id')
+
+        is_preorder = False
+        if chat_id:
+            is_preorder = Profile.objects.filter(chat_id=chat_id, preorder=True).exists()
+
+        cache_suffix = "preorder" if is_preorder else "regular"
+        cache_key = f'categories_tree_data_{cache_suffix}'
+
+        cached_data = cache.get(cache_key)
         if cached_data:
             return Response(cached_data)
 
@@ -116,16 +152,28 @@ class CategoryListView(generics.ListAPIView):
             data_to_cache = [item for item in response.data if item is not None]
 
         cache.set(cache_key, data_to_cache, 3600)
-
         return Response(data_to_cache)
 
 
 class CategoryDetailView(generics.RetrieveAPIView):
     '''Вывод одной категории'''
-    queryset = Category.objects.filter(hide=False).prefetch_related(
-        Prefetch('children', queryset=Category.objects.filter(hide=False))
-    )
     serializer_class = CategorySerializer
+
+    def get_queryset(self):
+        chat_id = self.request.query_params.get('chat_id')
+
+        is_preorder = False
+        if chat_id:
+            is_preorder = Profile.objects.filter(chat_id=chat_id, preorder=True).exists()
+
+        rests_qs = Rests.objects.all()
+        if not is_preorder:
+            rests_qs = rests_qs.filter(amount__gt=0)
+
+        return Category.objects.filter(hide=False).prefetch_related(
+            Prefetch('children', queryset=Category.objects.filter(hide=False)),
+            Prefetch('products__rests_set', queryset=rests_qs)
+        )
 
 
 class CartViewSet(viewsets.ModelViewSet):
@@ -217,9 +265,22 @@ class CartViewSet(viewsets.ModelViewSet):
 class ProfileDetailView(generics.RetrieveUpdateAPIView):
     lookup_field = 'chat_id'
 
-    def get_queryset(self):
+    def get_object(self):
         chat_id = self.kwargs.get('chat_id')
-        return Profile.objects.filter(chat_id=chat_id)
+        profile = Profile.objects.filter(chat_id=chat_id).first()
+
+        if not profile:
+            profile = Profile.objects.create(
+                chat_id=chat_id,
+                first_name=self.request.query_params.get('first_name', ''),
+                telegram_name=self.request.query_params.get('telegram_name', ''),
+                preorder=False
+            )
+            profile.is_new_user = True
+        else:
+            profile.is_new_user = False
+
+        return profile
 
     def get_serializer_class(self):
         if self.request.query_params.get('with_track') == 'true':

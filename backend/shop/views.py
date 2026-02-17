@@ -50,7 +50,7 @@ def remove_no_order_carts(activation_time):
 class ImportCategory1CView(View):
     @staticmethod
     def get(request):
-        r = redis.Redis(host=f'{REDIS_HOST[0]}', db=1)
+        r = redis.Redis(host=f'{REDIS_HOST}', db=1)
         for message_tag in load_task_tags.keys():
             dict_bytes = r.get(message_tag)
             if dict_bytes:

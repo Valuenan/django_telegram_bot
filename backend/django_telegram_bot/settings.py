@@ -23,6 +23,8 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+FRONTEND_DIR = BASE_DIR / 'frontend' / 'dist'
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
@@ -72,7 +74,10 @@ ROOT_URLCONF = 'django_telegram_bot.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
+        'DIRS': [
+            BASE_DIR / 'templates',
+                 FRONTEND_DIR
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -87,9 +92,31 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'django_telegram_bot.wsgi.application'
 
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOWED_ORIGINS = [
+        "https://your-real-domain.com", # Твой боевой домен фронтенда
+        "https://api.your-real-domain.com",
+    ]
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = ["http://localhost:5173"]  # We add your frontend URL here.
-CSRF_TRUSTED_ORIGINS = ['http://localhost:5173']  # We add your frontend URL here.
+
+CORS_ALLOWED_ORIGINS = ["http://localhost:8000",
+                        'http://localhost:5173',
+                        'https://8jbt6p-31-134-138-189.ru.tuna.am']
+CSRF_TRUSTED_ORIGINS = ["http://localhost:8000",
+                        'http://localhost:5173',
+                        'https://8jbt6p-31-134-138-189.ru.tuna.am']
+
+CORS_ALLOW_HEADERS = [
+    "authorization",
+    "content-type",
+]
 
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
@@ -148,6 +175,7 @@ STATIC_URL = '/static/'
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
+    os.path.join(BASE_DIR, 'frontend', 'dist'),
 ]
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
@@ -168,6 +196,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
     ),
     'DEFAULT_FILTER_BACKENDS': (
@@ -176,7 +205,6 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE': 1
 }
-
 
 # LOGGING
 LOGGING = {
@@ -196,14 +224,15 @@ LOGGING = {
     },
 }
 
-# REDIS related settings
-REDIS_HOST = env("REDIS_HOST", "127.0.0.1"),
+REDIS_HOST = env("REDIS_HOST", default="127.0.0.1")
 REDIS_PORT = '6379'
+print(REDIS_HOST)
+CELERY_BROKER_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/0'
+CELERY_RESULT_BACKEND = f'redis://{REDIS_HOST}:{REDIS_PORT}/0'
 
-# CELERY broker settings
-CELERY_BROKER_URL = 'redis://' + f'{REDIS_HOST[0]}' + ':' + REDIS_PORT + '/0'
 CELERY_BROKER_TRANSPORT_OPTIONS = {'visibility_timeout': 3600}
-CELERY_RESULT_BACKEND = 'redis://' + f'{REDIS_HOST[0]}' + ':' + REDIS_PORT + '/0'
+
 CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
+BOT_TOKEN = env("BOT_TOKEN")

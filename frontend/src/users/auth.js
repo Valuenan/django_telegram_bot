@@ -1,119 +1,86 @@
 import { defineStore } from 'pinia'
+import api from '../api'
 
 export const useAuthStore = defineStore('auth', {
   state: () => {
     const storedState = localStorage.getItem('authState')
-    return storedState
-      ? JSON.parse(storedState)
-      : {
-          user: null,
-          isAuthenticated: false,
-        }
+    return storedState ? JSON.parse(storedState) : {
+      user: null,
+      isAuthenticated: false,
+    }
   },
   actions: {
+    // 1. Вход через Telegram
+    async loginViaTelegram() {
+        const tg = window.Telegram?.WebApp;
+        if (tg?.initData) {
+            try {
+                const response = await api.get('/user/', {
+                    headers: {
+                        'Authorization': `twa ${tg.initData}`
+                    }
+                });
+
+                this.user = response.data;
+                this.isAuthenticated = true;
+                this.saveState();
+            } catch (error) {
+                console.error('Ошибка входа:', error);
+            }
+        }
+    },
+
+    // 2. Установка CSRF
     async setCsrfToken() {
-      await fetch('http://localhost:8000/set-csrf-token', {
-        method: 'GET',
-        credentials: 'include',
-      })
-    },
-
-    async login(id, router = null) {
-      const response = await fetch('http://localhost:8000/user/' + id, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': getCSRFToken(),
-        },
-        credentials: 'include',
-      })
-      const user_data = await response.json().plants_data
-
-      /* if (user_data.success) {
-        this.saveState()
-         if (router) {
-          this.user = await router.push({
-            name: 'Profile',
-          })
-        }
-      } else {
-        this.user = null
-        this.saveState()
-      }*/
-      return user_data
-    },
-
-    async logout(router = null) {
       try {
-        const response = await fetch('http://localhost:8000/logout', {
-          method: 'POST',
-          headers: {
-            'X-CSRFToken': getCSRFToken(),
-          },
-          credentials: 'include',
-        })
-        if (response.ok) {
-          this.user = null
-          this.isAuthenticated = false
-          this.saveState()
-          if (router) {
-            await router.push({
-              name: 'login',
-            })
-          }
-        }
-      } catch (error) {
-        console.error('Logout failed', error)
-        throw error
+        // Относительный путь
+        await api.get('/set-csrf-token/');
+      } catch (e) {
+        console.error("CSRF Error", e);
       }
     },
 
+    // 3. Получение данных профиля
     async fetchUser() {
       try {
-        const response = await fetch('http://localhost:8000/user/', {
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCSRFToken(),
-          },
-        })
-        if (response.ok) {
-          const data = await response.json()
-          this.user = data
-        } else {
-          this.user = null
-        }
+        const response = await api.get('/user/', {
+          headers: { 'X-CSRFToken': getCSRFToken() }
+        });
+        this.user = response.data;
+        this.isAuthenticated = true;
       } catch (error) {
-        console.error('Failed to fetch user', error)
-        this.user = null
+        console.error('Failed to fetch user', error);
+        this.user = null;
+        this.isAuthenticated = false;
       }
-      this.saveState()
+      this.saveState();
+    },
+
+    // 4. Выход
+    async logout(router = null) {
+      try {
+        await api.post('/logout', {}, {
+          headers: { 'X-CSRFToken': getCSRFToken() }
+        });
+        this.user = null;
+        this.isAuthenticated = false;
+        this.saveState();
+        if (router) await router.push({ name: 'login' });
+      } catch (error) {
+        console.error('Logout failed', error);
+      }
     },
 
     saveState() {
-      /*
-            We save state to local storage to keep the
-            state when the user reloads the page.
-
-            This is a simple way to persist state. For a more robust solution,
-            use pinia-persistent-state.
-             */
-      localStorage.setItem(
-        'authState',
-        JSON.stringify({
-          user: this.user,
-          isAuthenticated: this.isAuthenticated,
-        }),
-      )
+      localStorage.setItem('authState', JSON.stringify({
+        user: this.user,
+        isAuthenticated: this.isAuthenticated,
+      }));
     },
   },
 })
 
 export function getCSRFToken() {
-  /*
-    We get the CSRF token from the cookie to include in our requests.
-    This is necessary for CSRF protection in Django.
-     */
   const name = 'csrftoken'
   let cookieValue = null
   if (document.cookie && document.cookie !== '') {
@@ -126,8 +93,5 @@ export function getCSRFToken() {
       }
     }
   }
-  if (cookieValue === null) {
-    throw 'Missing CSRF cookie.'
-  }
-  return cookieValue
+  return cookieValue;
 }

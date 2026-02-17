@@ -1,3 +1,131 @@
+<script>
+import { ref, onMounted } from 'vue'
+import { useAuthStore, getCSRFToken } from '../users/auth.js'
+import { useRouter } from 'vue-router'
+
+export default {
+    name: 'FavoriteView',
+    setup() {
+        const authStore = useAuthStore();
+        const router = useRouter();
+        const isTelegram = ref(false);
+        const tg = window.Telegram?.WebApp;
+
+        onMounted(() => {
+            if (tg?.initData) {
+                isTelegram.value = true;
+                tg.ready();
+                tg.expand();
+            }
+        });
+
+        return {
+            authStore,
+            router,
+            isTelegram,
+            tg
+        }
+    },
+
+    data() {
+        return {
+            user_id: '',
+            favoriteItems: [],
+            nextPageUrl: null,
+            isInitialLoad: true,
+            totalCount: 0,
+            loading: false,
+            baseUrl: import.meta.env.VITE_API_URL
+        }
+    },
+
+    async created() {
+        const tgUser = this.tg?.initDataUnsafe?.user;
+        this.user_id = tgUser?.id;
+    },
+
+    async mounted() {
+        await this.fetchFavorite();
+
+        const options = {
+            root: null,
+            rootMargin: '100px',
+            threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting && !this.loading && this.nextPageUrl) {
+                this.fetchFavorite();
+            }
+        }, options);
+
+        if (this.$refs.observerPoint) {
+            observer.observe(this.$refs.observerPoint);
+        }
+    },
+
+    methods: {
+        async fetchFavorite() {
+            if (this.loading || (this.nextPageUrl === null && this.favoriteItems.length > 0)) return;
+
+            this.loading = true;
+
+            const page = this.nextPageUrl || 1;
+
+            try {
+                const res = await fetch(`${this.baseUrl}/api/profile/${this.user_id}/?with_track=true&page=${page}`);
+                const data = await res.json();
+
+                this.favoriteItems = [...this.favoriteItems, ...data.track.results];
+
+                this.nextPageUrl = data.track.next;
+                this.totalCount = data.track.count;
+
+            } catch (error) {
+                console.error("Ошибка при загрузке избранного:", error);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async toggleTrack(productId) {
+            try {
+                const response = await fetch(`${this.baseUrl}/api/profile/track/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken(),
+                    },
+                    body: JSON.stringify({
+                        chat_id: this.user_id,
+                        product_id: productId
+                    }),
+                    credentials: 'include',
+                });
+
+                if (response.ok) {
+                    this.favoriteItems = this.favoriteItems.filter(p => p.id !== productId);
+                    this.totalCount--;
+                }
+            } catch (e) {
+                console.error("Ошибка при обновлении трека:", e);
+            }
+        },
+
+        handleImageError(event) {
+            event.target.src = `${this.baseUrl}/static/products/no-image.jpg`;
+        },
+
+        productLink(id) {
+            this.router.push({
+                path: '/product/',
+                query: { id: id }
+            });
+        }
+    }
+}
+</script>
+
 <template>
     <div class="telegram-app_telegram_app__6iz4V">
         <div class="stack-navigation_screen___5WKf screen-0">
@@ -41,7 +169,17 @@
                                                     </button>
                                                     <div class="product-card_card_body__6SHkh">
                                                         <div class="product-card-price_product_card_price__wgMh1 product-card-price_num__oTZ2i">
-                                                            {{ product.price }}<span>₽</span></div>
+                                                            <span :class="{'discount-active': product?.rests[0]?.shop_active_discount !== 'no_sale' &&
+                                                            Number(product?.rests[0]?.shop_active_discount === 'extra' ? product?.discount_group?.extra_value : product?.discount_group?.regular_value) !== 1}">
+                                                                {{ product.price * 1 }} ₽
+                                                            </span>
+                                                            <span :style="{ display: (product?.rests[0]?.shop_active_discount === 'regular' && Number(product.discount_group.regular_value) !== 1) ? '' : 'none' }">
+                                                                {{ Math.round(product.price * product.discount_group.regular_value) }} ₽
+                                                            </span>
+                                                            <span :style="{ display: (product?.rests[0]?.shop_active_discount === 'extra' && Number(product.discount_group.extra_value) !== 1) ? '' : 'none' }">
+                                                                {{ Math.round(product.price * product.discount_group.extra_value) }} ₽
+                                                            </span>
+                                                        </div>
                                                         <div class="product-card_name__EfN1S"> {{ product.name }}
                                                         </div>
                                                         <div class="product-card_properties__8Op3G">
@@ -739,132 +877,3 @@
         </div>
     </div>
 </template>
-
-<script>
-import { useAuthStore, getCSRFToken } from '../users/auth.js'
-import { useRouter } from 'vue-router'
-
-import jsonData from '../response.json' // Import the data
-
-
-
-export default {
-    name: 'FavoriteView',
-    data() {
-        return {
-            user: {
-                    user_id: '',
-                    user_data: ''
-                },
-            favoriteItems: [],
-            nextPageUrl: null,
-            totalCount: 0,
-            loading: false,
-            noImage: 'http://localhost:8000/static/products/no-image.jpg'
-        }
-    },
-
-    async mounted() {
-        await this.fetchProfile();
-        await this.fetchFavorite();
-
-        const options = {
-            root: null,
-            rootMargin: '0px',
-            threshold: 1.0
-        };
-
-        const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting && !this.loading) {
-                this.fetchFavorite();
-            }
-        }, options);
-
-        if (this.$refs.observerPoint) {
-            observer.observe(this.$refs.observerPoint);
-        }
-    },
-
-    methods: {
-        async fetchProfile() {
-                try {
-                    // jsonData window.Telegram.WebApp.initDataUnsafe?.user
-                    const tg_user = jsonData
-                    this.user.user_id = tg_user.user.id
-                    // const response = await fetch(`https://refactored-fishstick-jj7qgwww9x94cq4r6-8000.app.github.dev/api/main/${tg_user.id}`)
-                    // const data = await response.json()
-
-                } catch (error) {
-                    console.log(error);
-                }
-            },
-
-        async fetchFavorite() {
-            if (this.loading || (this.nextPageUrl === null && this.favoriteItems.length > 0)) return;
-
-            this.loading = true;
-
-            const page = this.nextPageUrl || 1;
-
-            try {
-                const res = await fetch(`http://localhost:8000/api/profile/${this.user.user_id}/?with_track=true&page=${page}`);
-                const data = await res.json();
-
-                this.favoriteItems = [...this.favoriteItems, ...data.track.results];
-
-                console.log(this.favoriteItems)
-
-                this.nextPageUrl = data.track.next;
-                this.totalCount = data.track.count;
-
-            } catch (error) {
-                console.error("Ошибка при загрузке избранного:", error);
-            } finally {
-                this.loading = false;
-            }
-        },
-
-       async toggleTrack(productId) {
-            try {
-                const response = await fetch('http://localhost:8000/api/profile/track/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken(),
-                    },
-                    body: JSON.stringify({
-                        chat_id: this.user.user_id,
-                        product_id: productId
-                    }),
-                    credentials: 'include',
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-
-                    const product = this.favoriteItems.find(p => p.id === productId);
-                    if (product) {
-                        product.is_tracked = !product.is_tracked;
-                    }
-
-
-                    console.log(`Товар ${data.action}`);
-                }
-            } catch (e) {
-                console.error("Ошибка при обновлении трека:", e);
-            }
-        },
-
-        handleImageError(event) {
-            event.target.src = 'http://localhost:8000/static/products/no-image.jpg';
-        },
-
-        productLink(id) {
-                this.$router.push({
-                path: '/product',
-                query: { id: id }
-            });
-        }
-    }
-}
-</script>

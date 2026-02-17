@@ -1,3 +1,92 @@
+<script>
+import { ref, onMounted } from 'vue'
+import { useAuthStore, getCSRFToken } from '../users/auth.js'
+import { useRouter, useRoute } from 'vue-router'
+
+export default {
+    name: 'CatalogView',
+    setup() {
+        const authStore = useAuthStore();
+        const router = useRouter();
+        const route = useRoute();
+        const isTelegram = ref(false);
+        const tg = window.Telegram?.WebApp;
+
+        onMounted(() => {
+            if (tg?.initData) {
+                isTelegram.value = true;
+                tg.ready();
+                tg.expand();
+            }
+        });
+
+        return {
+            authStore,
+            router,
+            route,
+            isTelegram,
+            tg
+        }
+    },
+
+    data() {
+        return {
+            user_id: '',
+            catalog: [],
+            main_catalog: 1,
+            loading: true,
+            baseUrl: import.meta.env.VITE_API_URL
+        }
+    },
+
+    mounted() {
+        const catalogId = this.$route.query.id;
+        this.fetchCatalog(catalogId);
+    },
+
+    methods: {
+        async fetchCatalog(id = null) {
+            const targetId = id || null;
+            const url = targetId
+                ? `${this.baseUrl}/api/category/${targetId}/`
+                : `${this.baseUrl}/api/catalog/`;
+
+            try {
+                const response = await fetch(url, {
+                    headers: { 'X-CSRFToken': getCSRFToken() }
+                });
+                const data = await response.json();
+                this.loading = false
+
+                if (!targetId) {
+                    this.main_catalog = 1;
+                    this.catalog = data.results || data;
+                } else {
+                    this.main_catalog = 0;
+                    this.catalog = data;
+
+                    if (data.children && data.children.length === 0) {
+                        this.router.push({
+                            path: '/products/',
+                            query: { catalog_id: targetId }
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error("Ошибка загрузки каталога", e);
+            }
+        },
+
+        async allInCategory(id) {
+            this.router.push({
+                path: '/products/',
+                query: { catalog_id: id }
+            })
+        },
+    }
+}
+</script>
+
 <template>
     <div class="telegram-app_telegram_app__6iz4V">
         <div class="stack-navigation_screen___5WKf">
@@ -10,6 +99,7 @@
                                 <div class="catalog-screen_wrapper__WjtzY">
                                     <div class="catalog-screen_content__p1Hje">
                                         <div class="gender-categories_grid_category_section__33Ww1">
+                                            <div v-if="loading" class="loader_ring"></div>
                                             <div v-if="main_catalog === 1"
                                                  v-for="(parent_category) in this.catalog"
                                                  class="gender-categories_section___6yOW">
@@ -104,165 +194,3 @@
         </div>
     </div>
 </template>
-
-<script>
-import { useAuthStore, getCSRFToken } from '../users/auth.js'
-import { useRouter } from 'vue-router'
-
-import jsonData from '../response.json' // Import the data
-
-
-
-export default {
-    name: 'CatalogView',
-    data() {
-        return {
-            user: {
-                user_id: '',
-                user_data: ''
-            },
-            catalog: [],
-            main_catalog: 1,
-        }
-    },
-    setup() {
-        const authStore = useAuthStore();
-        const router = useRouter();
-
-        return {
-            authStore,
-            router,
-        }
-    },
-
-
-
-    mounted() {
-        const catalogId = this.$route.query.id;
-    this.fetchCatalog(catalogId);
-    },
-
-    async created() {
-        await this.fetchProfile();
-    },
-
-
-
-    methods: {
-            async fetchProfile() {
-                try {
-                    // jsonData window.Telegram.WebApp.initDataUnsafe?.user
-                    const tg_user = jsonData
-                    this.user.user_id = tg_user.user.id
-                    // const response = await fetch(`https://refactored-fishstick-jj7qgwww9x94cq4r6-8000.app.github.dev/api/main/${tg_user.id}`)
-                    // const data = await response.json()
-
-                    const response = await fetch(`http://localhost:8000/user/${this.user.user_id}`, {
-                        method: 'GET',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'X-CSRFToken': getCSRFToken(),
-                        },
-                        credentials: 'include',
-                      })
-                    this.user.user_data = await response.json()
-
-                  if (this.user.user_data.result == 'crated') {
-                    const response = await fetch('http://localhost:8000/user_edit', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'X-CSRFToken': getCSRFToken(),
-                    },
-                     body: JSON.stringify({
-                         chat_id: tg_user.user.id,
-                         first_name: tg_user.user.first_name,
-                         last_name: tg_user.user.last_name,
-                         telegram_name: tg_user.user.username
-                    }),
-                    credentials: 'include',
-                      })
-
-                  }
-
-                } catch (error) {
-                    console.log(error);
-                }
-            },
-
-            async fetchCatalog(id = null) {
-                const targetId = id || null;
-
-                const url = targetId
-                    ? `http://localhost:8000/api/category/${targetId}`
-                    : 'http://localhost:8000/api/catalog';
-
-                try {
-                    const response = await fetch(url, { /* ... ваши заголовки ... */ });
-                    const data = await response.json();
-
-                    if (!targetId) {
-                        // Логика для корня каталога
-                        this.main_catalog = 1; // Условно помечаем, что мы в корне
-                        this.catalog = data.results || data;
-                    } else {
-                        // Логика для конкретной категории
-                        this.main_catalog = 0;
-                        this.catalog = data;
-
-                        // Если детей нет — уходим в список товаров
-                        if (data.children && data.children.length === 0) {
-                            this.$router.push({
-                                path: '/products',
-                                query: { catalog_id: targetId }
-                            });
-                        }
-                    }
-                } catch (e) {
-                    console.error("Ошибка загрузки каталога", e);
-                }
-            },
-
-        async allInCategory(id) {
-            this.$router.push({
-                path: '/products',
-                query: { catalog_id: id }
-            })
-        },
-
-    }
-}
-
-// telegram authentication
-/*
-export default {
-    name: 'ProfileView',
-    data() {
-        return {
-            user: {
-                id: '',
-                name: '',
-                completedTasks: 0
-            }
-        }
-    },
-    async mounted() {
-        await this.fetchProfile()
-    },
-    methods: {
-        async fetchProfile() {
-            try {
-                const tg_user = window.Telegram.WebApp.initDataUnsafe?.user
-                const response = await fetch(`https://refactored-fishstick-jj7qgwww9x94cq4r6-8000.app.github.dev/api/main/${tg_user.id}`)
-                const data = await response.json()
-                this.user.id = tg_user.id
-                this.user.name = tg_user.first_name
-                this.user.completedTasks = data.completedTasks
-            } catch (error) {
-                console.log(error)
-            }
-        },
-    }
-}
-*/
-</script>

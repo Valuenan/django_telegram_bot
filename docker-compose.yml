@@ -34,6 +34,8 @@ services:
       - ./backend/django_telegram_bot/.env
     volumes:
       - ./backend:/app
+      - ./frontend/dist:/app/frontend/dist
+      - ./media:/app/media
     ports:
       - 8000:8000
     depends_on:
@@ -57,18 +59,18 @@ services:
 
 
   celery:
-      build:
-        context: ./backend
-        dockerfile: Dockerfile
-      container_name: celery
-      command: celery -A django_telegram_bot worker -l info
-      volumes:
-        - .:/backend/django_telegram_bot
-      links:
-        - redis
-      depends_on:
-        - backend
-        - redis
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: celery
+    command: celery -A django_telegram_bot worker -l info
+    volumes:
+      - .:/backend/django_telegram_bot
+    links:
+      - redis
+    depends_on:
+      - backend
+      - redis
 
 volumes:
-    mysql_data:
+  mysql_data:

@@ -13,6 +13,8 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+import os
+
 from django.contrib import admin
 from django.conf.urls import static
 from django.urls import path, include, re_path
@@ -21,14 +23,19 @@ from shop.views import ImportGoodsView, ImportCategory1CView, ImportProducts1CVi
     RemoveNoRefKey, ImportImages1CView, ImportPrices1CView, ImportRests1CView, ProductsCheckList, MarkProductsSale, \
     PhotoCheckList
 from django.views.static import serve as mediaserve
+from django.views.generic import TemplateView
 
 from shop.telegram.bot import webhook
-from shop.telegram.settings import TOKEN
+from django.conf import settings
+from api.views import set_csrf_token
 
 urlpatterns = [
-    path(TOKEN + '/', webhook, name='webhook'),
-    path('admin/import_goods/', ImportGoodsView.as_view(), name='admin_import_goods'),
+    path(settings.BOT_TOKEN + '/', webhook, name='webhook'),
+    path('manager/', include('shop.urls')),
+    path('api/', include('api.urls')),
+    re_path(r'^assets/(?P<path>.*)$', mediaserve, {'document_root': os.path.join(settings.BASE_DIR, 'frontend/dist/assets')}),
 
+    path('admin/import_goods/', ImportGoodsView.as_view(), name='admin_import_goods'),
     path('admin/load_from_1c', ImportCategory1CView.as_view(), name='load_from_1c'),
     path('admin/load_category_from_1c', ImportCategory1CView.as_view(), name='load_category_from_1c'),
     path('admin/load_products_from_1c', ImportProducts1CView.as_view(), name='load_products_from_1c'),
@@ -40,23 +47,18 @@ urlpatterns = [
     path('admin/remove_no_ref_key', RemoveNoRefKey.as_view(), name='remove_no_ref_key'),
     path('admin/products_checklist', ProductsCheckList.as_view(), name='products_checklist'),
     path('admin/photo_checklist', PhotoCheckList.as_view(), name='photo_checklist'),
-
     path('admin/', admin.site.urls, name='admin'),
-    path('manager/', include('shop.urls')),
-    path('', include('users.urls')),
-    path('api/', include('api.urls')),
+
+    path('set-csrf-token/', set_csrf_token, name='set-csrf-token'),
     path('__debug__/', include('debug_toolbar.urls')),
+    path('', include('users.urls')),
 ]
 
+# 1. СНАЧАЛА добавляем статику и медиа (обязательно ДО re_path)
 if settings.DEBUG:
     import debug_toolbar
-
-    urlpatterns = [
-                      path('__debug__/', include(debug_toolbar.urls)),
-                  ] + urlpatterns
-
+    urlpatterns = [path('__debug__/', include(debug_toolbar.urls))] + urlpatterns
     urlpatterns += static.static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
 else:
     urlpatterns += [
         re_path(f'^{settings.MEDIA_URL.lstrip("/")}(?P<path>.*)$',
@@ -64,3 +66,8 @@ else:
         re_path(f'^{settings.STATIC_URL.lstrip("/")}(?P<path>.*)$',
             mediaserve, {'document_root': settings.STATIC_ROOT}),
     ]
+
+# 2. И в самом КОНЦЕ — ловушка для Vue (обрабатывает всё остальное)
+urlpatterns += [
+    re_path(r'^.*$', TemplateView.as_view(template_name="index.html"), name='home'),
+]

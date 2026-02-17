@@ -1,3 +1,154 @@
+<script>
+import { ref, onMounted } from 'vue'
+import { useAuthStore, getCSRFToken } from '../users/auth.js'
+import { useRouter } from 'vue-router'
+
+export default {
+    name: 'ProductView',
+    setup() {
+        const authStore = useAuthStore();
+        const router = useRouter();
+        const isTelegram = ref(false);
+        const tg = window.Telegram?.WebApp;
+
+        onMounted(() => {
+            if (tg?.initData) {
+                isTelegram.value = true;
+                tg.ready();
+                tg.expand();
+            }
+        });
+
+        return {
+            authStore,
+            router,
+            isTelegram,
+            tg
+        }
+    },
+
+    data() {
+        return {
+            user_id: '',
+            catalog: {},
+            products: [],
+            nextPageUrl: null,
+            loading: false,
+            shop_discount: 'no_sale',
+            baseUrl: import.meta.env.VITE_API_URL
+        }
+    },
+
+    async created() {
+        const tgUser = this.tg?.initDataUnsafe?.user;
+        this.user_id = tgUser?.id;
+
+        await this.fetchCatalog();
+        await this.loadProducts();
+    },
+
+    mounted() {
+        window.addEventListener('scroll', this.handleScroll);
+    },
+
+    beforeUnmount() {
+        window.removeEventListener('scroll', this.handleScroll);
+    },
+
+    methods: {
+        async fetchCatalog() {
+            try {
+                const response = await fetch(`${this.baseUrl}/api/category/${this.$route.query.catalog_id}/?chat_id=${this.user_id}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken(),
+                    },
+                    credentials: 'include',
+                });
+                if (response.ok) {
+                    this.catalog = await response.json();
+                }
+            } catch (e) {
+                console.error("Ошибка каталога:", e);
+            }
+        },
+
+        handleScroll() {
+            const el = this.$refs.scrollContainer || document.documentElement;
+            const scrollBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 100;
+
+            if (scrollBottom && !this.loading && this.nextPageUrl !== 'stop') {
+                this.loadProducts();
+            }
+        },
+
+        async loadProducts() {
+            if (this.loading || this.nextPageUrl === 'stop') return;
+
+            let url = this.nextPageUrl;
+            if (!url) {
+                const catId = this.$route.query.catalog_id;
+                url = `${this.baseUrl}/api/products/?category=${catId}&chat_id=${this.user_id}`;
+            }
+
+            this.loading = true;
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                const newProducts = data.results || [];
+                this.products = [...this.products, ...newProducts];
+
+                this.nextPageUrl = data.links?.next || data.next || 'stop';
+            } catch (e) {
+                console.error("Ошибка загрузки товаров:", e);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async toggleTrack(productId) {
+            try {
+                const response = await fetch(`${this.baseUrl}/api/profile/track/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken(),
+                    },
+                    body: JSON.stringify({
+                        chat_id: this.user_id,
+                        product_id: productId
+                    }),
+                    credentials: 'include',
+                });
+
+                if (response.ok) {
+                    const product = this.products.find(p => p.id === productId);
+                    if (product) {
+                        product.is_tracked = !product.is_tracked;
+                    }
+                }
+            } catch (e) {
+                console.error("Ошибка при обновлении трека:", e);
+            }
+        },
+
+        handleImageError(event) {
+            event.target.src = `${this.baseUrl}/static/products/no-image.jpg`;
+        },
+
+        productLink(id) {
+            this.router.push({ path: '/product/', query: { id: id } });
+        },
+
+        catalogLink(id) {
+            this.router.push({ path: '/catalog/', query: { id: id } });
+        },
+    }
+}
+</script>
+
 <template>
     <div class="telegram-app_telegram_app__6iz4V"> <!-- box low -->
         <div class="stack-navigation_screen___5WKf screen-0">
@@ -31,17 +182,6 @@
                                                     </h1>
                                                 </div>
                                             </div>
-                                            <!--                                            <div class="heading_search__KpO8Z">-->
-                                            <!--                                                <div class="search-input-button_container__PU3cS"><span>Поиск</span>-->
-                                            <!--                                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"-->
-                                            <!--                                                         viewBox="0 0 24 24" fill="none" stroke="currentColor"-->
-                                            <!--                                                         stroke-width="1" stroke-linecap="round" stroke-linejoin="round"-->
-                                            <!--                                                         class="tabler-icon tabler-icon-search ">-->
-                                            <!--                                                        <path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"></path>-->
-                                            <!--                                                        <path d="M21 21l-6 -6"></path>-->
-                                            <!--                                                    </svg>-->
-                                            <!--                                                </div>-->
-                                            <!--                                            </div>-->
                                         </div>
                                     </div>
                                 </div>
@@ -87,10 +227,10 @@
                                                                         {{ product.price * 1 }} ₽
                                                                     </span>
                                                                     <span :style="{ display: (product?.rests[0]?.shop_active_discount === 'regular' && Number(product.discount_group.regular_value) !== 1) ? '' : 'none' }">
-                                                                        {{ product.price * product.discount_group.regular_value }} ₽
+                                                                        {{ Math.round(product.price * product.discount_group.regular_value) }} ₽
                                                                     </span>
                                                                     <span :style="{ display: (product?.rests[0]?.shop_active_discount === 'extra' && Number(product.discount_group.extra_value) !== 1) ? '' : 'none' }">
-                                                                        {{ product.price * product.discount_group.extra_value }} ₽
+                                                                        {{ Math.round(product.price * product.discount_group.extra_value) }} ₽
                                                                     </span>
                                                                 </div>
                                                                 <div class="product-card_name__EfN1S"> {{ product.name
@@ -99,13 +239,13 @@
                                                                 <div class="product-card_properties__8Op3G">
                                                                     <div class="product-card_delivery__s1GEd">
                                                                         № {{ product.id }} :: В наличии {{
-                                                                        product.rests[0].amount }}
+                                                                        product.rests[0]?.amount }}
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                         </a>
+                                                        <div v-if="loading" class="loader_ring"></div>
                                                     </div>
-                                                    <div v-if="loading">Загрузка...</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -119,168 +259,3 @@
         </div>
     </div>
 </template>
-
-<script>
-import { useAuthStore, getCSRFToken } from '../users/auth.js'
-import { useRouter } from 'vue-router'
-
-import jsonData from '../response.json' // Import the data
-
-export default {
-    name: 'ProductView',
-    data() {
-        return {
-            user: {
-                user_id: '',
-                user_data: ''
-            },
-            catalog: {},
-            products: [],
-            nextPageUrl: null,
-            loading: false,
-            shop_discount: 'no_sale'
-        }
-    },
-    setup() {
-        const authStore = useAuthStore();
-        const router = useRouter();
-
-
-        return {
-            authStore,
-            router,
-        }
-    },
-
-    async created() {
-        await this.fetchProfile();
-        await this.fetchCatalog();
-    },
-
-    async mounted() {
-        this.loadProducts();
-        window.addEventListener('scroll', this.handleScroll);
-    },
-
-
-
-    methods: {
-        async fetchProfile() {
-            try {
-                // jsonData window.Telegram.WebApp.initDataUnsafe?.user
-                const tg_user = jsonData
-                this.user.user_id = tg_user.user.id
-                // const response = await fetch(`https://refactored-fishstick-jj7qgwww9x94cq4r6-8000.app.github.dev/api/main/${tg_user.id}`)
-                // const data = await response.json()
-
-                const response = await fetch(`http://localhost:8000/api/profile/${this.user.user_id}`)
-                this.user.user_data = await response.json()
-                console.log(this.user)
-
-              } catch (error) {
-                console.log(error);
-            }
-        },
-
-        async fetchCatalog() {
-                const response = await fetch(`http://localhost:8000/api/category/${this.$route.query.catalog_id}`, {
-                            method: 'GET',
-                            headers: {
-                              'Content-Type': 'application/json',
-                              'X-CSRFToken': getCSRFToken(),
-                            },
-                            credentials: 'include',
-                          })
-                this.catalog = await response.json()
-            },
-        handleScroll() {
-            const el = this.$refs.scrollContainer;
-
-            if (el.scrollHeight - el.scrollTop <= el.clientHeight + 50) {
-                if (!this.loading && this.nextPageUrl && this.nextPageUrl !== 'stop') {
-                    this.loadProducts();
-                }
-            }
-        },
-
-        async loadProducts() {
-
-            let url = this.nextPageUrl;
-            console.log(this.user.user_id)
-            if (!url) {
-                    const catId = this.$route.query.catalog_id;
-                    url = `http://localhost:8000/api/products?category=${catId}&chat_id=${this.user.user_id}`;
-                }
-
-            if (this.loading || url === 'stop') return;
-
-            this.loading = true;
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-
-                this.products = [...this.products, ...data.results];
-
-                this.nextPageUrl = data.links.next || 'stop';
-                console.log(this.products)
-
-            } catch (e) {
-                console.error(e);
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        async toggleTrack(productId) {
-            try {
-                const response = await fetch('http://localhost:8000/api/profile/track/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken(),
-                    },
-                    body: JSON.stringify({
-                        chat_id: this.user.user_id,
-                        product_id: productId
-                    }),
-                    credentials: 'include',
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-
-                    const product = this.products.find(p => p.id === productId);
-                    if (product) {
-                        product.is_tracked = !product.is_tracked;
-                    }
-
-
-                    console.log(`Товар ${data.action}`);
-                }
-            } catch (e) {
-                console.error("Ошибка при обновлении трека:", e);
-            }
-        },
-
-
-        handleImageError(event) {
-            event.target.src = 'http://localhost:8000/static/products/no-image.jpg';
-        },
-
-        productLink(id) {
-                this.$router.push({
-                path: '/product',
-                query: { id: id }
-            });
-        },
-
-        catalogLink(id) {
-            this.$router.push({
-            path: '/catalog',
-            query: { id: id }
-            });
-        },
-
-    }
-}
-</script>

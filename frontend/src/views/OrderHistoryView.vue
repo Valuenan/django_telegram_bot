@@ -1,3 +1,111 @@
+<script>
+import { ref, onMounted } from 'vue'
+import { useAuthStore, getCSRFToken } from '../users/auth.js'
+import { useRouter } from 'vue-router'
+
+export default {
+    name: 'OrderHistoryView',
+    setup() {
+        const authStore = useAuthStore();
+        const router = useRouter();
+        const isTelegram = ref(false);
+        const tg = window.Telegram?.WebApp;
+
+        onMounted(() => {
+            if (tg?.initData) {
+                isTelegram.value = true;
+                tg.ready();
+                tg.expand();
+            }
+        });
+
+        return {
+            authStore,
+            router,
+            isTelegram,
+            tg
+        }
+    },
+
+    data() {
+        return {
+            user_id: '',
+            totalCount: 0,
+            order_num: 0,
+            nextPageUrl: null,
+            prevPageUrl: null,
+            orders: [],
+            loading: false,
+            baseUrl: import.meta.env.VITE_API_URL
+        }
+    },
+
+    async mounted() {
+        const tgUser = this.tg?.initDataUnsafe?.user;
+        this.user_id = tgUser?.id;
+
+        await this.fetchOrders();
+    },
+
+    methods: {
+        async fetchOrders(targetUrl = null) {
+            try {
+                this.loading = true;
+                const url = targetUrl || `${this.baseUrl}/api/orders/?chat_id=${this.user_id}`;
+                const response = await fetch(url);
+
+                if (response.ok) {
+                    const data = await response.json();
+
+                    this.totalCount = data.count;
+                    this.nextPageUrl = data.next;
+                    this.prevPageUrl = data.previous;
+
+                    this.orders = data.results.map(order => {
+                        if (order.carts && Array.isArray(order.carts)) {
+                            const currentSaleType = order.sale_type || 'no_sale';
+                            order.carts = order.carts.map(cart => {
+                                let factor = 1;
+                                if (currentSaleType !== 'no_sale' && cart.product?.discount_group) {
+                                    const attrName = `${currentSaleType}_value`;
+                                    factor = Number(cart.product.discount_group[attrName]) || 1;
+                                }
+
+                                return {
+                                    ...cart,
+                                    discounted_price: Math.round(Number(cart.price) * factor),
+                                    total_discounted_price: Math.round(Number(cart.price) * factor) * cart.amount,
+                                };
+                            });
+                        }
+                        return order;
+                    });
+
+                    if (this.orders.length > 0) {
+                        this.order_num = this.orders[0].id;
+                    }
+                }
+            } catch (error) {
+                console.error("Ошибка при загрузке заказов:", error);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        handleImageError(event) {
+            event.target.src = `${this.baseUrl}/static/products/no-image.jpg`;
+        },
+
+        productLink(id) {
+            this.router.push({
+                path: '/product/',
+                query: { id: id }
+            });
+        }
+    }
+}
+</script>
+
 <template>
     <div class="telegram-app_telegram_app__6iz4V">
         <div class="stack-navigation_screen___5WKf screen-0">
@@ -37,13 +145,19 @@
                                     <div class="cart-screen_cart__JV4JN">
                                         <div v-for="order in orders" :key="order.id" v-if="totalCount > 0">
                                             <div class="cart-item_body__1FLl_">
-                                                <div class="info-item__MUAX2">Статус заказа: {{ order.status_details.title }}</div>
+                                                <div class="info-item__MUAX2">Статус заказа: {{
+                                                    order.status_details.title }}
+                                                </div>
                                                 <div class="info-item__MUAX2">Дата оформления: {{ order.date }}</div>
-                                                <div v-if="order.deliver" class="info-item__MUAX2">Доставка по адресу: {{ order.delivery_info }}
+                                                <div v-if="order.deliver" class="info-item__MUAX2">Доставка по адресу:
+                                                    {{ order.delivery_info }}
                                                 </div>
-                                                <div v-else="order.deliver" class="info-item__MUAX2">Забрать по адресу: СПБ пер. Прачечный 3
+                                                <div v-else="order.deliver" class="info-item__MUAX2">Забрать по адресу:
+                                                    СПБ пер. Прачечный 3
                                                 </div>
-                                                <div class="info-item__MUAX2">Тип оплаты: {{ order.payment_details.title }}</div>
+                                                <div class="info-item__MUAX2">Тип оплаты: {{ order.payment_details.title
+                                                    }}
+                                                </div>
                                                 <div class="cart-item_body__1FLl_ info-item__MUAX2">
                                                     <a :href="order.payment_url" v-if="!order.extra_payment_url">
                                                         <span v-if="order.payed">Чек</span>
@@ -66,8 +180,10 @@
                                                  class="cart-item_cart_item__CrVBq">
                                                 <div class="cart-item_image__s8eu5">
                                                     <img @click="productLink(cart.product.id)"
-                                                         :src="cart.product.image ? cart.product.image.url : noImage"
-                                                         :alt="cart.product.name">
+                                                         :src="cart.product.image.url"
+                                                         :alt="cart.product.name"
+                                                         @error="handleImageError"
+                                                    >
                                                 </div>
                                                 <div class="cart-item_body__1FLl_">
                                                     <div class="cart-item_name_and_checkbox__IL5UT">
@@ -645,103 +761,3 @@
         </div>
     </div>
 </template>
-
-<script>
-import { useAuthStore, getCSRFToken } from '../users/auth.js'
-import { useRouter } from 'vue-router'
-
-import jsonData from '../response.json' // Import the data
-
-export default {
-    name: 'OrderHistoryView',
-    data() {
-        return {
-            user: {
-                    user_id: '',
-                    user_data: ''
-                },
-            totalCount: 0,
-            order_num: 0,
-            nextPageUrl: null,
-            prevPageUrl: null,
-            orders: [],
-            noImage: 'http://localhost:8000/static/products/no-image.jpg'
-        }
-    },
-
-    async mounted() {
-        await this.fetchProfile();
-        await this.fetchOrders();
-    },
-
-    methods: {
-        async fetchProfile() {
-                try {
-                    // jsonData window.Telegram.WebApp.initDataUnsafe?.user
-                    const tg_user = jsonData
-                    this.user.user_id = tg_user.user.id
-                    // const response = await fetch(`https://refactored-fishstick-jj7qgwww9x94cq4r6-8000.app.github.dev/api/main/${tg_user.id}`)
-                    // const data = await response.json()
-
-                } catch (error) {
-                    console.log(error);
-                }
-            },
-
-        async fetchOrders(targetUrl = null) {
-            try {
-                this.loading = true;
-                const url = targetUrl || `http://localhost:8000/api/orders/?chat_id=${this.user.user_id}`;
-                const response = await fetch(url);
-
-                if (response.ok) {
-                    const data = await response.json();
-
-                    this.totalCount = data.count;
-                    this.nextPageUrl = data.next;
-                    this.prevPageUrl = data.previous;
-
-                    this.orders = data.results.map(order => {
-                        if (order.carts && Array.isArray(order.carts)) {
-                            const currentSaleType = order.sale_type || 'no_sale';
-                            order.carts = order.carts.map(cart => {
-                                console.log(currentSaleType)
-                                let factor = 1;
-                                if (currentSaleType !== 'no_sale' && cart.product?.discount_group) {
-                                    const attrName = `${currentSaleType}_value`; // 'regular_value' или 'extra_value'
-                                    factor = Number(cart.product.discount_group[attrName]) || 1;
-                                }
-
-                                return {
-                                    ...cart,
-                                    discounted_price: Math.round(Number(cart.price) * factor),
-                                    total_discounted_price: Math.round(Number(cart.total_price) * factor),
-                                };
-                            });
-                        }
-                        return order;
-                    });
-
-                    if (this.orders.length > 0) {
-                        this.order_num = this.orders[0].id;
-                    }
-
-                    console.log("Данные загружены:", this.orders);
-                }
-            } catch (error) {
-                console.error("Ошибка при загрузке заказов:", error);
-            } finally {
-                this.loading = false;
-            }
-        },
-
-
-        productLink(id) {
-                this.$router.push({
-                path: '/product',
-                query: { id: id }
-            });
-        }
-    }
-}
-</script>

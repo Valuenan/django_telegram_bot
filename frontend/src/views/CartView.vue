@@ -1,3 +1,221 @@
+<script>
+import { ref, onMounted } from 'vue'
+import { useAuthStore, getCSRFToken } from '../users/auth.js'
+import { useRouter } from 'vue-router'
+
+export default {
+    name: 'CartView',
+    setup() {
+        const authStore = useAuthStore();
+        const router = useRouter();
+        const isTelegram = ref(false);
+        const tg = window.Telegram?.WebApp;
+
+        onMounted(() => {
+            if (tg?.initData) {
+                isTelegram.value = true;
+                tg.ready();
+                tg.expand();
+            }
+        });
+
+        return {
+            authStore,
+            router,
+            isTelegram,
+            tg
+        }
+    },
+
+    data() {
+        const baseUrl = import.meta.env.VITE_API_URL;
+        return {
+            user_id: '',
+            cartItems: [],
+            nextPageUrl: null,
+            totalCount: 0,
+            loading: false,
+            baseUrl: baseUrl,
+        }
+    },
+
+    async created() {
+        const tgUser = this.tg?.initDataUnsafe?.user;
+        this.user_id = tgUser?.id;
+        await this.fetchCart();
+    },
+
+    mounted() {
+        const options = {
+            root: null,
+            rootMargin: '100px',
+            threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting && !this.loading && this.nextPageUrl) {
+                this.fetchCart();
+            }
+        }, options);
+
+        if (this.$refs.observerPoint) {
+            observer.observe(this.$refs.observerPoint);
+        }
+    },
+
+    computed: {
+        finalTotal() {
+            if (!this.cartItems || this.cartItems.length === 0) return 0;
+
+            const globalDiscountType = this.cartItems[0].product?.rests[0]?.shop_active_discount;
+
+            return this.cartItems.reduce((acc, item) => {
+                if (item.preorder) return acc;
+
+                const price = Number(item.price) || 0;
+                const qty = item.amount || 0;
+                const group = item.product?.discount_group;
+
+                let factor = 1;
+                if (globalDiscountType === 'regular' && group?.regular_value) {
+                    factor = Number(group.regular_value);
+                } else if (globalDiscountType === 'extra' && group?.extra_value) {
+                    factor = Number(group.extra_value);
+                }
+
+                return acc + Math.round(price * factor) * qty;
+            }, 0);
+        }
+    },
+
+    methods: {
+        async fetchCart() {
+            if (this.loading) return;
+
+            this.loading = true;
+            try {
+                const url = this.nextPageUrl || `${this.baseUrl}/api/cart/?chat_id=${this.user_id}`;
+                const response = await fetch(url);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const newItems = data.results || [];
+                    this.cartItems = this.nextPageUrl ? [...this.cartItems, ...newItems] : newItems;
+
+                    this.nextPageUrl = data.next || null;
+                    this.totalCount = data.count || this.cartItems.length;
+                }
+            } catch (error) {
+                console.error("Ошибка загрузки корзины:", error);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async deleteCart(cart) {
+            try {
+                const response = await fetch(`${this.baseUrl}/api/cart/${cart.id}/?chat_id=${this.user_id}`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRFToken': getCSRFToken() },
+                });
+
+                if (response.ok) {
+                    this.cartItems = this.cartItems.filter(item => item.id !== cart.id);
+                }
+            } catch (error) {
+                console.error("Ошибка при удалении:", error);
+            }
+        },
+
+        async toggleTrack(product) {
+            try {
+                const response = await fetch(`${this.baseUrl}/api/profile/track/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken(),
+                    },
+                    body: JSON.stringify({
+                        chat_id: this.user_id,
+                        product_id: product.id
+                    }),
+                    credentials: 'include',
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+
+                    if (product && product.id === product.id) {
+                        product.is_tracked = !product.is_tracked;
+                    }
+
+                }
+            } catch (e) {
+                console.error("Ошибка при обновлении трека:", e);
+            }
+        },
+
+        async changeCount(cart, delta) {
+            const maxRest = cart.product?.rests[0]?.amount || 0;
+            const nextValue = cart.amount + delta;
+
+            if (!cart.preorder && delta > 0 && nextValue > maxRest) {
+                return;
+            }
+
+            if (nextValue <= 0) {
+                await this.deleteCart(cart);
+                return;
+            }
+
+            const oldAmount = cart.amount;
+            cart.amount = nextValue;
+
+            try {
+                const response = await fetch(`${this.baseUrl}/api/cart/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken(),
+                    },
+                    body: JSON.stringify({
+                        chat_id: this.user_id,
+                        product: cart.product.id,
+                        amount: cart.amount,
+                        price: cart.price,
+                    }),
+                });
+
+                if (!response.ok) throw new Error();
+
+                const data = await response.json();
+                cart.id = data.id;
+            } catch (error) {
+                cart.amount = oldAmount;
+                console.error("Ошибка обновления количества");
+            }
+        },
+
+        handleImageError(event) {
+            event.target.src = `${this.baseUrl}/static/products/no-image.jpg`;
+        },
+
+        async orderLink(id) {
+            this.$router.push({
+            path: '/order/'
+            });
+        },
+
+        productLink(id) {
+            this.router.push({
+            path: '/product/',
+            query: { id: id }
+            });
+        }
+    }
+}
+</script>
+
 <template>
     <div class="telegram-app_telegram_app__6iz4V">
         <div class="stack-navigation_screen___5WKf">
@@ -22,8 +240,10 @@
                                                     <div @click="productLink(item.product.id)"
                                                          class="cart-item_image__s8eu5">
                                                         <img
-                                                                :src="item.product.image ? item.product.image.url : noImage"
-                                                                :alt="item.product.name">
+                                                                :src="item.product.image.url"
+                                                                :alt="item.product.name"
+                                                                @error="handleImageError"
+                                                        >
                                                     </div>
                                                     <div class="cart-item_body__1FLl_">
                                                         <div class="cart-item_name_and_checkbox__IL5UT">
@@ -613,232 +833,3 @@
         </div>
     </div>
 </template>
-
-<script>
-import { useAuthStore, getCSRFToken } from '../users/auth.js'
-import { useRouter } from 'vue-router'
-
-import jsonData from '../response.json' // Import the data
-
-
-
-export default {
-    name: 'CartView',
-    data() {
-        return {
-            user: {
-                    user_id: '',
-                    user_data: ''
-                },
-            cartItems: [],
-            nextPageUrl: null,
-            totalCount: 0,
-            loading: false,
-            noImage: 'http://localhost:8000/static/products/no-image.jpg'
-        }
-    },
-
-    async created() {
-        await this.fetchProfile();
-        await this.fetchCart();
-    },
-
-    async mounted() {
-        const options = {
-            root: null,
-            rootMargin: '0px',
-            threshold: 1.0
-        };
-
-        const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting && !this.isLoading) {
-                this.fetchCart();
-            }
-        }, options);
-
-        if (this.$refs.observerPoint) {
-            observer.observe(this.$refs.observerPoint);
-        }
-    },
-
-    computed: {
-        finalTotal() {
-            if (!this.cartItems || this.cartItems.length === 0) return 0;
-
-            const globalDiscountType = this.cartItems[0].product?.rests[0].shop_active_discount;
-
-            const total = this.cartItems.reduce((acc, item) => {
-                if (item.preorder) {
-                    return acc;
-                }
-                const price = Number(item.price) || 0;
-                const qty = item.amount || 0;
-                const group = item.product?.discount_group;
-
-                let factor = 1;
-                if (globalDiscountType === 'regular' && group?.regular_value) {
-                    factor = Number(group.regular_value);
-                } else if (globalDiscountType === 'extra' && group?.extra_value) {
-                    factor = Number(group.extra_value);
-                }
-
-                return acc + Math.round(price * factor * qty);
-            }, 0);
-
-            return total;
-        }
-    },
-
-    methods: {
-        async fetchProfile() {
-                try {
-                    // jsonData window.Telegram.WebApp.initDataUnsafe?.user
-                    const tg_user = jsonData
-                    this.user.user_id = tg_user.user.id
-                    // const response = await fetch(`https://refactored-fishstick-jj7qgwww9x94cq4r6-8000.app.github.dev/api/main/${tg_user.id}`)
-                    // const data = await response.json()
-
-                } catch (error) {
-                    console.log(error);
-                }
-            },
-
-        async fetchCart() {
-            try {
-                const url = this.nextPageUrl || `http://localhost:8000/api/cart?chat_id=${this.user.user_id}`;
-                const response = await fetch(url);
-
-
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log(data)
-                    this.cartItems = data.results;
-                    this.totalCount = data.results.length;
-                }
-            } catch (error) {
-                console.error("Ошибка:", error);
-            }
-        },
-
-        async deleteCart(cart) {
-            try {
-                const response = await fetch(`http://localhost:8000/api/cart/${cart.id}/?chat_id=${this.user.user_id}`, {
-                    method: 'DELETE',
-                    headers: { 'X-CSRFToken': getCSRFToken() },
-                    credentials: 'include',
-                });
-
-                if (response.ok) {
-                    this.cartItems = this.cartItems.filter(item => item.id !== cart.id);
-                }
-            } catch (error) {
-                console.error("Ошибка при удалении:", error);
-            }
-        },
-
-        async changeCount(cart, delta) {
-            const maxRest = cart.product?.rests[0]?.amount || 0;
-            const nextValue = cart.amount + delta;
-
-            if (!cart.preorder && delta > 0 && nextValue > maxRest) {
-                console.log('Выбрано максимум товаров (для обычных заказов)');
-                return;
-            }
-
-            if (nextValue <= 0) {
-                const itemIndex = this.cartItems.findIndex(item => item.id === cart.id);
-
-                if (cart.id) {
-                    try {
-                        const response = await fetch(`http://localhost:8000/api/cart/${cart.id}/?chat_id=${this.user.user_id}`, {
-                            method: 'DELETE',
-                            headers: { 'X-CSRFToken': getCSRFToken() },
-                            credentials: 'include',
-                        });
-
-                        if (response.ok) {
-                            if (itemIndex !== -1) this.cartItems.splice(itemIndex, 1);
-                            console.log('Товар удален из корзины');
-                        }
-                    } catch (error) {
-                        console.error("Ошибка при удалении:", error);
-                    }
-                }
-                return;
-            }
-            if (cart.preorder || nextValue <= maxRest) {
-                cart.amount = nextValue;
-                try {
-                    const payload = {
-                        chat_id: this.user.user_id,
-                        product: cart.product.id,
-                        amount: cart.amount,
-                        price: cart.price,
-                    };
-
-                    const response = await fetch('http://localhost:8000/api/cart/', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': getCSRFToken(),
-                        },
-                        body: JSON.stringify(payload),
-                        credentials: 'include',
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        cart.id = data.id;
-                        cart.amount = data.amount;
-                        console.log("Количество обновлено успешно");
-                    }
-                } catch (error) {
-                    console.error("Ошибка сети:", error);
-                }
-            }
-        },
-
-        async toggleTrack(product) {
-            try {
-                const response = await fetch('http://localhost:8000/api/profile/track/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken(),
-                    },
-                    body: JSON.stringify({
-                        chat_id: this.user.user_id,
-                        product_id: product.id
-                    }),
-                    credentials: 'include',
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-
-                    if (product && product.id === product.id) {
-                        product.is_tracked = !product.is_tracked;
-                    }
-
-                    console.log(`Товар ${data.action}`);
-                }
-            } catch (e) {
-                console.error("Ошибка при обновлении трека:", e);
-            }
-        },
-
-        async orderLink(id) {
-            this.$router.push({
-            path: '/order'
-            });
-        },
-
-        productLink(id) {
-            this.$router.push({
-            path: '/product',
-            query: { id: id }
-            });
-        }
-    }
-}
-</script>

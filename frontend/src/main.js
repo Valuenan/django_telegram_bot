@@ -2,31 +2,29 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
+import axios from 'axios'
 import { useAuthStore } from './users/auth'
 
 import "./static/css/style_1.css"
 import "./static/css/style_2.css"
 import "./static/css/style_3.css"
 
+
 const app = createApp(App)
 const pinia = createPinia()
 
-if (window.Telegram?.WebApp) {
-    window.Telegram.WebApp.ready(); // Сообщаем, что WebApp готов
-    window.Telegram.WebApp.expand(); // Делоем окно по всей высоте
-}
-
-
+app.use(pinia) // Сначала подключаем пинию
 app.use(router)
-app.use(pinia)
 
 const authStore = useAuthStore()
-authStore.setCsrfToken()
+
+authStore.setCsrfToken().then(() => {
+    if (window.Telegram?.WebApp?.initData) {
+        authStore.loginViaTelegram();
+    }
+});
 
 app.mount('#app')
-
-export default app
-
 
 
 

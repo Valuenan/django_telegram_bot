@@ -1,3 +1,242 @@
+<script>
+import { ref, onMounted } from 'vue'
+import { useAuthStore, getCSRFToken } from '../users/auth.js'
+import { useRouter } from 'vue-router'
+
+export default {
+    name: 'OrderView',
+    setup() {
+        const authStore = useAuthStore();
+        const router = useRouter();
+        const isTelegram = ref(false);
+        const tg = window.Telegram?.WebApp;
+
+        onMounted(() => {
+            if (tg?.initData) {
+                isTelegram.value = true;
+                tg.ready();
+                tg.expand();
+            }
+        });
+
+        return {
+            authStore,
+            router,
+            isTelegram,
+            tg
+        }
+    },
+
+    data() {
+        return {
+            user_id: '',
+            user_data: {},
+            cartItems: [],
+            new_phone: null,
+            new_delivery_street: null,
+            delivery: false,
+            preorder: false,
+            preorderSelector: 'split',
+            payment: 2,
+            totalCount: 0,
+            totalSum: 0,
+            totalDiscountSum: 0,
+            cartPreorder: 'order',
+            loading: false,
+            baseUrl: import.meta.env.VITE_API_URL
+        }
+    },
+
+    async created() {
+        await this.fetchProfile();
+        await this.fetchCart();
+    },
+
+    async mounted() {
+        const options = {
+            root: null,
+            rootMargin: '0px',
+            threshold: 1.0
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting && !this.loading) {
+                this.fetchCart();
+            }
+        }, options);
+
+        if (this.$refs.observerPoint) {
+            observer.observe(this.$refs.observerPoint);
+        }
+    },
+
+    methods: {
+        async fetchProfile() {
+            try {
+                const tgUser = this.tg?.initDataUnsafe?.user;
+                this.user_id = tgUser?.id;
+
+                const response = await fetch(`${this.baseUrl}/api/profile/${this.user_id}/`, {
+                    headers: {
+                        'X-CSRFToken': getCSRFToken(),
+                    }
+                });
+
+                if (response.ok) {
+                    this.user_data = await response.json();
+                }
+            } catch (error) {
+                console.error("Ошибка загрузки профиля:", error);
+            }
+        },
+
+        async fetchCart() {
+            try {
+                const url = `${this.baseUrl}/api/cart/?chat_id=${this.user_id}`;
+                const response = await fetch(url);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.cartItems = data.results || [];
+                    this.totalCount = this.cartItems.length;
+                    this.totalSum = data.total_carts_sum;
+
+                    const hasPreorders = this.cartItems.some(item => item.preorder === true);
+                    const hasRegulars = this.cartItems.some(item => item.preorder === false);
+
+                    if (hasPreorders && hasRegulars) {
+                        this.cartPreorder = 'both';
+                    } else if (hasPreorders) {
+                        this.cartPreorder = 'preorder';
+                    } else {
+                        this.cartPreorder = 'order';
+                    }
+                    this.preorder = hasPreorders;
+
+
+                    const firstItem = this.cartItems[0];
+                    const globalDiscountType = firstItem?.product?.rests[0]?.shop_active_discount;
+                    this.discount = globalDiscountType;
+
+                    const total = this.cartItems.reduce((acc, item) => {
+                        if (item.preorder) return acc;
+
+                        const price = Number(item.price) || 0;
+                        const qty = Number(item.amount) || 0;
+                        const group = item.product?.discount_group;
+
+                        let factor = 1;
+                        if (globalDiscountType === 'regular' && group?.regular_value) {
+                            factor = Number(group.regular_value);
+                        } else if (globalDiscountType === 'extra' && group?.extra_value) {
+                            factor = Number(group.extra_value);
+                        }
+
+                        return acc + Math.round(price * factor) * qty;
+                    }, 0);
+
+                    this.totalDiscountSum = total;
+                }
+            } catch (error) {
+                console.error("Ошибка при загрузке корзины:", error);
+            }
+        },
+
+        async updateProfile() {
+            try {
+                const payload = {
+                    chat_id: this.user_id
+                };
+
+                if (!this.user_data.phone) {
+                    payload.phone = this.new_phone;
+                }
+
+                if (!this.user_data.delivery_street && this.delivery === true) {
+                    payload.delivery_street = this.new_delivery_street;
+                }
+
+                const response = await fetch(`${this.baseUrl}/api/profile/update/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken(),
+                    },
+                    body: JSON.stringify(payload),
+                    credentials: 'include',
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    this.user_data = data;
+                } else {
+                    console.error("Ошибка:", data);
+                }
+            } catch (error) {
+                console.error("Ошибка сети:", error);
+            }
+        },
+
+        async createOrder() {
+            try {
+                if (this.new_phone || this.new_delivery_street) {
+                    await this.updateProfile();
+                }
+
+                const payload = {
+                    chat_id: this.user_id,
+                    order_price: this.totalDiscountSum,
+                    deliver: this.delivery,
+                    payment: this.payment,
+                    sale_type: this.discount
+                };
+
+                if (this.user_data.preorder) {
+                    if (this.cartPreorder === 'both') {
+                        payload.preorder = this.preorderSelector;
+                    } else if (this.cartPreorder === 'preorder') {
+                        payload.preorder = 'part-preorder';
+                    } else {
+                        payload.preorder = 'part-order';
+                    }
+                }
+
+
+                if (this.delivery) {
+                    payload.delivery_info = this.new_delivery_street || this.user_data.delivery_street || "СПБ пер. Прачечный 3";
+                }
+
+
+                const response = await fetch(`${this.baseUrl}/api/orders/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                    body: JSON.stringify(payload),
+                    credentials: 'include',
+                });
+
+                if (response.ok) {
+                    this.$router.push({ path: '/orders_history' });
+                } else {
+                    const errorData = await response.json();
+                    console.error("Ошибка сервера:", errorData);
+                }
+            } catch (error) {
+                console.error("Ошибка при выполнении createOrder:", error);
+            }
+        },
+
+        async editLink() {
+            this.$router.push({
+            path: '/edit_profile/'
+            });
+        }
+    }
+}
+</script>
+
 <template>
     <div class="telegram-app_telegram_app__6iz4V">
         <div class="stack-navigation_screen___5WKf screen-0">
@@ -20,7 +259,7 @@
                         </div>
                         <div class="">
                             <div v-if="delivery">
-                                <div v-if="user.user_data.delivery_street === null"
+                                <div v-if="user_data.delivery_street === null"
                                      class="phone-input_phone_input__1gFbW shop_phone__Mf6wI react-tel-input ">
                                     <input class="form-control " placeholder="Укажие адрес доставки" type="text"
                                            required="" value="" v-model="new_delivery_street">
@@ -41,7 +280,7 @@
                                         <path d="M18.364 4.636a9 9 0 0 1 .203 12.519l-.203 .21l-4.243 4.242a3 3 0 0 1 -4.097 .135l-.144 -.135l-4.244 -4.243a9 9 0 0 1 12.728 -12.728zm-6.364 3.364a3 3 0 1 0 0 6a3 3 0 0 0 0 -6z"></path>
                                     </svg>
                                 </span>
-                                    <span> {{ user.user_data.delivery_street  }} </span>
+                                    <span> {{ user_data.delivery_street  }} </span>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="none"
                                          viewBox="0 0 10 18">
                                         <path stroke="#000" stroke-linecap="square" stroke-width="2.167"
@@ -51,7 +290,7 @@
                             </div>
 
 
-                            <div v-if="user.user_data.phone === null"
+                            <div v-if="user_data.phone === null"
                                  class="phone-input_phone_input__1gFbW shop_phone__Mf6wI react-tel-input ">
                                 <input class="form-control " placeholder="Укажите номер телефона" type="number"
                                        autocomplete="tel" required="" value="" v-model="new_phone">
@@ -90,7 +329,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="" v-if="cartPreorder === 'both' && user.user_data.preorder">
+                    <div class="" v-if="cartPreorder === 'both' && user_data.preorder">
                         <div class="how-to-receive_title__ckftj">Как разделить в наличии и предзаказ?</div>
                         <div class="selector_selector__FIbjw how-to-receive_selector__O0K0i" style="margin-bottom:5px">
                             <div @click="preorderSelector = 'split'"
@@ -154,224 +393,3 @@
         </div>
     </div>
 </template>
-
-<script>
-import { useAuthStore, getCSRFToken } from '../users/auth.js'
-import { useRouter } from 'vue-router'
-
-import jsonData from '../response.json' // Import the data
-
-export default {
-    name: 'OrderView',
-    data() {
-        return {
-            user: {
-                    user_id: '',
-                    user_data: []
-                },
-            cartItems: [],
-            new_phone: null,
-            new_delivery_street: null,
-            delivery: false,
-            preorder: false,
-            preorderSelector: 'split',
-            payment: 2,
-            totalCount: 0,
-            totalSum: 0,
-            totalDiscountSum: 0,
-            cartPreorder: 'order'
-        }
-    },
-
-    async created() {
-        await this.fetchProfile();
-        await this.fetchCart();
-    },
-
-    async mounted() {
-        const options = {
-            root: null,
-            rootMargin: '0px',
-            threshold: 1.0
-        };
-
-        const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting && !this.isLoading) {
-                this.fetchCart();
-            }
-        }, options);
-
-        if (this.$refs.observerPoint) {
-            observer.observe(this.$refs.observerPoint);
-        }
-    },
-
-    methods: {
-        async fetchProfile() {
-                try {
-                    // jsonData window.Telegram.WebApp.initDataUnsafe?.user
-                    const tg_user = jsonData
-                    this.user.user_id = tg_user.user.id
-                    // const response = await fetch(`https://refactored-fishstick-jj7qgwww9x94cq4r6-8000.app.github.dev/api/main/${tg_user.id}`)
-                    // const data = await response.json()
-
-                    const response = await fetch(`http://localhost:8000/api/profile/${this.user.user_id}`)
-                    this.user.user_data = await response.json()
-                    console.log(this.user)
-
-                  } catch (error) {
-                    console.log(error);
-                }
-            },
-
-        async fetchCart() {
-            try {
-                const url = `http://localhost:8000/api/cart?chat_id=${this.user.user_id}`;
-                const response = await fetch(url);
-
-                if (response.ok) {
-                    const data = await response.json();
-                    this.cartItems = data.results || [];
-                    this.totalCount = this.cartItems.length;
-                    this.totalSum = data.total_carts_sum;
-
-                    const hasPreorders = this.cartItems.some(item => item.preorder === true);
-                    const hasRegulars = this.cartItems.some(item => item.preorder === false);
-
-                    if (hasPreorders && hasRegulars) {
-                        this.cartPreorder = 'both';
-                    } else if (hasPreorders) {
-                        this.cartPreorder = 'preorder';
-                    } else {
-                        this.cartPreorder = 'order';
-                    }
-                    this.preorder = hasPreorders;
-
-
-                    const firstItem = this.cartItems[0];
-                    const globalDiscountType = firstItem?.product?.rests?.[0]?.shop_active_discount;
-                    this.discount = globalDiscountType;
-
-                    const total = this.cartItems.reduce((acc, item) => {
-                        if (item.preorder) return acc;
-
-                        const price = Number(item.price) || 0;
-                        const qty = Number(item.amount) || 0;
-                        const group = item.product?.discount_group;
-
-                        let factor = 1;
-                        if (globalDiscountType === 'regular' && group?.regular_value) {
-                            factor = Number(group.regular_value);
-                        } else if (globalDiscountType === 'extra' && group?.extra_value) {
-                            factor = Number(group.extra_value);
-                        }
-
-                        return acc + Math.round(price * factor * qty);
-                    }, 0);
-
-                    this.totalDiscountSum = total;
-                }
-            } catch (error) {
-                console.error("Ошибка при загрузке корзины:", error);
-            }
-        },
-
-        async updateProfile() {
-            try {
-                const payload = {
-                    chat_id: this.user.user_id
-                };
-
-                if (!this.user.user_data.phone) {
-                    payload.phone = this.new_phone;
-                }
-
-                if (!this.user.user_data.delivery_street && this.delivery === true) {
-                    payload.delivery_street = this.new_delivery_street;
-                }
-
-                const response = await fetch('http://localhost:8000/api/profile/update/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken(),
-                    },
-                    body: JSON.stringify(payload),
-                    credentials: 'include',
-                });
-
-                const data = await response.json();
-                if (response.ok) {
-                    this.user.user_data = data;
-                    console.log("Профиль обновлен");
-                } else {
-                    console.error("Ошибка:", data);
-                }
-            } catch (error) {
-                console.error("Ошибка сети:", error);
-            }
-        },
-
-        async createOrder() {
-            try {
-                if (this.new_phone || this.new_delivery_street) {
-                    await this.updateProfile();
-                }
-
-                const payload = {
-                    chat_id: this.user.user_id,
-                    order_price: this.totalDiscountSum,
-                    deliver: this.delivery,
-                    payment: this.payment,
-                    sale_type: this.discount
-                };
-
-                if (this.user.user_data.preorder) {
-                    if (this.cartPreorder === 'both') {
-                        // Если в корзине и то, и другое — берем выбор из селектора
-                        payload.preorder = this.preorderSelector;
-                    } else if (this.cartPreorder === 'preorder') {
-                        // Если только предзаказы
-                        payload.preorder = 'part-preorder';
-                    } else {
-                        // Если только обычные товары (cartPreorder === 'order')
-                        payload.preorder = 'part-order';
-                    }
-                }
-
-
-                if (this.delivery) {
-                    payload.delivery_info = this.new_delivery_street || this.user.user_data.delivery_street || "СПБ пер. Прачечный 3";
-                }
-
-
-                const response = await fetch('http://localhost:8000/api/orders/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken()
-                    },
-                    body: JSON.stringify(payload),
-                    credentials: 'include',
-                });
-
-                if (response.ok) {
-                    console.log("Заказ успешно создан");
-                    this.$router.push({ path: '/orders_history' });
-                } else {
-                    const errorData = await response.json();
-                    console.error("Ошибка сервера:", errorData);
-                }
-            } catch (error) {
-                console.error("Ошибка при выполнении createOrder:", error);
-            }
-        },
-
-        async editLink() {
-            this.$router.push({
-            path: '/edit_profile'
-            });
-        }
-    }
-}
-</script>

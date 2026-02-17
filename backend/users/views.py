@@ -1,13 +1,11 @@
-from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
 import json
-
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate, login, logout
-from .forms import CreateUserForm
 
+from api.utils import verify_telegram_data  # импортируй функцию проверки
+from django.conf import settings
 from users.models import Profile
 
 
@@ -46,27 +44,33 @@ def logout_view(request):
     return JsonResponse({'message': 'Logged out'})
 
 
-@require_http_methods(['GET'])
-def user(request, pk):
-    user_profile = Profile.objects.filter(chat_id=pk)
+@require_http_methods(['GET', 'POST'])
+def user(request, pk=None):
+    # 1. Попытка достать пользователя через Telegram initData (безопасно)
+    auth_header = request.headers.get('Authorization')
+    if auth_header and auth_header.startswith('twa '):
+        init_data = auth_header.replace('twa ', '')
+        tg_user = verify_telegram_data(init_data, settings.BOT_TOKEN)
+        if tg_user:
+            pk = tg_user.get('id')  # Берем ID прямо из проверенных данных Telegram
 
-    if user_profile:
-        user_profile = user_profile[0]
-        return JsonResponse(
-            {'telegram_name': user_profile.telegram_name, 'first_name': user_profile.first_name,
-             'last_name': user_profile.last_name, 'phone': user_profile.phone, 'result': 'returned'}, status=200
-        )
-    else:
-        user_profile = Profile.objects.create(chat_id=pk)
-        return JsonResponse(
-            {'telegram_name': user_profile.telegram_name, 'first_name': user_profile.first_name,
-             'last_name': user_profile.last_name, 'phone': user_profile.phone, 'result': 'crated'}, status=200
-        )
+    # 2. Если ID все еще нет (зашли не через Mini App)
+    if pk is None:
+        return JsonResponse({'error': 'ID не указан'}, status=400)
+
+    # 3. Ищем или создаем профиль
+    user_profile, created = Profile.objects.get_or_create(chat_id=pk)
+
+    return JsonResponse({
+        'id': user_profile.chat_id,
+        'first_name': user_profile.first_name or tg_user.get('first_name') if 'tg_user' in locals() else '',
+        'telegram_name': user_profile.telegram_name,
+        'result': 'created' if created else 'returned'
+    }, status=200)
 
 
 @require_http_methods(['GET'])
 def catalog(request):
-
     return JsonResponse({'success': 'ok'}, status=200)
 
 
