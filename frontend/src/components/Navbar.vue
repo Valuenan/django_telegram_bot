@@ -99,19 +99,6 @@
 export default {
     name: "Navbar"
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 </script>
 
 <style scoped>
@@ -132,17 +119,4 @@ export default {
     font-size: 16px;
     font-weight: 500;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 </style>

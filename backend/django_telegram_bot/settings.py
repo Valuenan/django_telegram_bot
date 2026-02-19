@@ -104,18 +104,31 @@ else:
         "https://your-real-domain.com", # Твой боевой домен фронтенда
         "https://api.your-real-domain.com",
     ]
-CORS_ALLOW_CREDENTIALS = True
+
+# Позволяет Django доверять заголовкам прокси-сервера (Cloudflare)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Добавь это, если используешь JWT или кастомные заголовки
+CORS_EXPOSE_HEADERS = ['Content-Type', 'X-CSRFToken']
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
 
 CORS_ALLOWED_ORIGINS = ["http://localhost:8000",
                         'http://localhost:5173',
-                        'https://005ttj-45-12-75-69.ru.tuna.am']
+                        'https://fraser-planets-tests-mill.trycloudflare.com']
 CSRF_TRUSTED_ORIGINS = ["http://localhost:8000",
                         'http://localhost:5173',
-                        'https://005ttj-45-12-75-69.ru.tuna.am']
+                        'https://fraser-planets-tests-mill.trycloudflare.com']
 
 CORS_ALLOW_HEADERS = [
+    "accept",
     "authorization",
     "content-type",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
 ]
 
 # Database
