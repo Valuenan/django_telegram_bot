@@ -33,7 +33,7 @@ export default {
             cartItems: [],
             nextPageUrl: null,
             totalCount: 0,
-            loading: false,
+            loading: true,
             baseUrl: import.meta.env.VITE_API_URL
         }
     },
@@ -89,9 +89,10 @@ export default {
 
     methods: {
         async fetchCart() {
-            if (this.loading) return;
+            if (this.loading && this.cartItems.length > 0) return;
 
             this.loading = true;
+
             try {
                 const url = this.nextPageUrl || `${this.baseUrl}/api/cart/?chat_id=${this.user_id}`;
                 const response = await fetch(url);
@@ -99,6 +100,7 @@ export default {
                 if (response.ok) {
                     const data = await response.json();
                     const newItems = data.results || [];
+
                     this.cartItems = this.nextPageUrl ? [...this.cartItems, ...newItems] : newItems;
 
                     this.nextPageUrl = data.next || null;
@@ -110,6 +112,7 @@ export default {
                 this.loading = false;
             }
         },
+
 
         async deleteCart(cart) {
             try {
@@ -417,10 +420,11 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                                     </button>
                                 </div>
                             </div>
+                            <div v-if="loading" class="loader_ring"></div>
                         </div>
 
 
-                        <div v-else class="cart-screen_empty__mDtgG"> <!-- если пусто -->
+                        <div v-else-if="!loading" class="cart-screen_empty__mDtgG"> <!-- если пусто -->
                             <div class="cart-screen_icon__QKvZs">
                                 <div style="width:150px;height:100%;overflow:hidden;margin:0 auto;outline:none"
                                      title="" role="button" aria-label="animation" tabindex="0">

@@ -40,6 +40,7 @@ export default {
             user_id: '',
             user_data: '',
             info: {},
+            loading: true,
             baseUrl: import.meta.env.VITE_API_URL
         }
     },
@@ -76,6 +77,8 @@ export default {
                 }
             } catch (error) {
                 console.error("Ошибка в fetchProfile:", error);
+            } finally {
+                this.loading = false;
             }
         },
 
@@ -104,6 +107,7 @@ export default {
         },
     }
 }
+
 
 
 
@@ -256,12 +260,15 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                                 </div>
                             </div>
                         </div>
-                        <div @click="editLink()" v-if="!user_data.phone" class="actions_wrapper__dOu19">
-                            <div class="main_info_message">
-                                У вас не указан номер телефона, он необходим для оформления заказа.
-                                Нажмите для редатирования профиля.
+                        <div v-if="loading" class="loader_ring"></div>
+                        <template v-else>
+                            <div @click="editLink()" v-if="!user_data.phone" class="actions_wrapper__dOu19">
+                                <div class="main_info_message">
+                                    У вас не указан номер телефона, он необходим для оформления заказа.
+                                    Нажмите для редатирования профиля.
+                                </div>
                             </div>
-                        </div>
+                        </template>
                     </div>
                     <template v-for="message in info">
                         <div class="product-horizontal-list_header__kQNss">

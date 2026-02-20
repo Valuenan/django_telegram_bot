@@ -32,7 +32,6 @@ export default {
             user_id: '',
             favoriteItems: [],
             nextPageUrl: null,
-            isInitialLoad: true,
             totalCount: 0,
             loading: false,
             baseUrl: import.meta.env.VITE_API_URL
@@ -124,6 +123,8 @@ export default {
         }
     }
 }
+
+
 
 
 </script>
@@ -289,16 +290,17 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                                             </div>
                                         </div>
                                     </div>
+
                                 </a>
                             </div>
                         </div>
                     </div>
-                    <div id="observer-point" ref="observerPoint" style="height: 10px;"></div>
-                    <div v-if="loading" class="loader">Грузим еще...</div>
+                    <div id="observer-point" ref="observerPoint"></div>
+                    <div v-if="loading" class="loader_ring"></div>
                 </div>
 
 
-                <div v-else class="favorites-screen_head__Kj1yl">
+                <div v-else-if="!loading" class="favorites-screen_head__Kj1yl">
                     <div>
                         <div title="" role="button" aria-label="animation" tabindex="0"
                              style="width: 150px; height: 100%; overflow: hidden; margin: 0px auto; outline: none;">
