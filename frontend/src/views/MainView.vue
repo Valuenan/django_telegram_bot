@@ -117,7 +117,7 @@ export default {
 </script>
 
 <template>
-    <div class="telegram-app_telegram_app__6iz4V" style="margin: 8px 0 0 10px;"> <!-- box low -->
+    <div class="telegram-app_telegram_app__6iz4V"> <!-- box low -->
         <div class="stack-navigation_screen___5WKf">
             <div class="favorites-screen_favorites_screen__SSbmT"> <!-- box low -->
                 <div class="home-screen_header__yUTVr">
@@ -222,7 +222,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                         </svg>
                     </div>
                 </div>
-                <div class="home-screen_wrapper__3Ji45"> <!-- box upper -->
+                <div class="home-screen_wrapper__3Ji45" style="margin: 8px 0 0 10px;"> <!-- box upper -->
                     <div class="actions_actions__Krnjv">
                         <div class="actions_wrapper__dOu19">
                             <div class="actions_column__Rl3CY">
