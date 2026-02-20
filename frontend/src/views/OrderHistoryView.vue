@@ -35,7 +35,7 @@ export default {
             nextPageUrl: null,
             prevPageUrl: null,
             orders: [],
-            loading: false,
+            loading: true,
             baseUrl: import.meta.env.VITE_API_URL
         }
     },
@@ -228,7 +228,8 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                     <div v-if="totalCount > 0" class="button_button__FUDeW" style="height:20px; width:auto">Заказ № {{
                         order_num }}
                     </div>
-                    <button @click="fetchOrders(nextPageUrl)" v-if="nextPageUrl"
+                    <button @click="fetchOrders(nextPageUrl)"
+                            :class="{ 'hide': !prevPageUrl }"
                             class="button_button__FUDeW button_secondary__bEjIM"
                             style="height:20px; width:auto">
                         след.
@@ -303,10 +304,11 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                                     </div>
                                 </div>
                             </div>
+                            <div v-if="loading" class="loader_ring"></div>
                         </div>
 
 
-                        <div v-else class="cart-screen_empty__mDtgG"> <!-- если пусто -->
+                        <div v-else-if="!loading" class="cart-screen_empty__mDtgG"> <!-- если пусто -->
                             <div class="cart-screen_icon__QKvZs">
                                 <div style="width:150px;height:100%;overflow:hidden;margin:0 auto;outline:none"
                                      title="" role="button" aria-label="animation" tabindex="0">
