@@ -87,6 +87,9 @@ export default {
 }
 
 
+
+
+
 </script>
 
 <template>
@@ -227,44 +230,53 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
 
                             <div v-else
                                  class="gender-categories_section___6yOW">
-                                <div>
-                                    <div v-if="catalog.breadcrumbs && catalog.breadcrumbs.length > 0"
-                                         class="gender-categories_header__CcM7p"
-                                         style="justify-content:left;flex-wrap:wrap">
-                                        <a @click="fetchCatalog(null)"
-                                           class="breadcrumb-link gender-categories_title__NYQm5">
-                                            Начало
-                                        </a>
-                                        <b>></b>
-                                        <template
-                                                v-for="(crumb, index) in catalog.breadcrumbs.slice(0, -1)"
-                                                :key="index">
-                                            <a @click="fetchCatalog(crumb.id)"
-                                               class="breadcrumb-link gender-categories_title__NYQm5">
-                                                {{ crumb.command }}
-                                            </a>
-                                            <b>></b>
-                                        </template>
-                                    </div>
-
-                                    <div class="gender-categories_header__CcM7p">
-                                        <div class="gender-categories_title__NYQm5">
-                                            {{ this.catalog.command }}
-                                        </div>
-                                        <button @click="allInCategory(this.catalog.id)"
+                                <div v-if="catalog.breadcrumbs && catalog.breadcrumbs.length > 0"
+                                     class="gender-categories_header__CcM7p"
+                                     style="justify-content:left;flex-wrap:wrap">
+                                    <button @click="fetchCatalog(null)"
+                                            class="button_button__FUDeW button_secondary__bEjIM gender-categories_see_all__zXRbP">
+                                        Начало
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20"
+                                             width="1em" height="1em">
+                                            <path stroke="currentColor" stroke-linecap="round"
+                                                  stroke-linejoin="round" stroke-width="1.5"
+                                                  d="m7.5 5 5 5-5 5"></path>
+                                        </svg>
+                                    </button>
+                                    <template
+                                            v-for="(crumb, index) in catalog.breadcrumbs.slice(0, -1)"
+                                            :key="index">
+                                        <button @click="fetchCatalog(crumb.id)"
                                                 class="button_button__FUDeW button_secondary__bEjIM gender-categories_see_all__zXRbP">
-                                            Все
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none"
-                                                 viewBox="0 0 20 20"
-                                                 width="1em"
-                                                 height="1em">
+                                            {{ crumb.command }}
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20"
+                                                 width="1em" height="1em">
                                                 <path stroke="currentColor" stroke-linecap="round"
-                                                      stroke-linejoin="round"
-                                                      stroke-width="1.5" d="m7.5 5 5 5-5 5"></path>
+                                                      stroke-linejoin="round" stroke-width="1.5"
+                                                      d="m7.5 5 5 5-5 5"></path>
                                             </svg>
                                         </button>
-                                    </div>
+                                    </template>
                                 </div>
+
+                                <div class="gender-categories_header__CcM7p">
+                                    <div class="gender-categories_title__NYQm5">
+                                        {{ this.catalog.command }}
+                                    </div>
+                                    <button @click="allInCategory(this.catalog.id)"
+                                            class="button_button__FUDeW button_secondary__bEjIM gender-categories_see_all__zXRbP">
+                                        Все
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                             viewBox="0 0 20 20"
+                                             width="1em"
+                                             height="1em">
+                                            <path stroke="currentColor" stroke-linecap="round"
+                                                  stroke-linejoin="round"
+                                                  stroke-width="1.5" d="m7.5 5 5 5-5 5"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+
                                 <div class="gender-categories_body__nnTOU">
                                     <div class="gender-categories_row__B5nMy"
                                          style="--row-grid-columns:repeat(2, 1fr);--row-grid-rows:1fr">

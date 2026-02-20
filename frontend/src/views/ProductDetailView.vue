@@ -202,6 +202,8 @@ export default {
 
 
 
+
+
 </script>
 
 <template>
@@ -317,20 +319,38 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                                 <div class="product-screen_inner__OqLLs">
                                     <div class="hero-show-off-variant_productHero__Kspuk">
                                         <div class="hero-show-off-variant_productHero_showOff_sneaker__jewgd">
-                                            <div v-if="product?.breadcrumbs && product?.breadcrumbs.length > 0"
-                                                 class="hero-show-off-variant_productHero_showOff_wrapper__d5b_E">
-                                                <div class="hero-show-off-variant_productHero_showOff_sneaker_brand_title__s7U3f"
-                                                     style="flex-wrap:wrap">
-                                                    <a @click="catalogLink(null)"
-                                                       class="breadcrumb-link">
-                                                        Начало</a><b>></b>
-                                                    <template
-                                                            v-for="(crumb, index) in product.breadcrumbs"
-                                                            :key="index">
-                                                        <a @click="catalogLink(crumb.id)"
-                                                           class="breadcrumb-link">
-                                                            {{ crumb.command }}</a><b>></b>
-                                                    </template>
+                                            <div class="gender-categories_grid_category_section__33Ww1">
+                                                <div class="gender-categories_section___6yOW">
+                                                    <div v-if="product?.breadcrumbs && product?.breadcrumbs.length > 0"
+                                                         class="gender-categories_header__CcM7p"
+                                                         style="justify-content:left;flex-wrap:wrap">
+                                                        <button @click="catalogLink(null)"
+                                                                class="button_button__FUDeW button_secondary__bEjIM gender-categories_see_all__zXRbP">
+                                                            Начало
+                                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                                 viewBox="0 0 20 20"
+                                                                 width="1em" height="1em">
+                                                                <path stroke="currentColor" stroke-linecap="round"
+                                                                      stroke-linejoin="round" stroke-width="1.5"
+                                                                      d="m7.5 5 5 5-5 5"></path>
+                                                            </svg>
+                                                        </button>
+                                                        <template
+                                                                v-for="(crumb, index) in product.breadcrumbs"
+                                                                :key="index">
+                                                            <button @click="catalogLink(crumb.id)"
+                                                                    class="button_button__FUDeW button_secondary__bEjIM gender-categories_see_all__zXRbP">
+                                                                {{ crumb.command }}
+                                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                                     viewBox="0 0 20 20"
+                                                                     width="1em" height="1em">
+                                                                    <path stroke="currentColor" stroke-linecap="round"
+                                                                          stroke-linejoin="round" stroke-width="1.5"
+                                                                          d="m7.5 5 5 5-5 5"></path>
+                                                                </svg>
+                                                            </button>
+                                                        </template>
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div class="hero-show-off-variant_productHero_showOff_sneaker_imageMobile__X55d_">
