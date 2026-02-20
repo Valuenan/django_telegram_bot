@@ -2,7 +2,6 @@
 import { ref, onMounted } from 'vue'
 import { useAuthStore, getCSRFToken } from '../users/auth.js'
 import { useRouter } from 'vue-router'
-import jsonData from '../response.json'
 
 export default {
     name: 'ProductView',
@@ -42,18 +41,28 @@ export default {
 
     async created() {
         const tgUser = this.tg?.initDataUnsafe?.user ;
-        this.user_id = tgUser?.id || jsonData.id;
+        this.user_id = tgUser?.id;
 
         await this.fetchCatalog();
         await this.loadProducts();
     },
 
     mounted() {
-        window.addEventListener('scroll', this.handleScroll);
-    },
+        const options = {
+            root: null,
+            rootMargin: '100px',
+            threshold: 0.1
+        };
 
-    beforeUnmount() {
-        window.removeEventListener('scroll', this.handleScroll);
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting && !this.loading && this.nextPageUrl) {
+                this.loadProducts();
+            }
+        }, options);
+
+        if (this.$refs.observerPoint) {
+            observer.observe(this.$refs.observerPoint);
+        }
     },
 
     methods: {
@@ -345,6 +354,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                                                         </div>
                                                     </div>
                                                 </a>
+                                                <div id="observer-point" ref="observerPoint" style="height: 10px;"></div>
                                                 <div v-if="loading" class="loader_ring"></div>
                                             </div>
                                         </div>
