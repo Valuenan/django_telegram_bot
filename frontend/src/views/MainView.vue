@@ -55,6 +55,9 @@ export default {
     methods: {
         async fetchProfile() {
             try {
+                const initData = this.tg?.initData;
+                if (!initData) return;
+
                 const firstName = this.tg?.initDataUnsafe?.user?.first_name|| '';
                 const telegramName = this.tg?.initDataUnsafe?.user?.telegram_name || '';
 
@@ -64,7 +67,8 @@ export default {
                 }).toString();
 
                 const response = await fetch(`${this.baseUrl}/api/profile/${this.user_id}/?${queryParams}`, {
-                    headers: { 'X-CSRFToken': getCSRFToken() }
+                    headers: { 'X-CSRFToken': getCSRFToken(),
+                               'X-Telegram-Init-Data': initData}
                 });
 
                 if (response.ok) {
@@ -109,7 +113,7 @@ export default {
 </script>
 
 <template>
-    <div class="telegram-app_telegram_app__6iz4V" style="margin-left: 10px;"> <!-- box low -->
+    <div class="telegram-app_telegram_app__6iz4V" style="margin: 8px 0 0 10px;"> <!-- box low -->
         <div class="stack-navigation_screen___5WKf">
             <div class="favorites-screen_favorites_screen__SSbmT"> <!-- box low -->
                 <div class="home-screen_header__yUTVr">

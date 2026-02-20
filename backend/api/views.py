@@ -1,7 +1,7 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, viewsets, status
 from rest_framework.response import Response
-from django.db.models import Sum, F, Prefetch
+from django.db.models import Sum, F, Prefetch, Q
 from rest_framework.views import APIView
 from django.core.cache import cache
 
@@ -49,39 +49,41 @@ class ProductListView(generics.ListAPIView):
             ids.extend(self.get_sub_categories(child_id))
         return ids
 
+    def get_sub_categories_recursive(self, category_id):
+        """Рекурсивно собирает ID всех вложенных категорий (включая саму категорию)"""
+        category_ids = [category_id]
+
+        child_ids = Category.objects.filter(
+            parent_category_id=category_id,
+            hide=False
+        ).values_list('id', flat=True)
+
+        for child_id in child_ids:
+            category_ids.extend(self.get_sub_categories_recursive(child_id))
+
+        return list(set(category_ids))
+
     def get_queryset(self):
         chat_id = self.request.query_params.get('chat_id')
         category_id = self.request.query_params.get('category')
 
-        # 1. Фильтрация остатков (Rests)
-        rests_filter = Rests.objects.select_related('shop')
-        show_out_of_stock = False
+        is_preorder = False
         if chat_id:
-            profile = Profile.objects.filter(chat_id=chat_id).first()
-            if profile and profile.preorder:
-                show_out_of_stock = True
+            is_preorder = Profile.objects.filter(chat_id=chat_id, preorder=True).exists()
 
-        if not show_out_of_stock:
-            rests_filter = rests_filter.filter(amount__gt=0)
-
-        active_rests = Prefetch(
-            'rests_set',
-            queryset=rests_filter
-        )
-
-        queryset = Product.objects.select_related('image', 'category', 'discount_group') \
-            .prefetch_related(active_rests)
+        queryset = Product.objects.select_related('image', 'category', 'discount_group')
 
         if category_id:
-            filtered_queryset = queryset.filter(category_id=category_id)
+            all_ids = self.get_sub_categories_recursive(category_id)
+            queryset = queryset.filter(category_id__in=all_ids)
 
-            if not filtered_queryset.exists():
-                all_sub_ids = self.get_sub_categories(category_id)
-                queryset = queryset.filter(category_id__in=all_sub_ids)
-            else:
-                queryset = filtered_queryset
+        rests_filter_qs = Rests.objects.select_related('shop')
+        if not is_preorder:
+            queryset = queryset.filter(rests__amount__gt=0).distinct()
+            rests_filter_qs = rests_filter_qs.filter(amount__gt=0)
 
-        return queryset
+        active_rests = Prefetch('rests_set', queryset=rests_filter_qs)
+        return queryset.prefetch_related(active_rests).order_by('id')
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -118,17 +120,14 @@ class CategoryListView(generics.ListAPIView):
     def get_queryset(self):
         chat_id = self.request.query_params.get('chat_id')
 
-        # Проверяем флаг preorder у профиля
         is_preorder = False
         if chat_id:
             is_preorder = Profile.objects.filter(chat_id=chat_id, preorder=True).exists()
 
-        # Настраиваем фильтр остатков
         rests_qs = Rests.objects.all()
         if not is_preorder:
             rests_qs = rests_qs.filter(amount__gt=0)
 
-        # Собираем итоговый QuerySet
         return Category.objects.filter(
             hide=False,
             parent_category__isnull=True

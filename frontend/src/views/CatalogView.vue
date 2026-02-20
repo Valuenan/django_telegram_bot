@@ -230,7 +230,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                                 <div>
                                     <div v-if="catalog.breadcrumbs && catalog.breadcrumbs.length > 0"
                                          class="gender-categories_header__CcM7p"
-                                         style="justify-content:left">
+                                         style="justify-content:left;flex-wrap:wrap">
                                         <a @click="fetchCatalog(null)"
                                            class="breadcrumb-link gender-categories_title__NYQm5">
                                             Начало
