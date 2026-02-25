@@ -1,29 +1,58 @@
+from django.contrib.auth.models import User
+from django import db
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, viewsets, status
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from django.db.models import Sum, F, Prefetch, Q
+from django.db.models import Sum, F, Prefetch
 from rest_framework.views import APIView
 from django.core.cache import cache
+from init_data_py import InitData
 
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from shop.models import Product, Category, Rests, BotMainMessage
 from users.models import Carts, Profile, Orders, OrderStatus
 from .serializers import (
     ProductSerializer, CategorySerializer, CartSerializer, CartReadSerializer, ProfileFavoritesSerializer,
     ProfileSerializer, OrderSerializer, MainMessageSerializer
 )
-from .service import MainPagination, CategoryNullFilterBackend
+from .service import MainPagination
 from shop.telegram.bot import message_to_manager
-from django.http import JsonResponse
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.conf import settings
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
-@ensure_csrf_cookie
-def set_csrf_token(request):
-    """
-    Эндпоинт для установки CSRF-куки на клиенте.
-    Декоратор @ensure_csrf_cookie принудительно отправляет заголовок Set-Cookie.
-    """
-    return JsonResponse({'details': 'CSRF cookie set'}, status=200)
+@api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def telegram_auth(request):
+    init_data_raw = request.data.get('initData')
+
+    if not init_data_raw:
+        return Response({"error": "No data"}, status=400)
+
+    try:
+        init_data = InitData.parse(init_data_raw)
+        init_data.validate(settings.BOT_TOKEN)
+
+        tg_user = init_data.user
+        tg_id = str(tg_user.id)
+
+        user, _ = User.objects.get_or_create(username=str(init_data.user.id))
+
+        profile, created = Profile.objects.get_or_create(chat_id=tg_id)
+
+        refresh = RefreshToken.for_user(user)
+
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'is_new': created
+        })
+    except Exception as e:
+        print(f"!!! ОШИБКА: {e}")
+        return Response({"error": str(e)}, status=403)
 
 
 class MainMessageViewSet(viewsets.ReadOnlyModelViewSet):
@@ -31,6 +60,7 @@ class MainMessageViewSet(viewsets.ReadOnlyModelViewSet):
     Эндпоинт для получения сообщений главной страницы.
     Отдает только активные сообщения, отсортированные по приоритету.
     """
+    permission_classes = [AllowAny]
     queryset = BotMainMessage.objects.filter(is_active=True)
     serializer_class = MainMessageSerializer
     pagination_class = None
@@ -87,7 +117,7 @@ class ProductListView(generics.ListAPIView):
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context['chat_id'] = self.request.query_params.get('chat_id')
+        context['chat_id'] = self.request.user.username
         return context
 
 
@@ -106,7 +136,7 @@ class ProductDetailView(generics.RetrieveAPIView):
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context['chat_id'] = self.request.query_params.get('chat_id')
+        context['chat_id'] = self.request.user.username
         return context
 
 
@@ -183,25 +213,28 @@ class CategoryDetailView(generics.RetrieveAPIView):
 
 
 class CartViewSet(viewsets.ModelViewSet):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
     pagination_class = None
 
     def get_queryset(self):
-        chat_id = self.request.query_params.get('chat_id')
-        profile = get_object_or_404(Profile, chat_id=chat_id)
-        if profile.preorder:
-            queryset = Carts.objects.filter(soft_delete=False, order__isnull=True).order_by('preorder')
-        else:
-            queryset = Carts.objects.filter(soft_delete=False, order__isnull=True, preorder=False)
+        tg_id = self.request.user.username
+        profile = get_object_or_404(Profile, chat_id=tg_id)
 
-        if chat_id:
-            return queryset.filter(profile__chat_id=chat_id, soft_delete=False, order__isnull=True)
+        queryset = Carts.objects.filter(
+            profile=profile,
+            soft_delete=False,
+            order__isnull=True
+        )
 
-        return queryset.none()
+        if not profile.preorder:
+            queryset = queryset.filter(preorder=False)
+
+        return queryset.order_by('preorder')
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        chat_id = self.request.query_params.get('chat_id')
-        context.update({"chat_id": chat_id})
+        context.update({"chat_id": self.request.user.username})
         return context
 
     def get_serializer_class(self):
@@ -210,18 +243,18 @@ class CartViewSet(viewsets.ModelViewSet):
         return CartSerializer
 
     def create(self, request, *args, **kwargs):
-        chat_id = request.data.get('chat_id')
+        tg_id = request.user.username
         product_id = request.data.get('product')
         amount = request.data.get('amount', 1)
         preorder = request.data.get('preorder')
 
-        if not chat_id or not product_id:
+        if not product_id:
             return Response(
-                {"error": "Требуются chat_id и product"},
+                {"error": "Требуется product_id"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        profile = get_object_or_404(Profile, chat_id=chat_id)
+        profile = get_object_or_404(Profile, chat_id=tg_id)
 
         update_defaults = {
             'amount': amount,
@@ -231,35 +264,26 @@ class CartViewSet(viewsets.ModelViewSet):
         if preorder is not None:
             update_defaults['preorder'] = preorder
 
-        cart_item, created = Carts.objects.filter(
-            soft_delete=False,
-            order__isnull=True
-        ).update_or_create(
+        cart_item, created = Carts.objects.update_or_create(
             profile=profile,
             product_id=product_id,
+            soft_delete=False,
+            order__isnull=True,
             defaults=update_defaults
         )
 
         serializer = CartReadSerializer(cart_item, context={'request': request})
-
         return Response(
             serializer.data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
         )
 
     def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
+        queryset = self.get_queryset()
 
-        total_carts_sum = queryset.filter(order__isnull=True, preorder=False).aggregate(
+        total_carts_sum = queryset.filter(preorder=False).aggregate(
             total=Sum(F('amount') * F('price'))
         )['total'] or 0
-
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            response = self.get_paginated_response(serializer.data)
-            response.data['total_carts_sum'] = total_carts_sum
-            return response
 
         serializer = self.get_serializer(queryset, many=True)
         return Response({
@@ -269,24 +293,12 @@ class CartViewSet(viewsets.ModelViewSet):
 
 
 class ProfileDetailView(generics.RetrieveUpdateAPIView):
-    lookup_field = 'chat_id'
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    serializer_class = ProfileSerializer
 
     def get_object(self):
-        chat_id = self.kwargs.get('chat_id')
-        profile = Profile.objects.filter(chat_id=chat_id).first()
-
-        if not profile:
-            profile = Profile.objects.create(
-                chat_id=chat_id,
-                first_name=self.request.query_params.get('first_name', ''),
-                telegram_name=self.request.query_params.get('telegram_name', ''),
-                preorder=False
-            )
-            profile.is_new_user = True
-        else:
-            profile.is_new_user = False
-
-        return profile
+        return get_object_or_404(Profile, chat_id=self.request.user.username)
 
     def get_serializer_class(self):
         if self.request.query_params.get('with_track') == 'true':
@@ -297,21 +309,19 @@ class ProfileDetailView(generics.RetrieveUpdateAPIView):
         context = super().get_serializer_context()
         context.update({
             "request": self.request,
-            "chat_id": self.kwargs.get('chat_id')
+            "chat_id": self.request.user.username
         })
         return context
 
 
 class ProfileUpdateAPIView(APIView):
-    def patch(self, request):
-        chat_id = request.data.get('chat_id')
-        if not chat_id:
-            return Response({"error": "chat_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
-        profile = get_object_or_404(Profile, chat_id=chat_id)
+    def patch(self, request):
+        profile = get_object_or_404(Profile, chat_id=request.user.username)
 
         serializer = ProfileSerializer(profile, data=request.data, partial=True)
-
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -322,11 +332,17 @@ class ProfileUpdateAPIView(APIView):
 
 
 class TrackProductAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
-        chat_id = request.data.get('chat_id')
+        tg_id = request.user.username
         product_id = request.data.get('product_id')
 
-        profile = get_object_or_404(Profile, chat_id=chat_id)
+        if not product_id:
+            return Response({"error": "product_id is required"}, status=400)
+
+        profile = get_object_or_404(Profile, chat_id=tg_id)
         product = get_object_or_404(Product, id=product_id)
 
         if product in profile.track.all():
@@ -339,31 +355,33 @@ class TrackProductAPIView(APIView):
         return Response({"status": "success", "action": action}, status=status.HTTP_200_OK)
 
 
-class OrderViewSet(viewsets.ReadOnlyModelViewSet):
+class OrderViewSet(viewsets.ModelViewSet):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
     serializer_class = OrderSerializer
 
     def get_queryset(self):
-        chat_id = self.request.query_params.get('chat_id')
-        queryset = Orders.objects.select_related('status', 'payment').prefetch_related('carts__product')
-
-        if chat_id:
-            return queryset.filter(profile__chat_id=chat_id).order_by('-id')
-
-        return queryset.none()
+        tg_id = self.request.user.username
+        return Orders.objects.filter(profile__chat_id=tg_id) \
+            .select_related('status', 'payment') \
+            .prefetch_related('carts__product') \
+            .order_by('-id')
 
     def create(self, request, *args, **kwargs):
-        chat_id = request.data.get('chat_id')
-        profile = get_object_or_404(Profile, chat_id=chat_id)
+        db.close_old_connections()
 
-        cart_items = Carts.objects.filter(profile=profile, order__isnull=True, soft_delete=False)
+        with db.transaction.atomic():
+            tg_id = request.user.username
+            profile = get_object_or_404(Profile, chat_id=tg_id)
 
-        if not cart_items.exists():
-            return Response({"error": "Корзина пуста"}, status=status.HTTP_400_BAD_REQUEST)
+            cart_items = Carts.objects.filter(profile=profile, order__isnull=True, soft_delete=False)
+            if not cart_items.exists():
+                return Response({"error": "Корзина пуста"}, status=status.HTTP_400_BAD_REQUEST)
 
-        delivery_street = profile.delivery_street if request.data.get('deliver') else "СПБ пер. Прачечный 3"
-        preorder_mode = request.data.get('preorder')
+            delivery_street = request.data.get('delivery_info') or profile.delivery_street or "СПБ пер. Прачечный 3"
+            preorder_mode = request.data.get('preorder')
 
-        def create_order(items_to_add, target_status, order_price):
+        def create_single_order(items_to_add, target_status, order_price):
             if not items_to_add.exists():
                 return None
 
@@ -380,45 +398,41 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
             return new_order
 
         created_orders = []
+
         if profile.preorder:
             if preorder_mode == 'split':
-                order_ready = create_order(cart_items.filter(preorder=False), target_status='1',
-                                           order_price=request.data.get('order_price'))
-                order_pre = create_order(cart_items.filter(preorder=True), target_status='8', order_price=0)
+                order_ready = create_single_order(cart_items.filter(preorder=False), target_status='1',
+                                                  order_price=request.data.get('order_price', 0))
+                order_pre = create_single_order(cart_items.filter(preorder=True), target_status='8', order_price=0)
                 if order_ready:
                     created_orders.append(order_ready)
                 if order_pre:
                     created_orders.append(order_pre)
 
             elif preorder_mode == 'part-order':
-                order = create_order(cart_items.filter(preorder=False), target_status='1',
-                                     order_price=request.data.get('order_price'))
+                order = create_single_order(cart_items.filter(preorder=False), target_status='1',
+                                            order_price=request.data.get('order_price', 0))
                 if order:
                     created_orders.append(order)
 
             elif preorder_mode == 'part-preorder':
-                order = create_order(cart_items.filter(preorder=True), target_status='8', order_price=0)
+                order = create_single_order(cart_items.filter(preorder=True), target_status='8', order_price=0)
                 if order:
                     created_orders.append(order)
 
             elif preorder_mode == 'preorder':
                 cart_items.update(preorder=True)
-                order = create_order(cart_items, target_status='8', order_price=0)
+                order = create_single_order(cart_items, target_status='8', order_price=0)
                 if order:
                     created_orders.append(order)
         else:
-            order = create_order(cart_items.filter(preorder=False), target_status='1',
-                                 order_price=request.data.get('order_price'))
-            if order:
-                created_orders.append(order)
+            order = create_single_order(cart_items.filter(preorder=False), target_status='1',
+                                        order_price=request.data.get('order_price', 0))
+            if order: created_orders.append(order)
 
         for order in created_orders:
             try:
-                items_text = ""
-                order_items = order.carts.all()
-                for item in order_items:
-                    items_text += f" - {item.product.name} ({item.amount} шт.)\n"
-
+                items_text = "".join([f" - {item.product.name} ({item.amount} шт.)\n" for item in order.carts.all()])
                 msg = (
                     f"🔔 Заказ №: {order.id}\n"
                     f"Клиент: {order.profile.telegram_name}\n"
@@ -426,18 +440,13 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
                     f"Адрес: {order.delivery_info}\n"
                     f"На сумму: {order.order_price} руб."
                 )
-
                 message_to_manager(msg)
             except Exception as e:
-                message_to_manager(f"Ошибка при формировании сообщения в канал: {e}")
+                print(f"Telegram Notification Error: {e}")
 
         if not created_orders:
-            return Response({"error": "Нет подходящих товаров для формирования заказа"},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Нет товаров для заказа"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if len(created_orders) > 1:
-            serializer = OrderSerializer(created_orders, many=True)
-        else:
-            serializer = OrderSerializer(created_orders[0])
-
+        serializer = self.get_serializer(created_orders, many=True) if len(created_orders) > 1 else self.get_serializer(
+            created_orders[0])
         return Response(serializer.data, status=status.HTTP_201_CREATED)

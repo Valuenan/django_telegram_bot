@@ -1,7 +1,8 @@
 <script>
 import { ref, onMounted } from 'vue'
-import { useAuthStore, getCSRFToken } from '../users/auth.js'
+import { useAuthStore } from '../users/auth.js'
 import { useRouter } from 'vue-router'
+import api from '../api'
 
 export default {
     name: 'CartView',
@@ -19,68 +20,47 @@ export default {
             }
         });
 
-        return {
-            authStore,
-            router,
-            isTelegram,
-            tg
-        }
+        return { authStore, router, isTelegram, tg }
     },
 
     data() {
         return {
-            user_id: '',
             cartItems: [],
             nextPageUrl: null,
             totalCount: 0,
-            loading: true,
-            baseUrl: import.meta.env.VITE_API_URL
+            loading: false
         }
     },
 
     async created() {
-        const tgUser = this.tg?.initDataUnsafe?.user;
-        this.user_id = tgUser?.id;
         await this.fetchCart();
     },
 
     mounted() {
-        const options = {
-            root: null,
-            rootMargin: '100px',
-            threshold: 0.1
-        };
-
+        const options = { rootMargin: '100px', threshold: 0.1 };
         const observer = new IntersectionObserver((entries) => {
             if (entries[0].isIntersecting && !this.loading && this.nextPageUrl) {
                 this.fetchCart();
             }
         }, options);
 
-        if (this.$refs.observerPoint) {
-            observer.observe(this.$refs.observerPoint);
-        }
+        if (this.$refs.observerPoint) observer.observe(this.$refs.observerPoint);
     },
 
     computed: {
         finalTotal() {
-            if (!this.cartItems || this.cartItems.length === 0) return 0;
-
+            if (!this.cartItems.length) return 0;
             const globalDiscountType = this.cartItems[0].product?.rests[0]?.shop_active_discount;
 
             return this.cartItems.reduce((acc, item) => {
                 if (item.preorder) return acc;
-
                 const price = Number(item.price) || 0;
                 const qty = item.amount || 0;
                 const group = item.product?.discount_group;
 
                 let factor = 1;
-                if (globalDiscountType === 'regular' && group?.regular_value) {
-                    factor = Number(group.regular_value);
-                } else if (globalDiscountType === 'extra' && group?.extra_value) {
-                    factor = Number(group.extra_value);
-                }
+                if (globalDiscountType === 'regular' && group?.regular_value) factor = Number(group.regular_value);
+                else if (globalDiscountType === 'extra' && group?.extra_value) factor = Number(group.extra_value);
 
                 return acc + Math.round(price * factor) * qty;
             }, 0);
@@ -89,23 +69,15 @@ export default {
 
     methods: {
         async fetchCart() {
-            if (this.loading && this.cartItems.length > 0) return;
-
             this.loading = true;
-
             try {
-                const url = this.nextPageUrl || `${this.baseUrl}/api/cart/?chat_id=${this.user_id}`;
-                const response = await fetch(url);
+                const url = this.nextPageUrl || '/api/cart/';
+                const { data } = await api.get(url);
 
-                if (response.ok) {
-                    const data = await response.json();
-                    const newItems = data.results || [];
-
-                    this.cartItems = this.nextPageUrl ? [...this.cartItems, ...newItems] : newItems;
-
-                    this.nextPageUrl = data.next || null;
-                    this.totalCount = data.count || this.cartItems.length;
-                }
+                const newItems = data.results || [];
+                this.cartItems = this.nextPageUrl ? [...this.cartItems, ...newItems] : newItems;
+                this.nextPageUrl = data.next || null;
+                this.totalCount = data.count || this.cartItems.length;
             } catch (error) {
                 console.error("Ошибка загрузки корзины:", error);
             } finally {
@@ -113,17 +85,10 @@ export default {
             }
         },
 
-
         async deleteCart(cart) {
             try {
-                const response = await fetch(`${this.baseUrl}/api/cart/${cart.id}/?chat_id=${this.user_id}`, {
-                    method: 'DELETE',
-                    headers: { 'X-CSRFToken': getCSRFToken() },
-                });
-
-                if (response.ok) {
-                    this.cartItems = this.cartItems.filter(item => item.id !== cart.id);
-                }
+                await api.delete(`/api/cart/${cart.id}/`);
+                this.cartItems = this.cartItems.filter(item => item.id !== cart.id);
             } catch (error) {
                 console.error("Ошибка при удалении:", error);
             }
@@ -131,29 +96,12 @@ export default {
 
         async toggleTrack(product) {
             try {
-                const response = await fetch(`${this.baseUrl}/api/profile/track/`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken(),
-                    },
-                    body: JSON.stringify({
-                        chat_id: this.user_id,
-                        product_id: product.id
-                    }),
-                    credentials: 'include',
+                await api.post('/api/profile/track/', {
+                    product_id: product.id
                 });
-
-                if (response.ok) {
-                    const data = await response.json();
-
-                    if (product && product.id === product.id) {
-                        product.is_tracked = !product.is_tracked;
-                    }
-
-                }
+                product.is_tracked = !product.is_tracked;
             } catch (e) {
-                console.error("Ошибка при обновлении трека:", e);
+                console.error("Ошибка трекинга:", e);
             }
         },
 
@@ -161,36 +109,18 @@ export default {
             const maxRest = cart.product?.rests[0]?.amount || 0;
             const nextValue = cart.amount + delta;
 
-            if (!cart.preorder && delta > 0 && nextValue > maxRest) {
-                return;
-            }
-
-            if (nextValue <= 0) {
-                await this.deleteCart(cart);
-                return;
-            }
+            if (!cart.preorder && delta > 0 && nextValue > maxRest) return;
+            if (nextValue <= 0) return await this.deleteCart(cart);
 
             const oldAmount = cart.amount;
             cart.amount = nextValue;
 
             try {
-                const response = await fetch(`${this.baseUrl}/api/cart/`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken(),
-                    },
-                    body: JSON.stringify({
-                        chat_id: this.user_id,
-                        product: cart.product.id,
-                        amount: cart.amount,
-                        price: cart.price,
-                    }),
+                const { data } = await api.post('/api/cart/', {
+                    product: cart.product.id,
+                    amount: cart.amount,
+                    price: cart.price,
                 });
-
-                if (!response.ok) throw new Error();
-
-                const data = await response.json();
                 cart.id = data.id;
             } catch (error) {
                 cart.amount = oldAmount;
@@ -199,7 +129,7 @@ export default {
         },
 
         handleImageError(event) {
-            event.target.src = `${this.baseUrl}/static/products/no-image.jpg`;
+            event.target.src = '/static/products/no-image.jpg';
         },
 
         async orderLink(id) {
@@ -216,8 +146,6 @@ export default {
         }
     }
 }
-
-
 </script>
 
 <template>

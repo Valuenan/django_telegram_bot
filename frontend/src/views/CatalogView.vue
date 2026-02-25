@@ -1,7 +1,8 @@
 <script>
 import { ref, onMounted } from 'vue'
-import { useAuthStore, getCSRFToken } from '../users/auth.js'
+import { useAuthStore } from '../users/auth.js'
 import { useRouter, useRoute } from 'vue-router'
+import api from '../api'
 
 export default {
     name: 'CatalogView',
@@ -20,45 +21,31 @@ export default {
             }
         });
 
-        return {
-            authStore,
-            router,
-            route,
-            isTelegram,
-            tg
-        }
+        return { authStore, router, route, isTelegram, tg }
     },
 
     data() {
         return {
-            user_id: '',
             catalog: [],
             main_catalog: 1,
-            loading: true,
-            baseUrl: import.meta.env.VITE_API_URL
+            loading: true
         }
     },
 
     mounted() {
-        const catalogId = this.$route.query.id;
+        const catalogId = this.route.query.id;
         this.fetchCatalog(catalogId);
     },
 
     methods: {
         async fetchCatalog(id = null) {
-            const targetId = id || null;
-            const url = targetId
-                ? `${this.baseUrl}/api/category/${targetId}/`
-                : `${this.baseUrl}/api/catalog/`;
+            this.loading = true;
+            const url = id ? `/api/category/${id}/` : `/api/catalog/`;
 
             try {
-                const response = await fetch(url, {
-                    headers: { 'X-CSRFToken': getCSRFToken() }
-                });
-                const data = await response.json();
-                this.loading = false
+                const { data } = await api.get(url);
 
-                if (!targetId) {
+                if (!id) {
                     this.main_catalog = 1;
                     this.catalog = data.results || data;
                 } else {
@@ -68,16 +55,18 @@ export default {
                     if (data.children && data.children.length === 0) {
                         this.router.push({
                             path: '/products/',
-                            query: { catalog_id: targetId }
+                            query: { catalog_id: id }
                         });
                     }
                 }
             } catch (e) {
                 console.error("Ошибка загрузки каталога", e);
+            } finally {
+                this.loading = false;
             }
         },
 
-        async allInCategory(id) {
+        allInCategory(id) {
             this.router.push({
                 path: '/products/',
                 query: { catalog_id: id }
@@ -85,11 +74,6 @@ export default {
         },
     }
 }
-
-
-
-
-
 </script>
 
 <template>

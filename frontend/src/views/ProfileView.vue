@@ -1,7 +1,8 @@
 <script>
 import { ref, onMounted } from 'vue';
-import { useAuthStore, getCSRFToken } from '../users/auth.js'
+import { useAuthStore } from '../users/auth.js'
 import { useRouter } from 'vue-router'
+import api from '../api'
 
 export default {
     name: 'ProfileView',
@@ -19,43 +20,28 @@ export default {
             }
         });
 
-        return {
-            authStore,
-            router,
-            isTelegram,
-            tg
-        }
+        return { authStore, router, isTelegram, tg }
     },
 
     data() {
         return {
-            user_id: '',
             user_data: {},
             ordersCount: 0,
-            baseUrl: import.meta.env.VITE_API_URL
         }
     },
 
     async created() {
-        await this.fetchProfile();
-        await this.fetchOrders()
+        await Promise.all([
+            this.fetchProfile(),
+            this.fetchOrders()
+        ]);
     },
 
     methods: {
         async fetchProfile() {
             try {
-                const tgUser = this.tg?.initDataUnsafe?.user;
-                this.user_id = tgUser?.id;
-
-                const response = await fetch(`${this.baseUrl}/api/profile/${this.user_id}/`, {
-                    headers: {
-                        'X-CSRFToken': getCSRFToken()
-                    }
-                });
-
-                if (response.ok) {
-                    this.user_data = await response.json();
-                }
+                const { data } = await api.get('/api/profile/me/');
+                this.user_data = data;
             } catch (error) {
                 console.error("Ошибка загрузки профиля:", error);
             }
@@ -63,60 +49,41 @@ export default {
 
         async fetchOrders() {
             try {
-                const response = await fetch(`${this.baseUrl}/api/orders/?chat_id=${this.user_id}`)
-                const data = await response.json()
-                this.ordersCount = data.count
-
-              } catch (error) {
-                console.log(error);
+                const { data } = await api.get('/api/orders/');
+                this.ordersCount = data.count;
+            } catch (error) {
+                console.error("Ошибка загрузки заказов:", error);
             }
         },
 
         async togglePreorder(event) {
             const newValue = event.target.checked;
+            const oldValue = this.user_data.preorder;
             this.user_data.preorder = newValue;
 
             try {
-                const response = await fetch(`${this.baseUrl}/api/profile/update/`, {
-                    method: 'PATCH',
-                                headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken()
-                    },
-                    body: JSON.stringify({
-                        chat_id: this.user_id,
-                        preorder: newValue
-                    })
+                await api.patch('/api/profile/update/', {
+                    preorder: newValue
                 });
-
-                if (!response.ok) throw new Error("Ошибка при сохранении");
-
             } catch (error) {
-                console.error("Не удалось обновить статус на сервере:", error);
-                this.user_data.preorder = !newValue;
+                console.error("Не удалось обновить статус:", error);
+                this.user_data.preorder = oldValue;
             }
         },
 
-        async editLink() {
-            this.$router.push({
-            path: '/edit_profile/'
-            });
+        editLink() {
+            this.router.push('/edit_profile/');
         },
 
-        async ordersFavorite() {
-            this.$router.push({
-            path: '/favorite/'
-            });
+        ordersFavorite() {
+            this.router.push('/favorite/');
         },
 
-        async ordersLink() {
-            this.$router.push({
-            path: '/orders_history/'
-            });
+        ordersLink() {
+            this.router.push('/orders_history/');
         }
     }
 }
-
 </script>
 
 <template>

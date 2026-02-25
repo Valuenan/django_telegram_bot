@@ -1,7 +1,8 @@
 <script>
 import { ref, onMounted } from 'vue'
-import { useAuthStore, getCSRFToken } from '../users/auth.js'
+import { useAuthStore } from '../users/auth.js'
 import { useRouter } from 'vue-router'
+import api from '../api'
 
 export default {
     name: 'OrderView',
@@ -19,17 +20,11 @@ export default {
             }
         });
 
-        return {
-            authStore,
-            router,
-            isTelegram,
-            tg
-        }
+        return { authStore, router, isTelegram, tg }
     },
 
     data() {
         return {
-            user_id: '',
             user_data: {},
             cartItems: [],
             new_phone: null,
@@ -43,48 +38,22 @@ export default {
             totalDiscountSum: 0,
             cartPreorder: 'order',
             loading: false,
-            baseUrl: import.meta.env.VITE_API_URL
+            discount: 'no_sale'
         }
     },
 
     async created() {
-        await this.fetchProfile();
-        await this.fetchCart();
-    },
-
-    async mounted() {
-        const options = {
-            root: null,
-            rootMargin: '0px',
-            threshold: 1.0
-        };
-
-        const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting && !this.loading) {
-                this.fetchCart();
-            }
-        }, options);
-
-        if (this.$refs.observerPoint) {
-            observer.observe(this.$refs.observerPoint);
-        }
+        await Promise.all([
+            this.fetchProfile(),
+            this.fetchCart()
+        ]);
     },
 
     methods: {
         async fetchProfile() {
             try {
-                const tgUser = this.tg?.initDataUnsafe?.user;
-                this.user_id = tgUser?.id;
-
-                const response = await fetch(`${this.baseUrl}/api/profile/${this.user_id}/`, {
-                    headers: {
-                        'X-CSRFToken': getCSRFToken(),
-                    }
-                });
-
-                if (response.ok) {
-                    this.user_data = await response.json();
-                }
+                const { data } = await api.get('/api/profile/me/');
+                this.user_data = data;
             } catch (error) {
                 console.error("Ошибка загрузки профиля:", error);
             }
@@ -92,51 +61,33 @@ export default {
 
         async fetchCart() {
             try {
-                const url = `${this.baseUrl}/api/cart/?chat_id=${this.user_id}`;
-                const response = await fetch(url);
+                const { data } = await api.get('/api/cart/');
+                this.cartItems = data.results || [];
+                this.totalCount = this.cartItems.length;
+                this.totalSum = data.total_carts_sum;
 
-                if (response.ok) {
-                    const data = await response.json();
-                    this.cartItems = data.results || [];
-                    this.totalCount = this.cartItems.length;
-                    this.totalSum = data.total_carts_sum;
+                const hasPreorders = this.cartItems.some(item => item.preorder === true);
+                const hasRegulars = this.cartItems.some(item => item.preorder === false);
 
-                    const hasPreorders = this.cartItems.some(item => item.preorder === true);
-                    const hasRegulars = this.cartItems.some(item => item.preorder === false);
+                this.cartPreorder = (hasPreorders && hasRegulars) ? 'both' :
+                                    hasPreorders ? 'preorder' : 'order';
+                this.preorder = hasPreorders;
 
-                    if (hasPreorders && hasRegulars) {
-                        this.cartPreorder = 'both';
-                    } else if (hasPreorders) {
-                        this.cartPreorder = 'preorder';
-                    } else {
-                        this.cartPreorder = 'order';
-                    }
-                    this.preorder = hasPreorders;
+                const globalDiscountType = this.cartItems[0]?.product?.rests[0]?.shop_active_discount;
+                this.discount = globalDiscountType;
 
+                this.totalDiscountSum = this.cartItems.reduce((acc, item) => {
+                    if (item.preorder) return acc;
+                    const price = Number(item.price) || 0;
+                    const qty = Number(item.amount) || 0;
+                    const group = item.product?.discount_group;
 
-                    const firstItem = this.cartItems[0];
-                    const globalDiscountType = firstItem?.product?.rests[0]?.shop_active_discount;
-                    this.discount = globalDiscountType;
+                    let factor = 1;
+                    if (globalDiscountType === 'regular' && group?.regular_value) factor = Number(group.regular_value);
+                    else if (globalDiscountType === 'extra' && group?.extra_value) factor = Number(group.extra_value);
 
-                    const total = this.cartItems.reduce((acc, item) => {
-                        if (item.preorder) return acc;
-
-                        const price = Number(item.price) || 0;
-                        const qty = Number(item.amount) || 0;
-                        const group = item.product?.discount_group;
-
-                        let factor = 1;
-                        if (globalDiscountType === 'regular' && group?.regular_value) {
-                            factor = Number(group.regular_value);
-                        } else if (globalDiscountType === 'extra' && group?.extra_value) {
-                            factor = Number(group.extra_value);
-                        }
-
-                        return acc + Math.round(price * factor) * qty;
-                    }, 0);
-
-                    this.totalDiscountSum = total;
-                }
+                    return acc + Math.round(price * factor) * qty;
+                }, 0);
             } catch (error) {
                 console.error("Ошибка при загрузке корзины:", error);
             }
@@ -144,47 +95,27 @@ export default {
 
         async updateProfile() {
             try {
-                const payload = {
-                    chat_id: this.user_id
-                };
+                const payload = {};
+                if (!this.user_data.phone) payload.phone = this.new_phone;
+                if (!this.user_data.delivery_street && this.delivery) payload.delivery_street = this.new_delivery_street;
 
-                if (!this.user_data.phone) {
-                    payload.phone = this.new_phone;
-                }
-
-                if (!this.user_data.delivery_street && this.delivery === true) {
-                    payload.delivery_street = this.new_delivery_street;
-                }
-
-                const response = await fetch(`${this.baseUrl}/api/profile/update/`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken(),
-                    },
-                    body: JSON.stringify(payload),
-                    credentials: 'include',
-                });
-
-                const data = await response.json();
-                if (response.ok) {
+                if (Object.keys(payload).length > 0) {
+                    const { data } = await api.post('/api/profile/update/', payload);
                     this.user_data = data;
-                } else {
-                    console.error("Ошибка:", data);
                 }
             } catch (error) {
-                console.error("Ошибка сети:", error);
+                console.error("Ошибка обновления профиля:", error);
             }
         },
 
         async createOrder() {
             try {
-                if (this.new_phone || this.new_delivery_street) {
+                this.loading = true;
+                if (this.new_phone || (this.new_delivery_street && this.delivery)) {
                     await this.updateProfile();
                 }
 
                 const payload = {
-                    chat_id: this.user_id,
                     order_price: this.totalDiscountSum,
                     deliver: this.delivery,
                     payment: this.payment,
@@ -192,46 +123,26 @@ export default {
                 };
 
                 if (this.user_data.preorder) {
-                    if (this.cartPreorder === 'both') {
-                        payload.preorder = this.preorderSelector;
-                    } else if (this.cartPreorder === 'preorder') {
-                        payload.preorder = 'part-preorder';
-                    } else {
-                        payload.preorder = 'part-order';
-                    }
+                    payload.preorder = this.cartPreorder === 'both' ? this.preorderSelector :
+                                       this.cartPreorder === 'preorder' ? 'part-preorder' : 'part-order';
                 }
-
 
                 if (this.delivery) {
                     payload.delivery_info = this.new_delivery_street || this.user_data.delivery_street || "СПБ пер. Прачечный 3";
                 }
 
+                await api.post('/api/orders/', payload);
 
-                const response = await fetch(`${this.baseUrl}/api/orders/`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken()
-                    },
-                    body: JSON.stringify(payload),
-                    credentials: 'include',
-                });
-
-                if (response.ok) {
-                    this.$router.push({ path: '/orders_history' });
-                } else {
-                    const errorData = await response.json();
-                    console.error("Ошибка сервера:", errorData);
-                }
+                this.router.push('/orders_history/');
             } catch (error) {
-                console.error("Ошибка при выполнении createOrder:", error);
+                console.error("Ошибка при создании заказа:", error.response?.data || error);
+            } finally {
+                this.loading = false;
             }
         },
 
-        async editLink() {
-            this.$router.push({
-            path: '/edit_profile/'
-            });
+        editLink() {
+            this.router.push('/edit_profile/');
         }
     }
 }

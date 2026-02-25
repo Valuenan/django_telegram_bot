@@ -117,10 +117,10 @@ CSRF_COOKIE_SECURE = True
 
 CORS_ALLOWED_ORIGINS = ["http://localhost:8000",
                         'http://localhost:5173',
-                        'https://fraser-planets-tests-mill.trycloudflare.com']
+                        'https://cookie-moments-hours-agreements.trycloudflare.com']
 CSRF_TRUSTED_ORIGINS = ["http://localhost:8000",
                         'http://localhost:5173',
-                        'https://fraser-planets-tests-mill.trycloudflare.com']
+                        'https://cookie-moments-hours-agreements.trycloudflare.com']
 
 CORS_ALLOW_HEADERS = [
     "accept",
@@ -129,6 +129,7 @@ CORS_ALLOW_HEADERS = [
     "user-agent",
     "x-csrftoken",
     "x-requested-with",
+    "cloudflare-skip-browser-warning",
 ]
 
 # Database
@@ -209,8 +210,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_FILTER_BACKENDS': (
         'django_filters.rest_framework.DjangoFilterBackend',
@@ -249,3 +252,13 @@ CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 BOT_TOKEN = env("BOT_TOKEN")
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}

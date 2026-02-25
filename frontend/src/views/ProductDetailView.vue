@@ -1,13 +1,15 @@
 <script>
 import { ref, onMounted } from 'vue'
-import { useAuthStore, getCSRFToken } from '../users/auth.js'
-import { useRouter } from 'vue-router'
+import { useAuthStore } from '../users/auth.js'
+import { useRouter, useRoute } from 'vue-router'
+import api from '../api'
 
 export default {
     name: 'ProductDetailView',
     setup() {
         const authStore = useAuthStore();
         const router = useRouter();
+        const route = useRoute();
         const isTelegram = ref(false);
         const tg = window.Telegram?.WebApp;
 
@@ -19,48 +21,37 @@ export default {
             }
         });
 
-        return {
-            authStore,
-            router,
-            isTelegram,
-            tg
-        }
+        return { authStore, router, route, isTelegram, tg }
     },
 
     data() {
         return {
-            user_id: '',
             user_data: {},
             product: null,
             cart: null,
             quantity: 0,
             discount_value: 1,
-            baseUrl: import.meta.env.VITE_API_URL
+            loading: true
         }
     },
 
     async created() {
-        const tgUser = this.tg?.initDataUnsafe?.user;
-        this.user_id = tgUser?.id;
+        await Promise.all([
+            this.fetchProfile(),
+            this.fetchProductDetail()
+        ]);
 
-        await this.fetchProfile();
-        await this.fetchProductDetail();
         if (this.product) {
             await this.fetchCart();
         }
+        this.loading = false;
     },
 
     methods: {
         async fetchProfile() {
             try {
-                const response = await fetch(`${this.baseUrl}/api/profile/${this.user_id}/`, {
-                    headers: {
-                        'X-CSRFToken': getCSRFToken()
-                        }
-                });
-                if (response.ok) {
-                    this.user_data = await response.json();
-                }
+                const { data } = await api.get('/api/profile/me/');
+                this.user_data = data;
             } catch (error) {
                 console.error("Ошибка загрузки профиля:", error);
             }
@@ -68,8 +59,7 @@ export default {
 
         async fetchCart() {
             try {
-                const response = await fetch(`${this.baseUrl}/api/cart/?chat_id=${this.user_id}`);
-                const data = await response.json();
+                const { data } = await api.get('/api/cart/');
                 const cartItems = data.results || [];
 
                 this.cart = cartItems.find(item => {
@@ -86,14 +76,10 @@ export default {
 
         async fetchProductDetail() {
             try {
-                const id = this.$route.query.id;
-                const response = await fetch(`${this.baseUrl}/api/product/${id}/?chat_id=${this.user_id}`, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken(),
-                    }
-                });
-                this.product = await response.json();
+                const id = this.route.query.id;
+                const { data } = await api.get(`/api/product/${id}/`);
+                this.product = data;
+                console.log(this.product)
 
                 const discountType = this.product?.rests[0]?.shop_active_discount;
                 const group = this.product?.discount_group;
@@ -105,32 +91,19 @@ export default {
             }
         },
 
-        handleImageError(event) {
-            event.target.src = `${this.baseUrl}/static/products/no-image.jpg`;
-        },
-
         async changeCount(product, delta) {
             const maxRest = product?.rests[0]?.amount || 0;
             const nextValue = this.quantity + delta;
-
             const isPreorderMode = this.user_data?.preorder === true;
 
-            if (delta > 0 && nextValue > maxRest && !isPreorderMode) {
-                return;
-            }
+            if (delta > 0 && nextValue > maxRest && !isPreorderMode) return;
 
             if (nextValue <= 0) {
                 this.quantity = 0;
                 if (this.cart?.id) {
                     try {
-                        const response = await fetch(`${this.baseUrl}/api/cart/${this.cart.id}/?chat_id=${this.user_id}`, {
-                            method: 'DELETE',
-                            headers: { 'X-CSRFToken': getCSRFToken() },
-                            credentials: 'include',
-                        });
-                        if (response.ok) {
-                            this.cart = null;
-                        }
+                        await api.delete(`/api/cart/${this.cart.id}/`);
+                        this.cart = null;
                     } catch (error) {
                         console.error("Ошибка при удалении:", error);
                     }
@@ -144,53 +117,31 @@ export default {
                     const isPreorderItem = (maxRest === 0 || nextValue > maxRest) && isPreorderMode;
 
                     const payload = {
-                        chat_id: this.user_id,
                         product: product.id,
                         amount: this.quantity,
                         price: product.price,
                         preorder: isPreorderItem
                     };
 
-                    const response = await fetch(`${this.baseUrl}/api/cart/`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': getCSRFToken(),
-                        },
-                        body: JSON.stringify(payload),
-                        credentials: 'include',
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        this.cart = data;
-                    }
+                    const { data } = await api.post('/api/cart/', payload);
+                    this.cart = data;
                 } catch (error) {
-                    console.error("Ошибка сети:", error);
+                    console.error("Ошибка обновления корзины:", error);
                 }
             }
         },
 
         async toggleTrack(productId) {
             try {
-                const response = await fetch(`${this.baseUrl}/api/profile/track/`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken(),
-                    },
-                    body: JSON.stringify({
-                        chat_id: this.user_id,
-                        product_id: productId
-                    })
-                });
-
-                if (response.ok) {
-                    if (this.product) this.product.is_tracked = !this.product.is_tracked;
-                }
+                await api.post('/api/profile/track/', { product_id: productId });
+                if (this.product) this.product.is_tracked = !this.product.is_tracked;
             } catch (e) {
                 console.error("Ошибка трекинга:", e);
             }
+        },
+
+        handleImageError(event) {
+            event.target.src = '/static/products/no-image.jpg';
         },
 
         catalogLink(id) {
@@ -198,12 +149,6 @@ export default {
         }
     }
 }
-
-
-
-
-
-
 </script>
 
 <template>

@@ -1,12 +1,11 @@
 <script>
 import { ref, onMounted } from 'vue'
-import { useAuthStore, getCSRFToken } from '../users/auth.js'
 import { useRouter } from 'vue-router'
+import api from '../api';
 
 export default {
     name: 'MainView',
     setup() {
-        const authStore = useAuthStore();
         const router = useRouter();
         const isTelegram = ref(false);
         const tg = window.Telegram?.WebApp;
@@ -15,105 +14,64 @@ export default {
             if (tg?.initData) {
                 isTelegram.value = true;
                 tg.ready();
-            const platform = tg.platform;
-            if (platform === 'ios' || platform === 'android') {
                 tg.expand();
-                if (typeof tg.requestFullscreen === 'function') {
-                    tg.requestFullscreen();
-                }
-            } else {
-                tg.expand();
+
+                if (['ios', 'android'].includes(tg.platform)) {
+                    if (typeof tg.requestFullscreen === 'function') {
+                        tg.requestFullscreen();
+                    }
                 }
             }
         });
 
-        return {
-            authStore,
-            router,
-            isTelegram,
-            tg
-        }
+        return { router, isTelegram, tg }
     },
 
     data() {
         return {
-            user_id: '',
-            user_data: '',
+            user_data: null,
             info: {},
             loading: true,
-            baseUrl: import.meta.env.VITE_API_URL
+            baseUrl: api.defaults.baseURL
         }
     },
 
     async created() {
-        const tgUser = this.tg?.initDataUnsafe?.user;
-        this.user_id = tgUser?.id;
-
-        await this.fetchProfile();
-        await this.fetchMainMessage();
+        await Promise.all([
+            this.fetchProfile(),
+            this.fetchMainMessage()
+        ]);
+        this.loading = false;
     },
 
     methods: {
         async fetchProfile() {
             try {
-                const initData = this.tg?.initData;
-                if (!initData) return;
-
-                const firstName = this.tg?.initDataUnsafe?.user?.first_name|| '';
-                const telegramName = this.tg?.initDataUnsafe?.user?.telegram_name || '';
-
-                const queryParams = new URLSearchParams({
-                    first_name: firstName,
-                    telegram_name: telegramName
-                }).toString();
-
-                const response = await fetch(`${this.baseUrl}/api/profile/${this.user_id}/?${queryParams}`, {
-                    headers: { 'X-CSRFToken': getCSRFToken(),
-                               'X-Telegram-Init-Data': initData}
-                });
-
-                if (response.ok) {
-                    this.user_data = await response.json();
-                }
+                const { data } = await api.get('/api/profile/me/');
+                this.user_data = data;
             } catch (error) {
-                console.error("Ошибка в fetchProfile:", error);
-            } finally {
-                this.loading = false;
+                console.error("Профиль не загружен:", error);
             }
         },
 
         async fetchMainMessage() {
             try {
-                const response = await fetch(`${this.baseUrl}/api/main-messages/`);
-
-                if (!response.ok) throw new Error('Ошибка загрузки сообщений');
-
-                this.info = await response.json();
+                const { data } = await api.get('/api/main-messages/');
+                this.info = data;
             } catch (error) {
-                console.error("Main Message Error:", error);
+                console.error("Ошибка сообщений:", error);
             }
         },
 
         ordersLink() {
-            this.router.push({
-            path: '/orders_history/'
-            });
+            this.router.push('/orders_history/');
         },
 
-        async editLink() {
-            this.$router.push({
-            path: '/edit_profile/'
-            });
+        editLink() {
+            this.router.push('/edit_profile/');
         },
     }
 }
-
-
-
-
-
-
-
 </script>
 
 <template>
@@ -262,7 +220,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                         </div>
                         <div v-if="loading" class="loader_ring"></div>
                         <template v-else>
-                            <div @click="editLink()" v-if="!user_data.phone" class="actions_wrapper__dOu19">
+                            <div @click="editLink()" v-if="!user_data?.phone" class="actions_wrapper__dOu19">
                                 <div class="main_info_message">
                                     У вас не указан номер телефона, он необходим для оформления заказа.
                                     Нажмите для редатирования профиля.

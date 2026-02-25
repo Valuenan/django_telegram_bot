@@ -18,7 +18,6 @@ import os
 from django.contrib import admin
 from django.conf.urls import static
 from django.urls import path, include, re_path
-from django_telegram_bot import settings
 from shop.views import ImportGoodsView, ImportCategory1CView, ImportProducts1CView, RemoveDuplicates, \
     RemoveNoRefKey, ImportImages1CView, ImportPrices1CView, ImportRests1CView, ProductsCheckList, MarkProductsSale, \
     PhotoCheckList
@@ -27,7 +26,6 @@ from django.views.generic import TemplateView
 
 from shop.telegram.bot import webhook
 from django.conf import settings
-from api.views import set_csrf_token
 
 urlpatterns = [
     path(settings.BOT_TOKEN + '/', webhook, name='webhook'),
@@ -49,9 +47,7 @@ urlpatterns = [
     path('admin/photo_checklist', PhotoCheckList.as_view(), name='photo_checklist'),
     path('admin/', admin.site.urls, name='admin'),
 
-    path('set-csrf-token/', set_csrf_token, name='set-csrf-token'),
     path('__debug__/', include('debug_toolbar.urls')),
-    path('', include('users.urls')),
 ]
 
 # 1. СНАЧАЛА добавляем статику и медиа (обязательно ДО re_path)

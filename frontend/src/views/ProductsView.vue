@@ -1,13 +1,15 @@
 <script>
 import { ref, onMounted } from 'vue'
-import { useAuthStore, getCSRFToken } from '../users/auth.js'
-import { useRouter } from 'vue-router'
+import { useAuthStore } from '../users/auth.js'
+import { useRouter, useRoute } from 'vue-router'
+import api from '../api'
 
 export default {
     name: 'ProductView',
     setup() {
         const authStore = useAuthStore();
         const router = useRouter();
+        const route = useRoute();
         const isTelegram = ref(false);
         const tg = window.Telegram?.WebApp;
 
@@ -19,43 +21,31 @@ export default {
             }
         });
 
-        return {
-            authStore,
-            router,
-            isTelegram,
-            tg
-        }
+        return { authStore, router, route, isTelegram, tg }
     },
 
     data() {
         return {
-            user_id: '',
             catalog: {},
             products: [],
             nextPageUrl: null,
             loading: false,
-            shop_discount: 'no_sale',
-            baseUrl: import.meta.env.VITE_API_URL
+            shop_discount: 'no_sale'
         }
     },
 
     async created() {
-        const tgUser = this.tg?.initDataUnsafe?.user ;
-        this.user_id = tgUser?.id;
-
-        await this.fetchCatalog();
-        await this.loadProducts();
+        await Promise.all([
+            this.fetchCatalog(),
+            this.loadProducts()
+        ]);
     },
 
     mounted() {
-        const options = {
-            root: null,
-            rootMargin: '100px',
-            threshold: 0.1
-        };
+        const options = { rootMargin: '100px', threshold: 0.1 };
 
         const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting && !this.loading && this.nextPageUrl) {
+            if (entries[0].isIntersecting && !this.loading && this.nextPageUrl && this.nextPageUrl !== 'stop') {
                 this.loadProducts();
             }
         }, options);
@@ -68,44 +58,26 @@ export default {
     methods: {
         async fetchCatalog() {
             try {
-                const response = await fetch(`${this.baseUrl}/api/category/${this.$route.query.catalog_id}/?chat_id=${this.user_id}`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken(),
-                    },
-                    credentials: 'include',
-                });
-                if (response.ok) {
-                    this.catalog = await response.json();
-                }
+                const catId = this.route.query.catalog_id;
+                const { data } = await api.get(`/api/category/${catId}/`);
+                this.catalog = data;
             } catch (e) {
                 console.error("Ошибка каталога:", e);
-            }
-        },
-
-        handleScroll() {
-            const el = this.$refs.scrollContainer || document.documentElement;
-            const scrollBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 100;
-
-            if (scrollBottom && !this.loading && this.nextPageUrl !== 'stop') {
-                this.loadProducts();
             }
         },
 
         async loadProducts() {
             if (this.loading || this.nextPageUrl === 'stop') return;
 
-            let url = this.nextPageUrl;
-            if (!url) {
-                const catId = this.$route.query.catalog_id;
-                url = `${this.baseUrl}/api/products/?category=${catId}&chat_id=${this.user_id}`;
-            }
-
             this.loading = true;
             try {
-                const response = await fetch(url);
-                const data = await response.json();
+                let url = this.nextPageUrl;
+                if (!url) {
+                    const catId = this.route.query.catalog_id;
+                    url = `/api/products/?category=${catId}`;
+                }
+
+                const { data } = await api.get(url);
 
                 const newProducts = data.results || [];
                 this.products = [...this.products, ...newProducts];
@@ -120,24 +92,13 @@ export default {
 
         async toggleTrack(productId) {
             try {
-                const response = await fetch(`${this.baseUrl}/api/profile/track/`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken(),
-                    },
-                    body: JSON.stringify({
-                        chat_id: this.user_id,
-                        product_id: productId
-                    }),
-                    credentials: 'include',
+                await api.post('/api/profile/track/', {
+                    product_id: productId
                 });
 
-                if (response.ok) {
-                    const product = this.products.find(p => p.id === productId);
-                    if (product) {
-                        product.is_tracked = !product.is_tracked;
-                    }
+                const product = this.products.find(p => p.id === productId);
+                if (product) {
+                    product.is_tracked = !product.is_tracked;
                 }
             } catch (e) {
                 console.error("Ошибка при обновлении трека:", e);
@@ -145,7 +106,7 @@ export default {
         },
 
         handleImageError(event) {
-            event.target.src = `${this.baseUrl}/static/products/no-image.jpg`;
+            event.target.src = '/static/products/no-image.jpg';
         },
 
         productLink(id) {
@@ -157,14 +118,6 @@ export default {
         },
     }
 }
-
-
-
-
-
-
-
-
 </script>
 
 <template>

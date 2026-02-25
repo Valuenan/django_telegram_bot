@@ -1,7 +1,8 @@
 <script>
 import { ref, onMounted } from 'vue'
-import { useAuthStore, getCSRFToken } from '../users/auth.js'
+import { useAuthStore } from '../users/auth.js'
 import { useRouter } from 'vue-router'
+import api from '../api'
 
 export default {
     name: 'EditProfileView',
@@ -19,19 +20,12 @@ export default {
             }
         });
 
-        return {
-            authStore,
-            router,
-            isTelegram,
-            tg
-        }
+        return { authStore, router, isTelegram, tg }
     },
 
     data() {
         return {
-            user_id: '',
             user_data: {},
-            baseUrl: import.meta.env.VITE_API_URL
         }
     },
 
@@ -42,18 +36,8 @@ export default {
     methods: {
         async fetchProfile() {
             try {
-                const tgUser = this.tg?.initDataUnsafe?.user;
-                this.user_id = tgUser?.id
-
-                const response = await fetch(`${this.baseUrl}/api/profile/${this.user_id}/`, {
-                    headers: {
-                        'X-CSRFToken': getCSRFToken(),
-                    }
-                });
-
-                if (response.ok) {
-                    this.user_data = await response.json();
-                }
+                const { data } = await api.get('/api/profile/me/');
+                this.user_data = data;
             } catch (error) {
                 console.error("Ошибка загрузки профиля:", error);
             }
@@ -62,39 +46,25 @@ export default {
         async updateProfile() {
             try {
                 const payload = {
-                    chat_id: this.user_id,
                     first_name: this.user_data.first_name,
                     last_name: this.user_data.last_name,
                     phone: this.user_data.phone,
                     delivery_street: this.user_data.delivery_street,
                 };
+                const { data } = await api.post('/api/profile/update/', payload);
 
-                const response = await fetch(`${this.baseUrl}/api/profile/update/`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken(),
-                    },
-                    body: JSON.stringify(payload),
-                    credentials: 'include',
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    this.user_data = data;
-                    this.router.push('/profile/');
-                } else {
-                    const errorData = await response.json();
-                    console.error("Ошибка сервера:", errorData);
-                }
+                this.user_data = data;
+                this.router.push('/profile/');
             } catch (error) {
-                console.error("Ошибка сети:", error);
+                if (error.response) {
+                    console.error("Ошибка сервера:", error.response.data);
+                } else {
+                    console.error("Ошибка сети:", error);
+                }
             }
         }
     }
 }
-
-
 </script>
 
 <template>

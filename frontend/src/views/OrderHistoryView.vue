@@ -1,7 +1,8 @@
 <script>
 import { ref, onMounted } from 'vue'
-import { useAuthStore, getCSRFToken } from '../users/auth.js'
+import { useAuthStore } from '../users/auth.js'
 import { useRouter } from 'vue-router'
+import api from '../api'
 
 export default {
     name: 'OrderHistoryView',
@@ -19,31 +20,21 @@ export default {
             }
         });
 
-        return {
-            authStore,
-            router,
-            isTelegram,
-            tg
-        }
+        return { authStore, router, isTelegram, tg }
     },
 
     data() {
         return {
-            user_id: '',
             totalCount: 0,
             order_num: 0,
             nextPageUrl: null,
             prevPageUrl: null,
             orders: [],
-            loading: true,
-            baseUrl: import.meta.env.VITE_API_URL
+            loading: true
         }
     },
 
     async mounted() {
-        const tgUser = this.tg?.initDataUnsafe?.user;
-        this.user_id = tgUser?.id;
-
         await this.fetchOrders();
     },
 
@@ -51,39 +42,37 @@ export default {
         async fetchOrders(targetUrl = null) {
             try {
                 this.loading = true;
-                const url = targetUrl || `${this.baseUrl}/api/orders/?chat_id=${this.user_id}`;
-                const response = await fetch(url);
 
-                if (response.ok) {
-                    const data = await response.json();
+                const url = targetUrl || '/api/orders/';
 
-                    this.totalCount = data.count;
-                    this.nextPageUrl = data.next;
-                    this.prevPageUrl = data.previous;
+                const { data } = await api.get(url);
 
-                    this.orders = data.results.map(order => {
-                        if (order.carts && Array.isArray(order.carts)) {
-                            const currentSaleType = order.sale_type || 'no_sale';
-                            order.carts = order.carts.map(cart => {
-                                let factor = 1;
-                                if (currentSaleType !== 'no_sale' && cart.product?.discount_group) {
-                                    const attrName = `${currentSaleType}_value`;
-                                    factor = Number(cart.product.discount_group[attrName]) || 1;
-                                }
+                this.totalCount = data.count;
+                this.nextPageUrl = data.next;
+                this.prevPageUrl = data.previous;
 
-                                return {
-                                    ...cart,
-                                    discounted_price: Math.round(Number(cart.price) * factor),
-                                    total_discounted_price: Math.round(Number(cart.price) * factor) * cart.amount,
-                                };
-                            });
-                        }
-                        return order;
-                    });
+                this.orders = data.results.map(order => {
+                    if (order.carts && Array.isArray(order.carts)) {
+                        const currentSaleType = order.sale_type || 'no_sale';
+                        order.carts = order.carts.map(cart => {
+                            let factor = 1;
+                            if (currentSaleType !== 'no_sale' && cart.product?.discount_group) {
+                                const attrName = `${currentSaleType}_value`;
+                                factor = Number(cart.product.discount_group[attrName]) || 1;
+                            }
 
-                    if (this.orders.length > 0) {
-                        this.order_num = this.orders[0].id;
+                            return {
+                                ...cart,
+                                discounted_price: Math.round(Number(cart.price) * factor),
+                                total_discounted_price: Math.round(Number(cart.price) * factor) * cart.amount,
+                            };
+                        });
                     }
+                    return order;
+                });
+
+                if (this.orders.length > 0) {
+                    this.order_num = this.orders[0].id;
                 }
             } catch (error) {
                 console.error("Ошибка при загрузке заказов:", error);
@@ -93,7 +82,7 @@ export default {
         },
 
         handleImageError(event) {
-            event.target.src = `${this.baseUrl}/static/products/no-image.jpg`;
+            event.target.src = '/static/products/no-image.jpg';
         },
 
         productLink(id) {
@@ -104,7 +93,6 @@ export default {
         }
     }
 }
-
 </script>
 
 <template>
@@ -229,7 +217,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                         order_num }}
                     </div>
                     <button @click="fetchOrders(nextPageUrl)"
-                            :class="{ 'hide': !prevPageUrl }"
+                            :class="{ 'hide': !nextPageUrl }"
                             class="button_button__FUDeW button_secondary__bEjIM"
                             style="height:20px; width:auto">
                         след.

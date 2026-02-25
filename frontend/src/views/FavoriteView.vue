@@ -1,7 +1,8 @@
 <script>
 import { ref, onMounted } from 'vue'
-import { useAuthStore, getCSRFToken } from '../users/auth.js'
+import { useAuthStore } from '../users/auth.js'
 import { useRouter } from 'vue-router'
+import api from '../api'
 
 export default {
     name: 'FavoriteView',
@@ -19,35 +20,22 @@ export default {
             }
         });
 
-        return {
-            authStore,
-            router,
-            isTelegram,
-            tg
-        }
+        return { authStore, router, isTelegram, tg }
     },
 
     data() {
         return {
-            user_id: '',
             favoriteItems: [],
             nextPageUrl: null,
             totalCount: 0,
-            loading: false,
-            baseUrl: import.meta.env.VITE_API_URL
+            loading: false
         }
-    },
-
-    async created() {
-        const tgUser = this.tg?.initDataUnsafe?.user;
-        this.user_id = tgUser?.id;
     },
 
     async mounted() {
         await this.fetchFavorite();
 
         const options = {
-            root: null,
             rootMargin: '100px',
             threshold: 0.1
         };
@@ -65,20 +53,19 @@ export default {
 
     methods: {
         async fetchFavorite() {
-            if (this.loading || (this.nextPageUrl === null && this.favoriteItems.length > 0)) return;
+            if (this.loading) return;
 
             this.loading = true;
 
-            const page = this.nextPageUrl || 1;
-
             try {
-                const res = await fetch(`${this.baseUrl}/api/profile/${this.user_id}/?with_track=true&page=${page}`);
-                const data = await res.json();
+                const url = this.nextPageUrl || '/api/profile/me/?with_track=true';
+                const { data } = await api.get(url);
 
-                this.favoriteItems = [...this.favoriteItems, ...data.track.results];
+                const newItems = data.track?.results || [];
+                this.favoriteItems = [...this.favoriteItems, ...newItems];
 
-                this.nextPageUrl = data.track.next;
-                this.totalCount = data.track.count;
+                this.nextPageUrl = data.track?.next || null;
+                this.totalCount = data.track?.count || this.favoriteItems.length;
 
             } catch (error) {
                 console.error("Ошибка при загрузке избранного:", error);
@@ -89,30 +76,19 @@ export default {
 
         async toggleTrack(productId) {
             try {
-                const response = await fetch(`${this.baseUrl}/api/profile/track/`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken(),
-                    },
-                    body: JSON.stringify({
-                        chat_id: this.user_id,
-                        product_id: productId
-                    }),
-                    credentials: 'include',
+                await api.post('/api/profile/track/', {
+                    product_id: productId
                 });
 
-                if (response.ok) {
-                    this.favoriteItems = this.favoriteItems.filter(p => p.id !== productId);
-                    this.totalCount--;
-                }
+                this.favoriteItems = this.favoriteItems.filter(p => p.id !== productId);
+                this.totalCount--;
             } catch (e) {
-                console.error("Ошибка при обновлении трека:", e);
+                console.error("Ошибка при удалении из избранного:", e);
             }
         },
 
         handleImageError(event) {
-            event.target.src = `${this.baseUrl}/static/products/no-image.jpg`;
+            event.target.src = '/static/products/no-image.jpg';
         },
 
         productLink(id) {
@@ -123,10 +99,6 @@ export default {
         }
     }
 }
-
-
-
-
 </script>
 
 <template>

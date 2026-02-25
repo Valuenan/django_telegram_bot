@@ -3,95 +3,53 @@ import api from '../api'
 
 export const useAuthStore = defineStore('auth', {
   state: () => {
-    const storedState = localStorage.getItem('authState')
-    return storedState ? JSON.parse(storedState) : {
-      user: null,
-      isAuthenticated: false,
+    const storedUser = localStorage.getItem('user_data')
+    return {
+      user: storedUser ? JSON.parse(storedUser) : null,
+      isAuthenticated: !!localStorage.getItem('access_token'),
     }
   },
   actions: {
-    // 1. Вход через Telegram
     async loginViaTelegram() {
         const tg = window.Telegram?.WebApp;
-        if (tg?.initData) {
-            try {
-                const response = await api.get('/user/', {
-                    headers: {
-                        'Authorization': `twa ${tg.initData}`
-                    }
-                });
+        const initData = tg?.initData;
 
-                this.user = response.data;
-                this.isAuthenticated = true;
-                this.saveState();
-            } catch (error) {
-                console.error('Ошибка входа:', error);
-            }
+        if (!initData) return false;
+
+        try {
+            const { data } = await api.post('/api/auth/telegram/', { initData });
+
+            localStorage.setItem('access_token', data.access);
+            localStorage.setItem('refresh_token', data.refresh);
+
+            this.isAuthenticated = true;
+
+            await this.fetchUser();
+            return true;
+        } catch (error) {
+            console.error('Ошибка входа через Telegram:', error);
+            this.logout();
+            return false;
         }
     },
 
-    // 2. Установка CSRF
-    async setCsrfToken() {
-      try {
-        // Относительный путь
-        await api.get('/set-csrf-token/');
-      } catch (e) {
-        console.error("CSRF Error", e);
-      }
-    },
-
-    // 3. Получение данных профиля
     async fetchUser() {
       try {
-        const response = await api.get('/user/', {
-          headers: { 'X-CSRFToken': getCSRFToken() }
-        });
-        this.user = response.data;
-        this.isAuthenticated = true;
+        const { data } = await api.get('/api/profile/me/');
+        this.user = data;
+        localStorage.setItem('user_data', JSON.stringify(data));
       } catch (error) {
-        console.error('Failed to fetch user', error);
-        this.user = null;
-        this.isAuthenticated = false;
-      }
-      this.saveState();
-    },
-
-    // 4. Выход
-    async logout(router = null) {
-      try {
-        await api.post('/logout', {}, {
-          headers: { 'X-CSRFToken': getCSRFToken() }
-        });
-        this.user = null;
-        this.isAuthenticated = false;
-        this.saveState();
-        if (router) await router.push({ name: 'login' });
-      } catch (error) {
-        console.error('Logout failed', error);
+        console.error('Не удалось загрузить данные пользователя', error);
+        if (error.response?.status === 401) this.logout();
       }
     },
 
-    saveState() {
-      localStorage.setItem('authState', JSON.stringify({
-        user: this.user,
-        isAuthenticated: this.isAuthenticated,
-      }));
-    },
-  },
-})
-
-export function getCSRFToken() {
-  const name = 'csrftoken'
-  let cookieValue = null
-  if (document.cookie && document.cookie !== '') {
-    const cookies = document.cookie.split(';')
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim()
-      if (cookie.substring(0, name.length + 1) === name + '=') {
-        cookieValue = decodeURIComponent(cookie.substring(name.length + 1))
-        break
-      }
+    logout() {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user_data');
+      this.user = null;
+      this.isAuthenticated = false;
     }
   }
-  return cookieValue;
-}
+})
