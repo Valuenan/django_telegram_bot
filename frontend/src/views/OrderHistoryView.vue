@@ -292,7 +292,9 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                                     </div>
                                 </div>
                             </div>
-                            <div v-if="loading" class="loader_ring"></div>
+                            <div v-if="loading"  class="loader-wrapper">
+                                <div class="loader_ring"></div>
+                            </div>
                         </div>
 
 

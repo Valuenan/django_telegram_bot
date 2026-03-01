@@ -117,10 +117,10 @@ CSRF_COOKIE_SECURE = True
 
 CORS_ALLOWED_ORIGINS = ["http://localhost:8000",
                         'http://localhost:5173',
-                        'https://cookie-moments-hours-agreements.trycloudflare.com']
+                        'https://christmas-poly-keeping-furniture.trycloudflare.com']
 CSRF_TRUSTED_ORIGINS = ["http://localhost:8000",
                         'http://localhost:5173',
-                        'https://cookie-moments-hours-agreements.trycloudflare.com']
+                        'https://christmas-poly-keeping-furniture.trycloudflare.com']
 
 CORS_ALLOW_HEADERS = [
     "accept",
