@@ -94,7 +94,7 @@ class ProductListView(generics.ListAPIView):
         return list(set(category_ids))
 
     def get_queryset(self):
-        chat_id = self.request.query_params.get('chat_id')
+        chat_id = self.request.user.username
         category_id = self.request.query_params.get('category')
 
         is_preorder = False
@@ -148,7 +148,7 @@ class CategoryListView(generics.ListAPIView):
     ordering = ['id']
 
     def get_queryset(self):
-        chat_id = self.request.query_params.get('chat_id')
+        chat_id = self.request.user.username
 
         is_preorder = False
         if chat_id:
@@ -167,7 +167,7 @@ class CategoryListView(generics.ListAPIView):
         )
 
     def list(self, request, *args, **kwargs):
-        chat_id = request.query_params.get('chat_id')
+        chat_id = self.request.user.username
 
         is_preorder = False
         if chat_id:
@@ -196,7 +196,7 @@ class CategoryDetailView(generics.RetrieveAPIView):
     serializer_class = CategorySerializer
 
     def get_queryset(self):
-        chat_id = self.request.query_params.get('chat_id')
+        chat_id = self.request.user.username
 
         is_preorder = False
         if chat_id:
