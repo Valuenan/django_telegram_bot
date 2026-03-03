@@ -349,7 +349,8 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                                                 <div class="product-actions_buttons__9Rs_R">
                                                     <button @click="orderLink()" class="button_button__AjjDz"
                                                             href="">
-                                                        <span>Оформить: {{ finalTotal.toLocaleString() }}&nbsp;₽</span>
+                                                        <span v-if="finalTotal > 0">Оформить: {{ finalTotal.toLocaleString() }}&nbsp;₽</span>
+                                                        <span v-else>Оформить</span>
                                                     </button>
                                                 </div>
                                             </div>
