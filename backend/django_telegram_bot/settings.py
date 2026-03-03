@@ -34,7 +34,7 @@ SECRET_KEY = env("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("DEBUG", True)
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
 
 # Application definition
 
@@ -97,30 +97,34 @@ USE_X_FORWARDED_HOST = True
 USE_X_FORWARDED_PORT = True
 
 if DEBUG:
+    ALLOWED_HOSTS = ['*']
     CORS_ALLOW_ALL_ORIGINS = True
+    CSRF_TRUSTED_ORIGINS = [
+        "http://localhost:8000",
+        "http://localhost:5173",
+        "https://kelkoo-mesh-exchange-prisoners.trycloudflare.com"  # для тестов через туннель
+    ]
+    MINI_APP_URL = CSRF_TRUSTED_ORIGINS[2]
 else:
     CORS_ALLOW_ALL_ORIGINS = False
+    DOMAIN = env("DOMAIN")
     CORS_ALLOWED_ORIGINS = [
-        "https://your-real-domain.com", # Твой боевой домен фронтенда
-        "https://api.your-real-domain.com",
+        f"https://{DOMAIN}",
+        f"https://api.{DOMAIN}",
     ]
+    CSRF_TRUSTED_ORIGINS = [f"https://{DOMAIN}", f"https://api.{DOMAIN}"]
+    MINI_APP_URL = f"https://{DOMAIN}"
 
-# Позволяет Django доверять заголовкам прокси-сервера (Cloudflare)
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+if not DEBUG:
+    SESSION_COOKIE_SAMESITE = 'None'
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SAMESITE = 'None'
+    CSRF_COOKIE_SECURE = True
+    X_FRAME_OPTIONS = 'ALLOWALL'
+else:
+    X_FRAME_OPTIONS = 'DENY'
 
-# Добавь это, если используешь JWT или кастомные заголовки
 CORS_EXPOSE_HEADERS = ['Content-Type', 'X-CSRFToken']
-SESSION_COOKIE_SAMESITE = 'None'
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SAMESITE = 'None'
-CSRF_COOKIE_SECURE = True
-
-CORS_ALLOWED_ORIGINS = ["http://localhost:8000",
-                        'http://localhost:5173',
-                        'https://christmas-poly-keeping-furniture.trycloudflare.com']
-CSRF_TRUSTED_ORIGINS = ["http://localhost:8000",
-                        'http://localhost:5173',
-                        'https://christmas-poly-keeping-furniture.trycloudflare.com']
 
 CORS_ALLOW_HEADERS = [
     "accept",
@@ -228,11 +232,14 @@ LOGGING = {
     'disable_existing_loggers': False,
     'handlers': {
         'file': {
-            'class': 'logging.FileHandler',
-            'filename': 'debug.log',
-            'encoding': 'utf-8'
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR / 'debug.log',
+            'maxBytes': 1024 * 1024 * 5,  # 5 MB
+            'backupCount': 5,
+            'encoding': 'utf-8',
+            },
         },
-    },
     'root': {
         'handlers': ['file'],
         'level': 'DEBUG',
