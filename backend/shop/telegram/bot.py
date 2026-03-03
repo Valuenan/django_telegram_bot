@@ -7,12 +7,12 @@ import os
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db import close_old_connections, connection, utils
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, error, Bot
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, error, Bot, WebAppInfo
 from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, \
     filters
 from telegram.error import TelegramError
 
-from django_telegram_bot.settings import BASE_DIR
+from django_telegram_bot.settings import BASE_DIR, MINI_APP_URL
 from shop.models import Category, Shop, Product, BotSettings, Rests
 from shop.telegram.banking.banking import avangard_invoice
 from shop.telegram.settings import TOKEN, ORDERS_CHAT_ID, SUPPORT_CHAT_ID, WEBHOOK_PORT
@@ -90,6 +90,30 @@ def main_keyboard(update: Update, context: CallbackContext):
 
 start_handler = CommandHandler('start', main_keyboard)
 dispatcher.add_handler(start_handler)
+
+
+@connection_decorator
+def app(update: Update, context: CallbackContext):
+    """Miniapp телеграмм"""
+    user = update.message.from_user
+    chat_id = update.message.chat_id
+    caption_text = f"<b>Добро пожаловать, {user.first_name}!</b>\nОткройте приложение по кнопке ниже"
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Открыть приложение", web_app=WebAppInfo(url=MINI_APP_URL))]
+    ])
+    img_path = os.path.join(os.path.dirname(__file__), 'main.png')
+    with open(img_path, 'rb') as photo:
+        context.bot.send_photo(
+            chat_id=chat_id,
+            photo=photo,
+            caption=caption_text,
+            reply_markup=keyboard,
+            parse_mode='HTML'
+        )
+
+
+app_handler = CommandHandler('app', app)
+dispatcher.add_handler(app_handler)
 
 
 @connection_decorator
@@ -300,7 +324,8 @@ def products_catalog(update: Update, context: CallbackContext, chosen_category=F
                 add_button = InlineKeyboardButton(text='🟡 Заказать', callback_data=f'preorder_{product.id}')
 
             if product.description != '':
-                description_button = [InlineKeyboardButton(text='📄 Описание', callback_data=f'description_{product.id}')]
+                description_button = [
+                    InlineKeyboardButton(text='📄 Описание', callback_data=f'description_{product.id}')]
             else:
                 description_button = []
 
@@ -575,7 +600,8 @@ def show_favorite(update: Update, context: CallbackContext):
                 add_button = InlineKeyboardButton(text='🟡 Заказать', callback_data=f'preorder_{product.id}')
 
             if product.description != '':
-                description_button = [InlineKeyboardButton(text='📄 Описание', callback_data=f'description_{product.id}')]
+                description_button = [
+                    InlineKeyboardButton(text='📄 Описание', callback_data=f'description_{product.id}')]
             else:
                 description_button = []
 
