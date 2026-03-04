@@ -63,6 +63,7 @@ export default {
 
                 const newItems = data.track?.results || [];
                 this.favoriteItems = [...this.favoriteItems, ...newItems];
+                console.log(this.favoriteItems)
 
                 this.nextPageUrl = data.track?.next || null;
                 this.totalCount = data.track?.count || this.favoriteItems.length;
@@ -219,7 +220,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                                     <div class="product-card-images_wrap__1bDck">
                                         <div class="product-card-images_scroll__cMUco">
                                             <div><img
-                                                    :src="product?.image.url"
+                                                    :src="product?.image?.url"
                                                     :alt="product?.name"
                                                     @error="handleImageError"
                                                     fetchpriority="high" loading="eager"
