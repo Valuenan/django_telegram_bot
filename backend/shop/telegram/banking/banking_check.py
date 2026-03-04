@@ -46,6 +46,7 @@ def check_orders_payment():
                                             bot_action=True)
                         message_to_manager(f'Поступила оплата по заказу № {order.id}')
                     else:
+                        pass
                         message_to_manager(f'ОШИБКА. Бот не смог распределить оплату заказа № {order.id}')
                 else:
                     if payed == order.delivery_price:
@@ -57,4 +58,5 @@ def check_orders_payment():
                                             bot_action=True)
                         message_to_manager(f'Поступила оплата за доставку по заказу № {order.id}')
                     else:
+                        pass
                         message_to_manager(f'ОШИБКА. Бот не смог распределить оплату заказа № {order.id}')
