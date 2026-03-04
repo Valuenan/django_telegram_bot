@@ -17,7 +17,7 @@ def check_orders_payment():
             if order:
                 order_sum = 0
                 order = order[0]
-                carts = order.carts_set.filter(soft_delete=False)
+                carts = order.carts.filter(soft_delete=False)
                 for cart in carts:
                     if order.sale_type != 'no_sale':
                         discount = getattr(cart.product.discount_group, f"{order.sale_type}_value")
