@@ -385,13 +385,15 @@ class OrderViewSet(viewsets.ModelViewSet):
             if not items_to_add.exists():
                 return None
 
+            status_obj = OrderStatus.objects.get(title=target_status)
+
             new_order = Orders.objects.create(
                 profile=profile,
                 order_price=order_price,
                 deliver=request.data.get('deliver', False),
                 delivery_info=delivery_street,
                 payment_id=f'{request.data.get("payment")}',
-                status_id=target_status,
+                status=status_obj,
                 sale_type=request.data.get('sale_type'),
             )
             items_to_add.update(order=new_order)
@@ -401,32 +403,32 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         if profile.preorder:
             if preorder_mode == 'split':
-                order_ready = create_single_order(cart_items.filter(preorder=False), target_status='1',
+                order_ready = create_single_order(cart_items.filter(preorder=False), target_status='0',
                                                   order_price=request.data.get('order_price', 0))
-                order_pre = create_single_order(cart_items.filter(preorder=True), target_status='8', order_price=0)
+                order_pre = create_single_order(cart_items.filter(preorder=True), target_status='7', order_price=0)
                 if order_ready:
                     created_orders.append(order_ready)
                 if order_pre:
                     created_orders.append(order_pre)
 
             elif preorder_mode == 'part-order':
-                order = create_single_order(cart_items.filter(preorder=False), target_status='1',
+                order = create_single_order(cart_items.filter(preorder=False), target_status='0',
                                             order_price=request.data.get('order_price', 0))
                 if order:
                     created_orders.append(order)
 
             elif preorder_mode == 'part-preorder':
-                order = create_single_order(cart_items.filter(preorder=True), target_status='8', order_price=0)
+                order = create_single_order(cart_items.filter(preorder=True), target_status='7', order_price=0)
                 if order:
                     created_orders.append(order)
 
             elif preorder_mode == 'preorder':
                 cart_items.update(preorder=True)
-                order = create_single_order(cart_items, target_status='8', order_price=0)
+                order = create_single_order(cart_items, target_status='7', order_price=0)
                 if order:
                     created_orders.append(order)
         else:
-            order = create_single_order(cart_items.filter(preorder=False), target_status='1',
+            order = create_single_order(cart_items.filter(preorder=False), target_status='0',
                                         order_price=request.data.get('order_price', 0))
             if order: created_orders.append(order)
 
