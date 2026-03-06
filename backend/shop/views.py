@@ -262,7 +262,7 @@ class Product_data:
 
 
 class PhotoCheckList(View):
-    login_url = '/login'
+    login_url = '/manager/login/'
 
     def get(self, request):
         missing_photos = []
@@ -281,7 +281,7 @@ class PhotoCheckList(View):
 
 
 class ProductsCheckList(View):
-    login_url = '/login'
+    login_url = '/manager/login/'
 
     def get(self, request):
         file_form = ImportGoodsForm()
@@ -366,7 +366,7 @@ class ProductsCheckList(View):
 
 
 class OrdersList(LoginRequiredMixin, ListView):
-    login_url = '/login'
+    login_url = '/manager/login/'
     queryset = Orders.objects.exclude(status__in=[6, 7])
     context_object_name = 'orders'
     ordering = ['id']
@@ -418,7 +418,7 @@ class OrdersList(LoginRequiredMixin, ListView):
 
 
 class OrdersHistory(LoginRequiredMixin, ListView):
-    login_url = '/login'
+    login_url = '/manager/login/'
     queryset = Orders.objects.filter(status__in=[6, 7])
     context_object_name = 'orders'
     ordering = ['id']
@@ -454,7 +454,7 @@ class OrdersHistory(LoginRequiredMixin, ListView):
 
 
 class OrderDetail(LoginRequiredMixin, DetailView):
-    login_url = '/login'
+    login_url = '/manager/login/'
     model = Orders
     context_object_name = 'order'
 
@@ -603,7 +603,7 @@ class OrderDetail(LoginRequiredMixin, DetailView):
 
 
 class SendMessageToUser(LoginRequiredMixin, View):
-    login_url = '/login'
+    login_url = '/manager/login/'
 
     def post(self, request):
         form = request.POST.copy()
@@ -620,7 +620,7 @@ class SendMessageToUser(LoginRequiredMixin, View):
 
 
 class UsersMessagesList(LoginRequiredMixin, ListView):
-    login_url = '/login'
+    login_url = '/manager/login/'
     model = UserMessage
     queryset = UserMessage.objects.filter(checked=False).order_by('user')
     context_object_name = 'users'
@@ -633,7 +633,7 @@ class UsersMessagesList(LoginRequiredMixin, ListView):
 
 
 class UsersMessagesDetail(LoginRequiredMixin, View):
-    login_url = '/login'
+    login_url = '/manager/login/'
     model = UserMessage
     context_object_name = 'user_messages'
 
@@ -650,7 +650,7 @@ class UsersMessagesDetail(LoginRequiredMixin, View):
 
 
 class SendMessageToEveryone(LoginRequiredMixin, View):
-    login_url = '/login'
+    login_url = '/manager/login/'
 
     def get(self, request):
         new_message = UserMessage.objects.filter(checked=False)
