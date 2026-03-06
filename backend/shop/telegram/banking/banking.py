@@ -197,7 +197,10 @@ def avangard_check(orders: dict):
         raw_payment_orders = bs.find_all(class_='row sol_t')
         for payment_order in raw_payment_orders:
             check_id = payment_order.find(class_='comment_button check')
-            if payment_order.find(class_='status_PAYED') is not None:
-                payed = int(payment_order.find(class_='col-3').string.strip().split(',')[0].replace(' ', ''))
-                checked[orders.filter(id=check_id.string.strip())] = payed
-        return checked
+            if check_id and check_id.string:
+                raw_id = check_id.string.strip()
+                if raw_id.isdigit():
+                    if payment_order.find(class_='status_PAYED') is not None:
+                        payed = int(payment_order.find(class_='col-3').string.strip().split(',')[0].replace(' ', ''))
+                        checked[orders.filter(id=check_id.string.strip())] = payed
+                return checked
