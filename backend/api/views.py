@@ -363,6 +363,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         tg_id = self.request.user.username
         return Orders.objects.filter(profile__chat_id=tg_id) \
+            .exclude(status__id__in=['6', '7']) \
             .select_related('status', 'payment') \
             .prefetch_related('carts__product') \
             .order_by('-id')
