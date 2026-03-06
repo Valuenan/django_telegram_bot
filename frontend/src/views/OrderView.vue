@@ -146,21 +146,30 @@ export default {
         }
     }
 }
+
+
+
+
+
+
+
+
+
 </script>
 
 <template>
     <div class="telegram-app_telegram_app__6iz4V">
         <div class="stack-navigation_screen___5WKf">
             <div class="home-screen_header__yUTVr">
-                            <div class="home-screen_content__qET3x">
-                                <svg version="1.0" xmlns="http://www.w3.org/2000/svg"
-                                     width="800.000000pt" height="400.000000pt"
-                                     viewBox="0 0 800.000000 400.000000"
-                                     preserveAspectRatio="xMidYMid meet">
+                <div class="home-screen_content__qET3x">
+                    <svg version="1.0" xmlns="http://www.w3.org/2000/svg"
+                         width="800.000000pt" height="400.000000pt"
+                         viewBox="0 0 800.000000 400.000000"
+                         preserveAspectRatio="xMidYMid meet">
 
-                                    <g transform="translate(0.000000,400.000000) scale(0.100000,-0.100000)"
-                                       fill="#1a75bb" stroke="none">
-                                        <path d="M1973 3868 c-11 -13 -28 -37 -37 -55 -30 -59 -74 -207 -80 -270 -4
+                        <g transform="translate(0.000000,400.000000) scale(0.100000,-0.100000)"
+                           fill="#1a75bb" stroke="none">
+                            <path d="M1973 3868 c-11 -13 -28 -37 -37 -55 -30 -59 -74 -207 -80 -270 -4
 -38 -19 -87 -40 -130 -32 -67 -33 -71 -39 -238 -4 -113 -10 -182 -20 -205 -8
 -19 -17 -77 -21 -129 -3 -52 -8 -96 -9 -98 -12 -12 -153 -53 -181 -53 -41 0
 -51 13 -61 85 -8 53 -42 131 -80 180 -12 17 -51 45 -85 63 -60 31 -68 32 -177
@@ -249,33 +258,65 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
 -23 -40 -29 -43 -15 -9 -12 37 4 60 7 11 16 40 19 65 3 25 36 135 73 245 73
 220 147 377 246 525 54 80 71 98 117 122 59 31 81 35 81 15z m2497 -593 c-3
 -3 -12 -4 -19 -1 -8 3 -5 6 6 6 11 1 17 -2 13 -5z"/>
-                                    </g>
-                                </svg>
-                            </div>
-                        </div>
+                        </g>
+                    </svg>
+                </div>
+            </div>
             <div class="checkout-next_checkout_page__QByc_">
-                <div class="checkout-next_form__XiskP">
-                    <div class="">
-                        <div class="how-to-receive_title__ckftj">Как получать</div>
-                        <div class="selector_selector__FIbjw how-to-receive_selector__O0K0i">
-                            <div @click="delivery = false"
-                                 class="selector_item__HELzt"
-                                 :class="{ 'selector_active__IjaYo': !delivery }">
-                                В&nbsp;магазине&nbsp;(СПБ Прачечный 3)
-                            </div>
-
-                            <div @click="delivery = true"
-                                 class="selector_item__HELzt"
-                                 :class="{ 'selector_active__IjaYo': delivery }">
-                                Доставка
-                            </div>
-                        </div>
+                <div class="cart-screen_cart__JV4JN">
+                    <form @submit.prevent="createOrder()">
                         <div class="">
-                            <div v-if="delivery">
-                                <div v-if="user_data.delivery_street === null"
+                            <div class="how-to-receive_title__ckftj">Как получать</div>
+                            <div class="selector_selector__FIbjw how-to-receive_selector__O0K0i">
+                                <div @click="delivery = false"
+                                     class="selector_item__HELzt"
+                                     :class="{ 'selector_active__IjaYo': !delivery }">
+                                    В&nbsp;магазине&nbsp;(СПБ Прачечный 3)
+                                </div>
+
+                                <div @click="delivery = true"
+                                     class="selector_item__HELzt"
+                                     :class="{ 'selector_active__IjaYo': delivery }">
+                                    Доставка
+                                </div>
+                            </div>
+                            <div class="">
+                                <div v-if="delivery">
+                                    <div v-if="!user_data.delivery_street"
+                                         class="phone-input_phone_input__1gFbW shop_phone__Mf6wI react-tel-input ">
+                                        <input class="form-control " placeholder="Укажие адрес доставки" type="text"
+                                               required value="" v-model="new_delivery_street">
+                                        <div class="flag-dropdown ">
+                                            <div class="selected-flag" title="" tabindex="0" role="button"
+                                                 aria-haspopup="listbox">
+                                                <div class="flag 0">
+                                                    <div class="arrow"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <a v-else @click="editLink" class="shop_address__KrvpM" href="">
+                                <span class="shop_icon__QVYKr">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                         fill="currentColor" stroke="none"
+                                         class="tabler-icon tabler-icon-map-pin-filled ">
+                                        <path d="M18.364 4.636a9 9 0 0 1 .203 12.519l-.203 .21l-4.243 4.242a3 3 0 0 1 -4.097 .135l-.144 -.135l-4.244 -4.243a9 9 0 0 1 12.728 -12.728zm-6.364 3.364a3 3 0 1 0 0 6a3 3 0 0 0 0 -6z"></path>
+                                    </svg>
+                                </span>
+                                        <span> {{ user_data.delivery_street  }} </span>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="none"
+                                             viewBox="0 0 10 18">
+                                            <path stroke="#000" stroke-linecap="square" stroke-width="2.167"
+                                                  d="m1.652 15.5 6.5-6.5-6.5-6.5"></path>
+                                        </svg>
+                                    </a>
+                                </div>
+
+
+                                <div v-if="!user_data.phone"
                                      class="phone-input_phone_input__1gFbW shop_phone__Mf6wI react-tel-input ">
-                                    <input class="form-control " placeholder="Укажие адрес доставки" type="text"
-                                           required="" value="" v-model="new_delivery_street">
+                                    <input class="form-control " placeholder="Укажите номер телефона" type="tel"
+                                           autocomplete="tel" required value="" v-model="new_phone">
                                     <div class="flag-dropdown ">
                                         <div class="selected-flag" title="" tabindex="0" role="button"
                                              aria-haspopup="listbox">
@@ -285,122 +326,96 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                                         </div>
                                     </div>
                                 </div>
-                                <a v-else @click="editLink" class="shop_address__KrvpM" href="">
-                                <span class="shop_icon__QVYKr">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-                                         fill="currentColor" stroke="none"
-                                         class="tabler-icon tabler-icon-map-pin-filled ">
-                                        <path d="M18.364 4.636a9 9 0 0 1 .203 12.519l-.203 .21l-4.243 4.242a3 3 0 0 1 -4.097 .135l-.144 -.135l-4.244 -4.243a9 9 0 0 1 12.728 -12.728zm-6.364 3.364a3 3 0 1 0 0 6a3 3 0 0 0 0 -6z"></path>
-                                    </svg>
-                                </span>
-                                    <span> {{ user_data.delivery_street  }} </span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="none"
-                                         viewBox="0 0 10 18">
-                                        <path stroke="#000" stroke-linecap="square" stroke-width="2.167"
-                                              d="m1.652 15.5 6.5-6.5-6.5-6.5"></path>
-                                    </svg>
-                                </a>
                             </div>
+                        </div>
+                        <!--                    <div class="">-->
+                        <!--                        <div class="checkout-cashback_text__G_Fqm">text-->
+                        <!--                        </div>-->
+                        <!--                    </div>-->
 
-
-                            <div v-if="user_data.phone === null"
-                                 class="phone-input_phone_input__1gFbW shop_phone__Mf6wI react-tel-input ">
-                                <input class="form-control " placeholder="Укажите номер телефона" type="number"
-                                       autocomplete="tel" required="" value="" v-model="new_phone">
-                                <div class="flag-dropdown ">
-                                    <div class="selected-flag" title="" tabindex="0" role="button"
-                                         aria-haspopup="listbox">
-                                        <div class="flag 0">
-                                            <div class="arrow"></div>
-                                        </div>
-                                    </div>
+                        <!--                    <div class="promo-code_promo_code__ccc2y">-->
+                        <!--                        <div class="promo-code_controls__ZzZOO"><input type="text" class="promo-code_input__cc4kw"-->
+                        <!--                                                                       placeholder="Введите промокод" value="">-->
+                        <!--                            <button class="promo-code_button__Wz_9C">Применить</button>-->
+                        <!--                        </div>-->
+                        <!--                    </div>-->
+                        <div class="">
+                            <div class="how-to-receive_title__ckftj">Как оплатить?</div>
+                            <div class="selector_selector__FIbjw how-to-receive_selector__O0K0i">
+                                <div @click="payment = 2"
+                                     class="selector_item__HELzt "
+                                     :class="{ 'selector_active__IjaYo': payment === 2 }">Через банковское приложение
+                                    (СБП)
+                                </div>
+                                <div @click="payment = 1"
+                                     class="selector_item__HELzt"
+                                     :class="{ 'selector_active__IjaYo': payment === 1 }">Ввести реквизиты карты
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <!--                    <div class="">-->
-                    <!--                        <div class="checkout-cashback_text__G_Fqm">text-->
-                    <!--                        </div>-->
-                    <!--                    </div>-->
-
-                    <!--                    <div class="promo-code_promo_code__ccc2y">-->
-                    <!--                        <div class="promo-code_controls__ZzZOO"><input type="text" class="promo-code_input__cc4kw"-->
-                    <!--                                                                       placeholder="Введите промокод" value="">-->
-                    <!--                            <button class="promo-code_button__Wz_9C">Применить</button>-->
-                    <!--                        </div>-->
-                    <!--                    </div>-->
-                    <div class="">
-                        <div class="how-to-receive_title__ckftj">Как оплатить?</div>
-                        <div class="selector_selector__FIbjw how-to-receive_selector__O0K0i">
-                            <div @click="payment = 2"
-                                 class="selector_item__HELzt "
-                                 :class="{ 'selector_active__IjaYo': payment === 2 }">Через банковское приложение (СБП)
+                        <div class="" v-if="cartPreorder === 'both' && user_data.preorder">
+                            <div class="how-to-receive_title__ckftj">Как разделить в наличии и предзаказ?</div>
+                            <div class="selector_selector__FIbjw how-to-receive_selector__O0K0i"
+                                 style="margin-bottom:5px">
+                                <div @click="preorderSelector = 'split'"
+                                     class="selector_item__HELzt"
+                                     :class="{ 'selector_active__IjaYo': preorderSelector === 'split' }">Разделить на 2
+                                    зказа
+                                </div>
+                                <div @click="preorderSelector = 'part-order'"
+                                     class="selector_item__HELzt "
+                                     :class="{ 'selector_active__IjaYo': preorderSelector === 'part-order' }">Только в
+                                    наличии
+                                </div>
                             </div>
-                            <div @click="payment = 1"
-                                 class="selector_item__HELzt"
-                                 :class="{ 'selector_active__IjaYo': payment === 1 }">Ввести реквизиты карты
-                            </div>
-                        </div>
-                    </div>
-                    <div class="" v-if="cartPreorder === 'both' && user_data.preorder">
-                        <div class="how-to-receive_title__ckftj">Как разделить в наличии и предзаказ?</div>
-                        <div class="selector_selector__FIbjw how-to-receive_selector__O0K0i" style="margin-bottom:5px">
-                            <div @click="preorderSelector = 'split'"
-                                 class="selector_item__HELzt"
-                                 :class="{ 'selector_active__IjaYo': preorderSelector === 'split' }">Разделить на 2
-                                зказа
-                            </div>
-                            <div @click="preorderSelector = 'part-order'"
-                                 class="selector_item__HELzt "
-                                 :class="{ 'selector_active__IjaYo': preorderSelector === 'part-order' }">Только в наличии
+                            <div class="selector_selector__FIbjw how-to-receive_selector__O0K0i">
+                                <div @click="preorderSelector = 'part-preorder'"
+                                     class="selector_item__HELzt"
+                                     :class="{ 'selector_active__IjaYo': preorderSelector === 'part-preorder' }">Только
+                                    предзаказ
+                                </div>
+                                <div @click="preorderSelector = 'preorder'"
+                                     class="selector_item__HELzt"
+                                     :class="{ 'selector_active__IjaYo': preorderSelector === 'preorder' }">Все в
+                                    предзаказ
+                                </div>
                             </div>
                         </div>
-                        <div class="selector_selector__FIbjw how-to-receive_selector__O0K0i">
-                            <div @click="preorderSelector = 'part-preorder'"
-                                 class="selector_item__HELzt"
-                                 :class="{ 'selector_active__IjaYo': preorderSelector === 'part-preorder' }">Только
-                                предзаказ
+                        <hr>
+                        <div v-if="cartPreorder !== 'preorder'" class="checkout-price_checkout_price__VkrsP">
+                            <div class="checkout-price_item__ZN9st checkout-price_sale___0caE">
+                                <div class="checkout-price_left__a71WQ">
+                                    <div>Всего</div>
+                                    <div class="checkout-price_description__zO_ho"></div>
+                                </div>
+                                <div class="checkout-price_right__uabtm">
+                                    <div>{{ totalSum }}&nbsp;₽</div>
+                                </div>
                             </div>
-                            <div @click="preorderSelector = 'preorder'"
-                                 class="selector_item__HELzt"
-                                 :class="{ 'selector_active__IjaYo': preorderSelector === 'preorder' }">Все в предзаказ
+                            <div class="checkout-price_item__ZN9st checkout-price_sale___0caE">
+                                <div class="checkout-price_left__a71WQ">
+                                    <div>Скидка</div>
+                                    <div class="checkout-price_description__zO_ho"></div>
+                                </div>
+                                <div class="checkout-price_right__uabtm">
+                                    <div>{{ totalSum - totalDiscountSum }}&nbsp;₽</div>
+                                </div>
+                            </div>
+                            <div class="checkout-price_item__ZN9st">
+                                <div class="checkout-price_left__a71WQ">
+                                    <div>Итого</div>
+                                    <div class="checkout-price_description__zO_ho"></div>
+                                </div>
+                                <div class="checkout-price_right__uabtm">
+                                    <div><b>{{ totalDiscountSum }}&nbsp;₽</b></div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-                <hr>
-                <div v-if="cartPreorder !== 'preorder'" class="checkout-price_checkout_price__VkrsP">
-                    <div class="checkout-price_item__ZN9st checkout-price_sale___0caE">
-                        <div class="checkout-price_left__a71WQ">
-                            <div>Всего</div>
-                            <div class="checkout-price_description__zO_ho"></div>
-                        </div>
-                        <div class="checkout-price_right__uabtm">
-                            <div>{{ totalSum }}&nbsp;₽</div>
-                        </div>
-                    </div>
-                    <div class="checkout-price_item__ZN9st checkout-price_sale___0caE">
-                        <div class="checkout-price_left__a71WQ">
-                            <div>Скидка</div>
-                            <div class="checkout-price_description__zO_ho"></div>
-                        </div>
-                        <div class="checkout-price_right__uabtm">
-                            <div>{{ totalSum - totalDiscountSum }}&nbsp;₽</div>
-                        </div>
-                    </div>
-                    <div class="checkout-price_item__ZN9st">
-                        <div class="checkout-price_left__a71WQ">
-                            <div>Итого</div>
-                            <div class="checkout-price_description__zO_ho"></div>
-                        </div>
-                        <div class="checkout-price_right__uabtm">
-                            <div><b>{{ totalDiscountSum }}&nbsp;₽</b></div>
-                        </div>
-                    </div>
-                </div>
-                <div @click="createOrder()" class="button_button__AjjDz">
-                    <span v-if="cartPreorder === 'preorder'">Отправить предзаказ</span>
-                    <span v-else>Отправить заказ</span>
+                        <button type="submit"
+                                class="button_button__AjjDz">
+                            <span>Отправить заказ</span>
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

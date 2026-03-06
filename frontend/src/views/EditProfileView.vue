@@ -186,7 +186,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                 >
                     <label class="phone-input_label__0TZe9">Телефон</label>
                     <div class="phone-input_phone_number_container__yjkC7 react-tel-input ">
-                        <input class="form-control " placeholder="+7 (999) 999 99 99" type="number"
+                        <input class="form-control " placeholder="+7 (999) 999 99 99" type="tel"
                                v-model="user_data.phone">
                         <div class="flag-dropdown ">
                             <div class="selected-flag" title="Russia: + 7" tabindex="0" role="button"
