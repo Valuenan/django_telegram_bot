@@ -48,7 +48,11 @@ def telegram_auth(request):
         return Response({
             'access': str(refresh.access_token),
             'refresh': str(refresh),
-            'is_new': created
+            'is_new': created,
+            'user_data': {
+                'id': user.id,
+                'chat_id': profile.chat_id
+            }
         })
     except Exception as e:
         print(f"!!! ОШИБКА: {e}")

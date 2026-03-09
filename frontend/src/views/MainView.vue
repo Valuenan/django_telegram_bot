@@ -33,22 +33,26 @@ export default {
                     tg.requestFullscreen();
                 }
 
-                if (!localStorage.getItem('access_token')) {
-                    try {
-                        const { data } = await api.post('/auth/telegram/', {
+                try {
+                    if (!localStorage.getItem('access_token')) {
+                        const { data } = await api.post('/api/auth/telegram/', {
                             initData: tg.initData
                         });
+
                         localStorage.setItem('access_token', data.access);
                         localStorage.setItem('refresh_token', data.refresh);
-                        api.defaults.headers.common['Authorization'] = `Bearer ${data.access}`;
-                    } catch (err) {
-                        console.error("Auth failed", err);
-                    }
-                }
 
-                await fetchUserData();
-            } else {
-                loading.value = false;
+                        user_data.value = data.user_data;
+                        api.defaults.headers.common['Authorization'] = `Bearer ${data.access}`;
+                    } else {
+                        const res = await api.get('/api/profile/me/');
+                        user_data.value = res.data;
+                    }
+                } catch (err) {
+                    console.error("Ошибка входа:", err);
+                } finally {
+                    loading.value = false;
+                }
             }
         });
 
