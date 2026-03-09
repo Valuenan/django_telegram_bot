@@ -9,31 +9,50 @@ export default {
         const router = useRouter();
         const isTelegram = ref(false);
         const tg = window.Telegram?.WebApp;
+        const user_data = ref(null);
+        const loading = ref(true);
 
-        onMounted(() => {
+        const fetchUserData = async () => {
+            try {
+                const response = await api.get('profile/me/');
+                user_data.value = response.data;
+            } catch (err) {
+                console.error("Ошибка загрузки данных пользователя", err);
+            } finally {
+                loading.value = false;
+            }
+        };
+
+        onMounted(async () => {
             if (tg?.initData) {
                 isTelegram.value = true;
                 tg.ready();
                 tg.expand();
 
-                if (['ios', 'android'].includes(tg.platform)) {
-                    if (typeof tg.requestFullscreen === 'function') {
-                        tg.requestFullscreen();
+                if (['ios', 'android'].includes(tg.platform) && typeof tg.requestFullscreen === 'function') {
+                    tg.requestFullscreen();
+                }
+
+                if (!localStorage.getItem('access_token')) {
+                    try {
+                        const { data } = await api.post('/auth/telegram/', {
+                            initData: tg.initData
+                        });
+                        localStorage.setItem('access_token', data.access);
+                        localStorage.setItem('refresh_token', data.refresh);
+                        api.defaults.headers.common['Authorization'] = `Bearer ${data.access}`;
+                    } catch (err) {
+                        console.error("Auth failed", err);
                     }
                 }
+
+                await fetchUserData();
+            } else {
+                loading.value = false;
             }
         });
 
-        return { router, isTelegram, tg }
-    },
-
-    data() {
-        return {
-            user_data: null,
-            info: {},
-            loading: true,
-            baseUrl: api.defaults.baseURL
-        }
+        return { router, isTelegram, tg, user_data, loading };
     },
 
     async created() {
