@@ -12,7 +12,6 @@ export default {
         const user_data = ref(null);
         const loading = ref(true);
         const info = ref(null);
-        const baseUrl = import.meta.env.VITE_API_URL
 
         const fetchUserData = async () => {
             try {
@@ -57,7 +56,7 @@ export default {
             }
         });
 
-        return { router, isTelegram, tg, user_data, loading, info, baseUrl };
+        return { router, isTelegram, tg, user_data, loading, info };
     },
 
     methods: {
@@ -227,7 +226,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                                 <div class="actions_card__etbMU actions_choose_on_site_card__UFMpb">
                                     <div class="actions_inner__woSPI" style="padding:0">
                                         <div class="actions_head__nPU_x" style="justify-content:center">
-                                            <img :src="`${baseUrl}/media/logo.jpg`" alt="ottuda"
+                                            <img :src="`media/logo.jpg`" alt="ottuda"
                                                  width="148px">
                                         </div>
                                     </div>
