@@ -63,7 +63,6 @@ export default {
 
                 const newItems = data.track?.results || [];
                 this.favoriteItems = [...this.favoriteItems, ...newItems];
-                console.log(this.favoriteItems)
 
                 this.nextPageUrl = data.track?.next || null;
                 this.totalCount = data.track?.count || this.favoriteItems.length;
