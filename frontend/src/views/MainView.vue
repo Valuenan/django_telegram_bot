@@ -1,5 +1,5 @@
 <script>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api';
 
@@ -13,50 +13,44 @@ export default {
         const loading = ref(true);
         const info = ref(null);
 
-        const fetchUserData = async () => {
-            try {
-                const response = await api.get('profile/me/');
-                user_data.value = response.data;
-            } catch (err) {
-                console.error("Ошибка загрузки данных пользователя", err);
-            }
-        };
-
-        onMounted(async () => {
-            if (tg?.initData) {
-                isTelegram.value = true;
-                tg.ready();
-                tg.expand();
-
-                if (['ios', 'android'].includes(tg.platform) && typeof tg.requestFullscreen === 'function') {
-                    tg.requestFullscreen();
-                }
-
-                try {
-                    if (!localStorage.getItem('access_token')) {
-                        const { data } = await api.post('/api/auth/telegram/', {
-                            initData: tg.initData
-                        });
-                        localStorage.setItem('access_token', data.access);
-                        localStorage.setItem('refresh_token', data.refresh);
-                        api.defaults.headers.common['Authorization'] = `Bearer ${data.access}`;
-                    }
-
-                    await Promise.all([
-                        fetchUserData(),
-                    ]);
-
-                } catch (err) {
-                    console.error("Ошибка входа или загрузки:", err);
-                } finally {
-                    loading.value = false;
-                }
-            } else {
-                loading.value = false;
-            }
-        });
-
         return { router, isTelegram, tg, user_data, loading, info };
+    },
+
+    async mounted() {
+        if (this.tg?.initData) {
+            this.isTelegram = true;
+            this.tg.ready();
+            this.tg.expand();
+
+            if (['ios', 'android'].includes(this.tg.platform) && typeof this.tg.requestFullscreen === 'function') {
+                this.tg.requestFullscreen();
+            }
+
+            try {
+                if (!localStorage.getItem('access_token')) {
+                    const { data } = await api.post('/api/auth/telegram/', {
+                        initData: this.tg.initData
+                    });
+
+                    localStorage.setItem('access_token', data.access);
+                    localStorage.setItem('refresh_token', data.refresh);
+
+                    api.defaults.headers.common['Authorization'] = `Bearer ${data.access}`;
+                }
+
+                await Promise.all([
+                    this.fetchProfile(),
+                    this.fetchMainMessage()
+                ]);
+
+            } catch (err) {
+                console.error("Ошибка входа или загрузки:", err);
+            } finally {
+                this.loading = false;
+            }
+        } else {
+            this.loading = false;
+        }
     },
 
     methods: {
