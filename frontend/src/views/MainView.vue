@@ -11,6 +11,8 @@ export default {
         const tg = window.Telegram?.WebApp;
         const user_data = ref(null);
         const loading = ref(true);
+        const info = ref(null);
+        const baseUrl = import.meta.env.VITE_API_URL
 
         const fetchUserData = async () => {
             try {
@@ -18,8 +20,6 @@ export default {
                 user_data.value = response.data;
             } catch (err) {
                 console.error("Ошибка загрузки данных пользователя", err);
-            } finally {
-                loading.value = false;
             }
         };
 
@@ -38,33 +38,26 @@ export default {
                         const { data } = await api.post('/api/auth/telegram/', {
                             initData: tg.initData
                         });
-
                         localStorage.setItem('access_token', data.access);
                         localStorage.setItem('refresh_token', data.refresh);
-
-                        user_data.value = data.user_data;
                         api.defaults.headers.common['Authorization'] = `Bearer ${data.access}`;
-                    } else {
-                        const res = await api.get('/api/profile/me/');
-                        user_data.value = res.data;
                     }
+
+                    await Promise.all([
+                        fetchUserData(),
+                    ]);
+
                 } catch (err) {
-                    console.error("Ошибка входа:", err);
+                    console.error("Ошибка входа или загрузки:", err);
                 } finally {
                     loading.value = false;
                 }
+            } else {
+                loading.value = false;
             }
         });
 
-        return { router, isTelegram, tg, user_data, loading };
-    },
-
-    async created() {
-        await Promise.all([
-            this.fetchProfile(),
-            this.fetchMainMessage()
-        ]);
-        this.loading = false;
+        return { router, isTelegram, tg, user_data, loading, info, baseUrl };
     },
 
     methods: {
