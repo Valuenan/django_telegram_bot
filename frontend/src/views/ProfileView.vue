@@ -222,7 +222,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                     </li>
                 </ul>
                 <ul class="section_section__M8xUg">
-                    <li class="section-item_section_item__PrnFC">
+                    <li @click="ordersLink()" class="section-item_section_item__PrnFC">
                         <div class="section-item_icon__Ltu7v" style="background:#ff0049">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
                                  viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -235,7 +235,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                             </svg>
                         </div>
                         <div class="section-item_body__6L6s2">
-                            <div @click="ordersLink()">Заказы</div>
+                            <div>Заказы</div>
                         </div>
                         <div class="section-item_right__dZF4D">
                             <div class="section-item_count__sNTOa">{{ ordersCount }}</div>
@@ -250,7 +250,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                             </div>
                         </div>
                     </li>
-                    <li class="section-item_section_item__PrnFC">
+                    <li @click="ordersFavorite()" class="section-item_section_item__PrnFC">
                         <div class="section-item_icon__Ltu7v" style="background:#ff385c">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
                                  viewBox="0 0 24 24" fill="currentColor" stroke="none"
@@ -259,7 +259,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                             </svg>
                         </div>
                         <div class="section-item_body__6L6s2">
-                            <div @click="ordersFavorite()">Избранное</div>
+                            <div>Избранное</div>
                         </div>
                         <div class="section-item_right__dZF4D">
                             <div class="section-item_count__sNTOa"></div>

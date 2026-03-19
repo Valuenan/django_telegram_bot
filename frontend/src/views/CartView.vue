@@ -274,7 +274,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                                                     <div @click="productLink(item.product.id)"
                                                          class="cart-item_image__s8eu5">
                                                         <img
-                                                                :src="item.product.image.url"
+                                                                :src="item.product?.image?.url"
                                                                 :alt="item.product.name"
                                                                 @error="handleImageError"
                                                         >

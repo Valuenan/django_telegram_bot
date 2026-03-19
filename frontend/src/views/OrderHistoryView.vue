@@ -259,7 +259,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                                     </a>
                                 </div>
                                 <div class="info-item__MUAX2">
-                                    <span v-if="order.status === 8"><b>Сумма и актуальные цены появятся после поступления товаров</b></span>
+                                    <span v-if="order.status === 9"><b>Сумма и актуальные цены появятся после поступления товаров</b></span>
                                     <span v-else><b>Сумма: {{ order.order_price }}&nbsp;₽</b></span>
                                 </div>
                             </div>
@@ -268,7 +268,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                                  class="cart-item_cart_item__CrVBq">
                                 <div class="cart-item_image__s8eu5">
                                     <img @click="productLink(cart.product.id)"
-                                         :src="cart.product.image.url"
+                                         :src="cart.product?.image?.url"
                                          :alt="cart.product.name"
                                          @error="handleImageError"
                                     >

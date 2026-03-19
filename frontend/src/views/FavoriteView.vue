@@ -207,7 +207,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                         </svg>
                     </div>
                 </div>
-                <div v-if="totalCount > 0" class="favorites-screen_products_list__d_9PD">
+                <div v-if="totalCount > 0" class="favorites-screen_products_list__d_9PD" style="padding-bottom: 30px">
                     <div class="infinite-scroll-list_wrapper__G2G8N product-list-by-ids-with-pagination_wrapper__G4M1z">
                         <div>
                             <div class="product-list-by-ids-with-pagination_list__vW_SU">
