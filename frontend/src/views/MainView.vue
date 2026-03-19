@@ -40,7 +40,6 @@ export default {
 
                 await Promise.all([
                     this.fetchProfile(),
-                    this.fetchMainMessage()
                 ]);
 
             } catch (err) {
@@ -51,6 +50,7 @@ export default {
         } else {
             this.loading = false;
         }
+        this.fetchMainMessage()
     },
 
     methods: {
