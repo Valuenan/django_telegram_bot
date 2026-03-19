@@ -192,7 +192,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                 <div class="home-screen_wrapper__3Ji45" style="margin: 8px 0 0 10px;"> <!-- box upper -->
                     <div class="actions_actions__Krnjv">
                         <div class="actions_wrapper__dOu19">
-                            <div class="actions_column__Rl3CY">
+                            <div class="actions_column__Rl3CY" v-show="user_data && Object.keys(user_data).length > 0">
 
                                 <div class="actions_card__etbMU actions_calculate_card__CPhrn">
                                     <div @click="ordersLink()" class="actions_inner__woSPI">
@@ -230,7 +230,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                         <div v-if="loading" class="loader_ring"></div>
                         <template v-else>
                             <div @click="editLink()" v-if="!user_data?.phone" class="actions_wrapper__dOu19">
-                                <div class="main_info_message">
+                                <div class="main_info_message" v-show="user_data && Object.keys(user_data).length > 0">
                                     У вас не указан номер телефона, он необходим для оформления заказа.
                                     Нажмите для редатирования профиля.
                                 </div>

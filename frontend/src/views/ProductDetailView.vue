@@ -79,7 +79,6 @@ export default {
                 const id = this.route.query.id;
                 const { data } = await api.get(`/api/product/${id}/`);
                 this.product = data;
-                console.log(this.product)
 
                 const discountType = this.product?.rests[0]?.shop_active_discount;
                 const group = this.product?.discount_group;
@@ -378,7 +377,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
 
                                     <div class="product-actions_product_actions__ng4Ma product-actions_with_tabbar__Dn8nh product-screen_actions__EaCEp">
                                         <div class="product-actions_buttons__9Rs_R">
-                                            <div class="product-actions_cart__cU4sQ">
+                                            <div class="product-actions_cart__cU4sQ" v-show="user_data && Object.keys(user_data).length > 0">
                                                 <div data-v-5bff6dd4="" class="cart-item_button__MUAX2">
                                                     <div @click.stop="changeCount(product, -1)"
                                                          class="cart-item_change_count__IejK4"
