@@ -35,7 +35,7 @@
                     </div>
                     <div class="nav-link">Каталог</div>
                 </router-link>
-                <router-link v-show="user_data && Object.keys(user_data).length > 0" to="/favorite"
+                <router-link v-show="isAuthorized" to="/favorite"
                              class="tab-bar-screen_tab_bar_item__fPG6j"
                              :class="{ 'tab-bar-screen_active__pBXjN': $route.path.startsWith('/favorite') }"
                 >
@@ -49,7 +49,7 @@
                     </div>
                     <div class="nav-link">Избранное</div>
                 </router-link>
-                <router-link v-show="user_data && Object.keys(user_data).length > 0" to="/cart"
+                <router-link v-show="isAuthorized" to="/cart"
                              class="tab-bar-screen_tab_bar_item__fPG6j"
                              :class="{ 'tab-bar-screen_active__pBXjN': $route.path.startsWith('/cart') }"
                 >
@@ -66,7 +66,7 @@
                     </div>
                     <div class="nav-link">Корзина</div>
                 </router-link>
-                <router-link v-show="user_data && Object.keys(user_data).length > 0" to="/profile"
+                <router-link v-show="isAuthorized" to="/profile"
                              class="tab-bar-screen_tab_bar_item__fPG6j"
                              :class="{ 'tab-bar-screen_active__pBXjN': ['/profile', '/edit_profile'].some(path => $route.path.startsWith(path)) }"
                 >
@@ -97,7 +97,8 @@
 
 <script>
 export default {
-    name: "Navbar"
+    name: "Navbar",
+    props: ['isAuthorized'],
 }
 </script>
 

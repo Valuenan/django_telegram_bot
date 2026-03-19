@@ -230,7 +230,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                         <div v-if="loading" class="loader_ring"></div>
                         <template v-else>
                             <div @click="editLink()" v-if="!user_data?.phone" class="actions_wrapper__dOu19">
-                                <div class="main_info_message" v-show="user_data && Object.keys(user_data).length > 0">
+                                <div class="main_info_message" v-show="isInitialized">
                                     У вас не указан номер телефона, он необходим для оформления заказа.
                                     Нажмите для редатирования профиля.
                                 </div>
@@ -248,7 +248,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                             <p>{{ message.text }}</p>
                         </div>
                         <div v-if="message.image" class="bot-image-wrapper">
-                            <img :src="message.image" class="bot-image" alt="{{ message.title }}">
+                            <img :src="message.image" class="bot-image" :alt="message.title">
                         </div>
                     </template>
                 </div>

@@ -2,7 +2,7 @@
     <div id="app">
         <div v-if="isInitialized">
             <router-view />
-            <Navbar />
+            <Navbar :is-authorized="isAuthorized" />
         </div>
         <div v-else>Загрузка системы...</div>
   </div>
@@ -17,6 +17,7 @@ export default {
     components: { Navbar },
     data() {
         return {
+            isAuthorized: false,
             isInitialized: false
         }
     },
@@ -25,7 +26,7 @@ export default {
         tg?.ready();
         tg?.expand();
 
-        await this.ensureAuth();
+        this.isAuthorized = await this.ensureAuth();
         this.isInitialized = true;
     },
     methods: {
