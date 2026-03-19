@@ -73,6 +73,7 @@ class MainMessageViewSet(viewsets.ReadOnlyModelViewSet):
 class ProductListView(generics.ListAPIView):
     '''Вывод списка товаров'''
     serializer_class = ProductSerializer
+    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     pagination_class = MainPagination
 
     def get_sub_categories(self, category_id):
@@ -128,6 +129,7 @@ class ProductListView(generics.ListAPIView):
 class ProductDetailView(generics.RetrieveAPIView):
     '''Вывод одиночного товаров'''
     serializer_class = ProductSerializer
+    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
 
     def get_queryset(self):
         active_rests = Prefetch(
@@ -198,6 +200,7 @@ class CategoryListView(generics.ListAPIView):
 class CategoryDetailView(generics.RetrieveAPIView):
     '''Вывод одной категории'''
     serializer_class = CategorySerializer
+    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
 
     def get_queryset(self):
         chat_id = self.request.user.username
