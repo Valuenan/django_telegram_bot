@@ -299,7 +299,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                                             </div>
                                             <div class="hero-show-off-variant_productHero_showOff_sneaker_imageMobile__X55d_">
                                                 <img v-if="product && product.image"
-                                                     :src="product.image.url"
+                                                     :src="product.image?.url || '/static/products/no-image.jpg'"
                                                      :alt="product.name"
                                                      @error="handleImageError">
                                             </div>

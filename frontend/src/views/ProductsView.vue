@@ -278,7 +278,7 @@ c-3 -13 -12 -39 -19 -58 -7 -19 -24 -68 -37 -109 -13 -40 -34 -87 -46 -104
                                                    class="product-card_product_card__i7cQJ client-product-grid_product__eQVXY">
                                                     <div class="product-card-images_wrap__1bDck">
                                                         <div class="product-card-images_scroll__cMUco">
-                                                            <div><img :src="product.image?.url"
+                                                            <div><img :src="product.image?.url || '/static/products/no-image.jpg'"
                                                                       @error="handleImageError"
                                                                       :alt="product?.name"
                                                                       class="product-card-images_cover__zSpAe">
