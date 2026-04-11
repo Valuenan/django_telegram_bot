@@ -17,7 +17,9 @@ export default {
     },
 
     async mounted() {
-        if (this.tg?.initData) {
+        const isTgEnvironment = !!(this.tg && this.tg.initData && this.tg.initData.length > 0);
+
+        if (isTgEnvironment) {
             this.isTelegram = true;
             this.tg.ready();
             this.tg.expand();
