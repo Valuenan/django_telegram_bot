@@ -48,6 +48,7 @@ export default {
                 this.loading = false;
             }
         } else {
+            this.isTelegram = false;
             this.loading = false;
         }
         this.fetchMainMessage()
