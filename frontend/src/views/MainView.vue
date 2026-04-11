@@ -17,43 +17,14 @@ export default {
     },
 
     async mounted() {
-        const isTgEnvironment = !!(this.tg && this.tg.initData && this.tg.initData.length > 0);
-
-        if (isTgEnvironment) {
-            this.isTelegram = true;
-            this.tg.ready();
-            this.tg.expand();
-
-            if (['ios', 'android'].includes(this.tg.platform) && typeof this.tg.requestFullscreen === 'function') {
-                this.tg.requestFullscreen();
-            }
-
-            try {
-                if (!localStorage.getItem('access_token')) {
-                    const { data } = await api.post('/api/auth/telegram/', {
-                        initData: this.tg.initData
-                    });
-
-                    localStorage.setItem('access_token', data.access);
-                    localStorage.setItem('refresh_token', data.refresh);
-
-                    api.defaults.headers.common['Authorization'] = `Bearer ${data.access}`;
-                }
-
-                await Promise.all([
-                    this.fetchProfile(),
-                ]);
-
-            } catch (err) {
-                console.error("Ошибка входа или загрузки:", err);
-            } finally {
-                this.loading = false;
-            }
-        } else {
-            this.isTelegram = false;
-            this.loading = false;
-        }
         this.fetchMainMessage()
+        this.loading = false;
+        this.isTelegram = false;
+
+        if (localStorage.getItem('access_token')) {
+            this.fetchProfile();
+        }
+
     },
 
     methods: {
